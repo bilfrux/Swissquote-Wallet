@@ -1,0 +1,110 @@
+$ cd scripts/feasibility && npm run e2e   # essai 1
+Safe du client : 0x2d55CE2d79894C7A6247f48Fdd99044661bbb57A
+client 0x47fBCF61E8c71F63F8f2Fbe0f3FD31C3CB71fc74 ; Swissquote 0xC92F495Cae7d4586d0926Ac6a47AD872ffCDfb77 ; tiers 0xE05953a22067a20EDd675D2E5247034656B8AFd9 ; nouvelle clé 0x95FC4D7573e57371b1F32779b04fF7C07A1a240C
+[KO ] 16-1 Création sans ETH : Safe + module de recovery + 2 gardiens (seuil 2) + transaction signée par le client, une UserOp parrainée
+       https://sepolia.etherscan.io/tx/0xb133f07275d4c5390c531ac17d3cbaec29485870320277c509da669790e55372 ; NFT détenus : 1 ; ETH du Safe : 0
+[OK ] 16-2 Swissquote seul : la recovery ne démarre pas
+       bundler eth_estimateUserOperationGas rpc call failed
+[OK ] 16-3 Swissquote + tiers lancent la recovery (relayée, parrainée) ; finalisation avant le délai refusée
+       https://sepolia.etherscan.io/tx/0xd61fee1a9388487e4e0fed38b21b3ec4a48f04b8308a9e9af7cbbdc85107026d ; applicable après 2026-10-10T23:20:00.000Z ; finalisation anticipée : bundler eth_estimateUserOperationGas rpc call failed
+
+[OK ] 16-4 Après le délai : propriétaire remplacé ; la nouvelle clé signe (et invalide le nonce) ; l'ancienne clé est refusée
+       finalisation https://sepolia.etherscan.io/tx/0xa5baaa1350fae87abafdc109eabd161c9bd5a6a820d8845dce86448b1a911fd6 ; propriétaires : 0x95FC4D7573e57371b1F32779b04fF7C07A1a240C ; ancienne clé : bundler eth_sendUserOperation rpc call failed ; nouvelle clé https://sepolia.etherscan.io/tx/0xc3ac42e99d17e1df0484228b48948cc59b7cfbe2243032b3ff4355963b76e265
+[KO ] 16-5 Recovery vers un attaquant lancée par Swissquote + tiers : annulée par le propriétaire (cancelRecovery + invalidateNonce)
+       en attente jusqu'à 0 ; annulation https://sepolia.etherscan.io/tx/0x2a8cdb0206a46d352d922b9bad0a069d3c5529568a593cd15439b0053fcd3fb6 ; ensuite finalisation : bundler eth_estimateUserOperationGas rpc call failed
+
+RÉSUMÉ
+16-1  ne fonctionne pas  Création sans ETH : Safe + module de recovery + 2 gardiens (seuil 2) + transaction signée par le client, une UserOp parrainée
+16-2  fonctionne         Swissquote seul : la recovery ne démarre pas
+16-3  fonctionne         Swissquote + tiers lancent la recovery (relayée, parrainée) ; finalisation avant le délai refusée
+16-4  fonctionne         Après le délai : propriétaire remplacé ; la nouvelle clé signe (et invalide le nonce) ; l'ancienne clé est refusée
+16-5  ne fonctionne pas  Recovery vers un attaquant lancée par Swissquote + tiers : annulée par le propriétaire (cancelRecovery + invalidateNonce)
+
+$ cd scripts/feasibility && npm run e2e   # essai 2
+Safe du client : 0x7d9a73637Bc70DE80f29DFF90AF31Ce48839Ec65
+client 0x8e3BA182C505972cf3B36b9399005C451D3d4967 ; Swissquote 0xDD9Ea90Aa4F9473135d45A0067c999432A3f817B ; tiers 0x22b32BF3b157528EbDd8bB70B46461d0f402E799 ; nouvelle clé 0x780596bbd7A2a7f3f327C3F298444C7D07196382
+[OK ] 16-1 Création sans ETH : Safe + module de recovery + 2 gardiens (seuil 2) + transaction signée par le client, une UserOp parrainée
+       https://sepolia.etherscan.io/tx/0x8450a93491d6b0da37d93905f40a60b7b689840ac83e023f4de34ea681255631 ; NFT détenus : 1 ; ETH du Safe : 0
+[OK ] 16-2 Swissquote seul : la recovery ne démarre pas
+       BUNDLER_ERROR
+[OK ] 16-3 Swissquote + tiers lancent la recovery (relayée, parrainée) ; finalisation avant le délai refusée
+       https://sepolia.etherscan.io/tx/0x042c75ca32831f108c335ab9a942fc1382e70753487819f81156101cd40bafd6 ; applicable après 2026-10-10T23:25:00.000Z ; finalisation anticipée : BUNDLER_ERROR
+
+[OK ] 16-4 Après le délai : propriétaire remplacé ; la nouvelle clé signe (et invalide le nonce) ; l'ancienne clé est refusée
+       finalisation https://sepolia.etherscan.io/tx/0xa21db1975126145c1f4a4d337f4059a0fd3737ee6ece3410e30dfca4b8fa30a2 ; propriétaires : 0x780596bbd7A2a7f3f327C3F298444C7D07196382 ; ancienne clé : BUNDLER_ERROR ; nouvelle clé https://sepolia.etherscan.io/tx/0xca508066c739f61d4e064bede67b313cb6a4d5441316aeeacf6a5efe1e05754f
+[OK ] 16-5 Recovery vers un attaquant lancée par Swissquote + tiers : annulée par le propriétaire (cancelRecovery + invalidateNonce)
+       en attente jusqu'à 1791674928 ; annulation https://sepolia.etherscan.io/tx/0x8d939d7cfb743bf930eaba54dbedb6c095ae5d9e9169d40ef0ae1fd6ae112289 ; ensuite finalisation : BUNDLER_ERROR
+
+RÉSUMÉ
+16-1  fonctionne         Création sans ETH : Safe + module de recovery + 2 gardiens (seuil 2) + transaction signée par le client, une UserOp parrainée
+16-2  fonctionne         Swissquote seul : la recovery ne démarre pas
+16-3  fonctionne         Swissquote + tiers lancent la recovery (relayée, parrainée) ; finalisation avant le délai refusée
+16-4  fonctionne         Après le délai : propriétaire remplacé ; la nouvelle clé signe (et invalide le nonce) ; l'ancienne clé est refusée
+16-5  fonctionne         Recovery vers un attaquant lancée par Swissquote + tiers : annulée par le propriétaire (cancelRecovery + invalidateNonce)
+
+$ cd scripts/feasibility && npm run e2e   # essai 3
+Safe du client : 0x84b82a00e61079e66dfEAdBF77B74Ce1811471f6
+client 0x0d19528B33CE79Aa235cD8A4615E41C35d8a9CC0 ; Swissquote 0x612Aa78546AC45c1CF77B7E4399Aa7050387942C ; tiers 0xba3887c050049C0da40d593C2Dfd9CC7f8217F77 ; nouvelle clé 0x5B372F7072269fBbAf0E0C56d252D08D481bDeF3
+[OK ] 16-1 Création sans ETH : Safe + module de recovery + 2 gardiens (seuil 2) + transaction signée par le client, une UserOp parrainée
+       https://sepolia.etherscan.io/tx/0x0302c67ae97d777c6b3000343003627c3d96160b4ef6cfdc1dfe97400f0f2e5a ; NFT détenus : 1 ; ETH du Safe : 0
+[OK ] 16-2 Swissquote seul : la recovery ne démarre pas
+       BUNDLER_ERROR <- EXECUTION_REVERTED: SM: confirmed signatures less than threshold
+[OK ] 16-3 Swissquote + tiers lancent la recovery (relayée, parrainée) ; finalisation avant le délai refusée
+       https://sepolia.etherscan.io/tx/0x97e0bba223245d46bac0bf001a7eba25eabe69ac540819b9f11ee07355f3717f ; applicable après 2026-10-10T23:29:48.000Z ; finalisation anticipée : BUNDLER_ERROR <- EXECUTION_REVERTED: SM: recovery period still pending
+
+[OK ] 16-4 Après le délai : propriétaire remplacé ; la nouvelle clé signe (et invalide le nonce) ; l'ancienne clé est refusée
+       finalisation https://sepolia.etherscan.io/tx/0xc53ef77afdecf8c8845d3d3c14337df1c1e40cdb1e714cc6fdde2f03dbd916f3 ; propriétaires : 0x5B372F7072269fBbAf0E0C56d252D08D481bDeF3 ; ancienne clé : BUNDLER_ERROR <- INVALID_SIGNATURE: Invalid account signature ; nouvelle clé https://sepolia.etherscan.io/tx/0xc374fde34953a4ba4fc901aa5bacbbb89846c63bd3420e5bfafbdff71a592c4b
+/Users/f8114/Florian_Travail/ESILV/A4/DVB/Hackathons/EPFL_Hack/Swissquote-Wallet/scripts/feasibility/node_modules/abstractionkit/src/Bundler.ts:336
+	return new AbstractionKitError("BUNDLER_ERROR", `bundler ${method} rpc call failed`, {
+	       ^
+
+AbstractionKitError: bundler eth_estimateUserOperationGas rpc call failed
+    at translateBundlerError (/Users/f8114/Florian_Travail/ESILV/A4/DVB/Hackathons/EPFL_Hack/Swissquote-Wallet/scripts/feasibility/node_modules/abstractionkit/src/Bundler.ts:336:9)
+    at Bundler.estimateUserOperationGas (/Users/f8114/Florian_Travail/ESILV/A4/DVB/Hackathons/EPFL_Hack/Swissquote-Wallet/scripts/feasibility/node_modules/abstractionkit/src/Bundler.ts:179:10)
+    ... 5 lines matching cause stack trace ...
+    at async <anonymous> (/Users/f8114/Florian_Travail/ESILV/A4/DVB/Hackathons/EPFL_Hack/Swissquote-Wallet/scripts/feasibility/e2e-sepolia.ts:137:3) {
+  code: 'BUNDLER_ERROR',
+  context: undefined,
+  errno: -32521,
+  aaCode: undefined,
+  [cause]: AbstractionKitError: SM: Invalid guardian signature
+      at translateBundlerError (/Users/f8114/Florian_Travail/ESILV/A4/DVB/Hackathons/EPFL_Hack/Swissquote-Wallet/scripts/feasibility/node_modules/abstractionkit/src/Bundler.ts:337:10)
+      at Bundler.estimateUserOperationGas (/Users/f8114/Florian_Travail/ESILV/A4/DVB/Hackathons/EPFL_Hack/Swissquote-Wallet/scripts/feasibility/node_modules/abstractionkit/src/Bundler.ts:179:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async SafeAccountV0_3_0.baseEstimateUserOperationGas (/Users/f8114/Florian_Travail/ESILV/A4/DVB/Hackathons/EPFL_Hack/Swissquote-Wallet/scripts/feasibility/node_modules/abstractionkit/src/account/Safe/SafeAccount.ts:1488:22)
+      at async SafeAccountV0_3_0.createBaseUserOperationAndFactoryAddressAndFactoryData (/Users/f8114/Florian_Travail/ESILV/A4/DVB/Hackathons/EPFL_Hack/Swissquote-Wallet/scripts/feasibility/node_modules/abstractionkit/src/account/Safe/SafeAccount.ts:1854:6)
+      at async SafeAccountV0_3_0.createUserOperation (/Users/f8114/Florian_Travail/ESILV/A4/DVB/Hackathons/EPFL_Hack/Swissquote-Wallet/scripts/feasibility/node_modules/abstractionkit/src/account/Safe/SafeAccountV0_3_0.ts:310:4)
+      at async sendOp (/Users/f8114/Florian_Travail/ESILV/A4/DVB/Hackathons/EPFL_Hack/Swissquote-Wallet/scripts/feasibility/e2e-sepolia.ts:42:12)
+      at async <anonymous> (/Users/f8114/Florian_Travail/ESILV/A4/DVB/Hackathons/EPFL_Hack/Swissquote-Wallet/scripts/feasibility/e2e-sepolia.ts:137:3) {
+    code: 'EXECUTION_REVERTED',
+    context: undefined,
+    errno: -32521,
+    aaCode: undefined,
+    [cause]: undefined
+  }
+}
+
+Node.js v24.10.0
+
+$ cd scripts/feasibility && npm run e2e   # essai 4
+Safe du client : 0x269068EC11Ce20c4F6A962B4AF16bF10fffeDb04
+client 0x4c230d7CFC2eF991355995da88B0cb3048F68700 ; Swissquote 0xae443372c12769a8BC505314cD46483d8C2c7A0F ; tiers 0xD6d3F5B09794B8BbF6779EC41ae34F2C123d40cB ; nouvelle clé 0x7f0D7c787c3CFE9E89e1c95B6D6d9cB994db37C8
+[OK ] 16-1 Création sans ETH : Safe + module de recovery + 2 gardiens (seuil 2) + transaction signée par le client, une UserOp parrainée
+       https://sepolia.etherscan.io/tx/0x23d422f34514017ecb01ccd7831291f7cd5baf7b18151be5c55e86353874622e ; NFT détenus : 1 ; ETH du Safe : 0
+[OK ] 16-2 Swissquote seul : la recovery ne démarre pas
+       BUNDLER_ERROR <- EXECUTION_REVERTED: SM: confirmed signatures less than threshold
+[OK ] 16-3 Swissquote + tiers lancent la recovery (relayée, parrainée) ; finalisation avant le délai refusée
+       https://sepolia.etherscan.io/tx/0xfd61f9ac67f5524518fff587e2ae787a0566e8848d5f956e50d25efb65faee80 ; applicable après 2026-10-10T23:36:48.000Z ; finalisation anticipée : BUNDLER_ERROR <- EXECUTION_REVERTED: SM: recovery period still pending
+
+[OK ] 16-4 Après le délai : propriétaire remplacé ; la nouvelle clé signe (et invalide le nonce) ; l'ancienne clé est refusée
+       finalisation https://sepolia.etherscan.io/tx/0xa7999fefef9f0ff489bf32c8aed4d9adca71d7b3b7988876e66f05767c884ec5 ; propriétaires : 0x7f0D7c787c3CFE9E89e1c95B6D6d9cB994db37C8 ; ancienne clé : BUNDLER_ERROR <- INVALID_SIGNATURE: Invalid account signature ; nouvelle clé https://sepolia.etherscan.io/tx/0x55aee3234f476464f91fdecd9dc1de35938aa359820855b0f8a0c6912c74b526
+[OK ] 16-5 Recovery vers un attaquant lancée par Swissquote + tiers : annulée par le propriétaire (cancelRecovery + invalidateNonce)
+       en attente jusqu'à 1791675660 ; annulation https://sepolia.etherscan.io/tx/0x41ad66d288233fb54ee6961dbce5136cba1be20ca3f17bdbba64ca0091295610 ; ensuite finalisation : BUNDLER_ERROR <- EXECUTION_REVERTED: SM: no ongoing recovery
+
+RÉSUMÉ
+16-1  fonctionne         Création sans ETH : Safe + module de recovery + 2 gardiens (seuil 2) + transaction signée par le client, une UserOp parrainée
+16-2  fonctionne         Swissquote seul : la recovery ne démarre pas
+16-3  fonctionne         Swissquote + tiers lancent la recovery (relayée, parrainée) ; finalisation avant le délai refusée
+16-4  fonctionne         Après le délai : propriétaire remplacé ; la nouvelle clé signe (et invalide le nonce) ; l'ancienne clé est refusée
+16-5  fonctionne         Recovery vers un attaquant lancée par Swissquote + tiers : annulée par le propriétaire (cancelRecovery + invalidateNonce)
+
