@@ -69,6 +69,14 @@ async function route(req: IncomingMessage, body: any, url: URL) {
       return session;
     }
 
+    case "POST /accounts/list": {
+      // Après re-KYC : clés PUBLIQUES des comptes du client, pour qu'un nouvel appareil retrouve son ancien compte.
+      const customerId = customerFromToken(body.token);
+      if (!customerId) throw new HttpError(403, "identité non vérifiée : re-KYC requis");
+      const rows = db.prepare("select * from accounts where customer_id = ? and network = ? order by id").all(customerId, network(body.network)) as AccountRow[];
+      return { accounts: rows.map((r) => ({ id: r.id, delay: r.delay, client: r.client_key, tiers: r.tiers_key, swissquote: swissquoteAccountKey(r.network), createdAt: (r as any).created_at })) };
+    }
+
     case "POST /guardian/sign": {
       const customerId = customerFromToken(body.token);
       const net = network(body.network);

@@ -3,6 +3,7 @@ import { type WalletConfig, createWalletConfig } from "@sq/bitcoin";
 import { type AccountInput, DELAY, NETWORK, clearAccountInput, loadAccountInput, saveAccountInput } from "./lib/config";
 import { AccountSetup } from "./wallet/AccountSetup";
 import { registerAccount } from "./lib/bank";
+import { Recovery } from "./recovery/Recovery";
 import { Account } from "./wallet/Account";
 
 export function App() {
@@ -10,6 +11,7 @@ export function App() {
   const [cfg, setCfg] = useState<WalletConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [recovering, setRecovering] = useState(() => localStorage.getItem(`sq-wallet:recovery:${NETWORK}`) !== null);
 
   useEffect(() => {
     if (!input) return setCfg(null);
@@ -24,7 +26,13 @@ export function App() {
       </header>
       {error && <p className="error">{error}</p>}
       {notice && <p className="note">{notice}</p>}
-      {!input && (
+      {recovering && (
+        <Recovery
+          onCancel={() => setRecovering(false)}
+          onDone={() => { setRecovering(false); setInput(loadAccountInput()); setNotice("Recovery terminée : voici votre nouveau compte."); }}
+        />
+      )}
+      {!input && !recovering && (
         <AccountSetup
           initial={null}
           onCreate={async (a) => {
@@ -39,7 +47,10 @@ export function App() {
           }}
         />
       )}
-      {cfg && <Account cfg={cfg} onReset={() => { clearAccountInput(); setInput(null); }} />}
+      {!input && !recovering && (
+        <p><button className="link" onClick={() => setRecovering(true)}>J'ai perdu la clé de mon wallet : récupérer mon compte</button></p>
+      )}
+      {cfg && !recovering && <Account cfg={cfg} onReset={() => { clearAccountInput(); setInput(null); }} />}
     </main>
   );
 }

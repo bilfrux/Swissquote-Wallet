@@ -21,7 +21,10 @@
     "validate:1:signet": "tsx scripts/validate/etape-1-signet.ts",
     "validate:1:ui": "tsx scripts/validate/etape-1-ui.ts",
     "validate:2": "tsx scripts/validate/etape-2.ts",
-    "validate:2:ui": "tsx scripts/validate/etape-2-ui.ts"
+    "validate:2:ui": "tsx scripts/validate/etape-2-ui.ts",
+    "validate:3": "tsx scripts/validate/etape-3.ts",
+    "validate:3:ui": "tsx scripts/validate/etape-3-ui.ts",
+    "validate:3:signet": "tsx scripts/validate/etape-3-signet.ts"
   },
   "devDependencies": {
     "concurrently": "^10.0.6",

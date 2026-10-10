@@ -16,3 +16,10 @@ async function call(path: string, body?: unknown) {
 export const fetchSwissquoteKey = async (): Promise<string> => (await call(`/guardian/key?network=${NETWORK}`)).accountKey;
 export const registerAccount = (a: { delay: number; client: string; tiers: string }) =>
   call("/accounts/register", { customerId: CUSTOMER_ID, network: NETWORK, ...a }) as Promise<{ accountId: number }>;
+
+// --- Recovery ---
+export type KycForm = { lastName: string; birthDate: string; otp: string };
+export const verifyIdentity = (f: KycForm) => call("/identity/verify", { customerId: CUSTOMER_ID, ...f }) as Promise<{ token: string; expiresAt: string }>;
+export type RegisteredAccount = { id: number; delay: number; client: string; tiers: string; swissquote: string; createdAt: string };
+export const listAccounts = async (token: string): Promise<RegisteredAccount[]> => (await call("/accounts/list", { token, network: NETWORK })).accounts;
+export const guardianSign = (token: string, psbt: string) => call("/guardian/sign", { token, network: NETWORK, psbt }) as Promise<{ psbt: string; added: number }>;

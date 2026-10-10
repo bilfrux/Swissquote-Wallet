@@ -2,7 +2,8 @@
 import type { PsbtSummary as Summary } from "@sq/bitcoin";
 import { btcFmt } from "../lib/format";
 
-export function PsbtSummary({ summary, delay }: { summary: Summary; delay: number }) {
+// labels : étiquettes connues pour des adresses hors de ce compte (ex. le nouveau compte d'une recovery).
+export function PsbtSummary({ summary, delay, labels = {} }: { summary: Summary; delay: number; labels?: Record<string, string> }) {
   const total = summary.inputs.reduce((s, i) => s + i.value, 0n);
   const external = summary.outputs.filter((o) => !o.own);
   return (
@@ -23,7 +24,7 @@ export function PsbtSummary({ summary, delay }: { summary: Summary; delay: numbe
         <tbody>
           {summary.outputs.map((o, i) => (
             <tr key={i} className={o.own ? "own" : "external"}>
-              <td>{o.own ? (o.own.change ? "change (ce compte)" : "ce compte") : "externe"}</td>
+              <td>{o.own ? (o.own.change ? "change (ce compte)" : "ce compte") : labels[o.address] ?? "externe"}</td>
               <td>{btcFmt(o.value)}</td>
               <td className="mono">{o.address}</td>
             </tr>

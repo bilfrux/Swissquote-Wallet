@@ -1,0 +1,23 @@
+[OK ] UI-1 Ancien appareil : avertissement « bientôt dépensable par Swissquote + tiers » quand le délai approche
+       1 coin(s) bientôt dépensable(s) par Swissquote + tiers. S'il ne s'agit pas d'une recovery voulue, envoyez-les à vous-même pour remettre le délai à zéro.
+[OK ] UI-2 Nouvel appareil : re-KYC, ancien compte retrouvé, nouvelle clé enregistrée, demande signée par Swissquote
+       1 coin(s), 0.30000000 BTC · délai écoulé dans 2 bloc(s) Actualiser ; PSBT signé par Swissquote reçu (1028 car.)
+[OK ] UI-3 Tiers : signe la demande dans sa console (profil séparé)
+       1 signature(s) ajoutée(s). Renvoyez ce PSBT au client.
+[OK ] UI-4 Diffusion avant D : l'appli affiche le refus réel du réseau Bitcoin
+       Refusée par le réseau Bitcoin : « non-BIP68-final ». Le délai de 6 blocs n'est pas écoulé (encore 2 bloc(s)). Réessayez plus tard.
+[OK ] UI-5 À D : recovery diffusée ; le nouvel appareil ouvre le nouveau compte avec les fonds
+       Recovery diffusée : 294470be8f3d39f6936df3cf0c9c9311608d2e91b0f0d1111983f0e9512c4201 ; Solde : 0.29999682 BTC
+[OK ] UI-6 Ancien appareil : l'ancien compte est vide
+       « Aucun coin. »
+[OK ] UI-7 Aucune erreur dans la console des navigateurs (hors refus attendu du nœud)
+       aucune
+
+RÉSUMÉ
+UI-1 fonctionne         Ancien appareil : avertissement « bientôt dépensable par Swissquote + tiers » quand le délai approche
+UI-2 fonctionne         Nouvel appareil : re-KYC, ancien compte retrouvé, nouvelle clé enregistrée, demande signée par Swissquote
+UI-3 fonctionne         Tiers : signe la demande dans sa console (profil séparé)
+UI-4 fonctionne         Diffusion avant D : l'appli affiche le refus réel du réseau Bitcoin
+UI-5 fonctionne         À D : recovery diffusée ; le nouvel appareil ouvre le nouveau compte avec les fonds
+UI-6 fonctionne         Ancien appareil : l'ancien compte est vide
+UI-7 fonctionne         Aucune erreur dans la console des navigateurs (hors refus attendu du nœud)

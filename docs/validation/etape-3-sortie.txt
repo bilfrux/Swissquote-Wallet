@@ -1,0 +1,11 @@
+[OK ] 1 Recovery Swissquote + tiers : refusée par le consensus avant D, acceptée à D pour le coin le plus récent ; fonds sur le nouveau compte
+       confirmations des coins au départ=1,4 ; à 1 conf : non-BIP68-final ; à 4/7 conf : non-BIP68-final ; plus récent à 5 : non-BIP68-final ; à 6 : accepté ; txid=60fdd0cd344827e46bce0c2c7a55c6ae17003e42ae1fe4737026ff918b18a0b6 ; ancien compte : 0 coin, nouveau : 49999470 sats
+[OK ] 2 Rafraîchissement avant D : la recovery déjà signée devient invalide ; sur le nouveau coin le délai repart de zéro
+       avertissement à 4 conf (recovery dans 2 blocs) : affiché ; rafraîchissement c70bec56e203211d… ; recovery signée avant : missing-inputs ; nouvelle recovery à 4 conf du nouveau coin : non-BIP68-final
+[OK ] 3 Client seul, 1 confirmation, Swissquote arrêtée : dépense acceptée
+       verdict du nœud : accepté
+
+RÉSUMÉ
+1   fonctionne         Recovery Swissquote + tiers : refusée par le consensus avant D, acceptée à D pour le coin le plus récent ; fonds sur le nouveau compte
+2   fonctionne         Rafraîchissement avant D : la recovery déjà signée devient invalide ; sur le nouveau coin le délai repart de zéro
+3   fonctionne         Client seul, 1 confirmation, Swissquote arrêtée : dépense acceptée
