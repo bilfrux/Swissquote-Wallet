@@ -80,3 +80,16 @@ export async function stepUp(amountSats: bigint, destination: string, network: s
   await call("/auth/stepup/verify", { response: await startAuthentication({ optionsJSON: opts }), amountSats: Number(amountSats), destination, network });
   return { status: "approuvé" };
 }
+
+// --- Compte crypto Swissquote (custodial) et transferts sous la Travel Rule ---
+export type TravelRuleRecord = { id: number; direction: "sortant" | "entrant"; status: string; amount_sats: number; address: string; txid: string | null; originator: string; beneficiary: string; verification: string; created_at: string };
+export const custody = () => call(`/custody?network=${NETWORK}`) as Promise<{ balanceSats: number }>;
+export const depositAddress = async (): Promise<string> => (await call(`/custody/deposit-address?network=${NETWORK}`)).address;
+export const syncDeposits = () => call("/custody/sync", { network: NETWORK }) as Promise<{ credited: number; held: number }>;
+export const travelRule = async (): Promise<TravelRuleRecord[]> => (await call(`/custody/travel-rule?network=${NETWORK}`)).records;
+export class NeedProof extends Error {}
+export async function withdrawToWallet(address: string, amountSats: number) {
+  try { return (await call("/custody/withdraw", { network: NETWORK, address, amountSats })) as { txid: string; balanceSats: number; recordId: number }; }
+  catch (e: any) { if (/preuve de propriété requise/.test(e.message)) throw new NeedProof(e.message); throw e; }
+}
+export const ownershipStatus = async (address: string): Promise<boolean> => (await call(`/ownership/status?address=${encodeURIComponent(address)}`)).verified;

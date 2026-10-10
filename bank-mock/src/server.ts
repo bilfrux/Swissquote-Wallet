@@ -12,6 +12,7 @@ import { TEST_CUSTOMERS, customerFromToken, verifyIdentity } from "./kyc.ts";
 import { CUSTOMERS, createSession, customerFromSession, login } from "./bank.ts";
 import { authenticationOptions, passkeyCount, recordStepup, registrationOptions, verifyAuthentication, verifyRegistration } from "./passkeys.ts";
 import { notify, runAlerts } from "./alerts.ts";
+import { CustodyError, balance, depositAddress, records, syncDeposits, withdraw } from "./custody.ts";
 
 const PORT = Number(process.env.BANK_MOCK_PORT ?? 4000);
 const ORIGINS = (process.env.BANK_MOCK_ORIGINS ?? "http://localhost:5173,http://localhost:5174").split(",");
@@ -121,6 +122,27 @@ async function route(req: IncomingMessage, body: any, url: URL) {
       return { approved: true };
     }
 
+    // ---- Compte crypto Swissquote (custodial) et transferts sous la Travel Rule ----
+    case "GET /custody":
+    case "POST /custody/withdraw":
+    case "GET /custody/deposit-address":
+    case "POST /custody/sync":
+    case "GET /custody/travel-rule": {
+      const id = customerFromSession(req.headers.authorization);
+      if (!id) throw new HttpError(401, "session expirée : reconnectez-vous");
+      const net = network(url.searchParams.get("network") ?? body.network);
+      const rows = db.prepare("select * from accounts where customer_id = ? and network = ?").all(id, net) as AccountRow[];
+      const ctx = { accounts: await Promise.all(rows.map(async (r) => ({ id: r.id, cfg: await configOf(r) }))) };
+      if (key === "GET /custody") return { network: net, balanceSats: balance(id, net) };
+      if (key === "GET /custody/travel-rule") return { records: records(id, net) };
+      if (key === "GET /custody/deposit-address") return { address: await depositAddress(id, net) };
+      if (key === "POST /custody/sync") return syncDeposits(id, net, ctx);
+      const r = await withdraw(id, net, String(body.address ?? ""), Number(body.amountSats), ctx);
+      notify(id, null, "retrait", "Retrait vers votre wallet envoyé",
+        `${(Number(body.amountSats) / 1e8).toFixed(8)} BTC envoyés de votre compte Swissquote vers votre wallet (${body.address}). Propriété du wallet vérifiée (Travel Rule).`, `wd:${r.txid}`);
+      return r;
+    }
+
     case "GET /me": {
       const id = customerFromSession(req.headers.authorization);
       if (!id) throw new HttpError(401, "session expirée : reconnectez-vous");
@@ -151,6 +173,15 @@ async function route(req: IncomingMessage, body: any, url: URL) {
       db.prepare("insert into ownership_challenges (id, customer_id, account_id, network, change, idx, address, message, expires_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?)")
         .run(id, customerId, row.id, net, change, index, address, message, Date.now() + 10 * 60 * 1000);
       return { challengeId: id, message, address, change, index };
+    }
+
+    case "GET /ownership/status": {
+      // Cette adresse a-t-elle déjà une preuve de propriété vérifiée (Travel Rule) ?
+      const customerId = customerFromSession(req.headers.authorization);
+      if (!customerId) throw new HttpError(401, "session expirée : reconnectez-vous");
+      const row = db.prepare("select id, verified_at from ownership_challenges where customer_id = ? and address = ? and verified_at is not null order by verified_at desc limit 1")
+        .get(customerId, String(url.searchParams.get("address") ?? "")) as any;
+      return { verified: !!row, proofId: row?.id ?? null, verifiedAt: row ? new Date(row.verified_at).toISOString() : null };
     }
 
     case "POST /ownership/verify": {
@@ -250,8 +281,8 @@ createServer(async (req, res: ServerResponse) => {
     const out = await route(req, raw ? JSON.parse(raw) : {}, new URL(req.url ?? "/", "http://localhost"));
     res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(out));
   } catch (e: any) {
-    const status = e instanceof HttpError ? e.status : 500;
-    res.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify({ error: e.message }));
+    const status = e instanceof HttpError || e instanceof CustodyError ? e.status : 500;
+    res.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify({ error: e.message, ...(e instanceof CustodyError ? e.extra : {}) }));
   }
 }).listen(PORT, () => console.log(`[bank-mock] guardian Swissquote sur http://localhost:${PORT}`));
 

@@ -9,8 +9,8 @@ import { HIGH_VALUE_SATS, stepUp } from "../lib/bank";
 import { PsbtSummary } from "../simulation/PsbtSummary";
 
 // mode « send » : envoi vers un destinataire ; « refresh » : tout renvoyer vers une adresse neuve du compte.
-export function Send({ cfg, utxos, onSent, mode = "send" }: { cfg: WalletConfig; utxos: WalletUtxo[]; onSent: () => void; mode?: "send" | "refresh" }) {
-  const [to, setTo] = useState("");
+export function Send({ cfg, utxos, onSent, mode = "send", initialTo }: { cfg: WalletConfig; utxos: WalletUtxo[]; onSent: () => void; mode?: "send" | "refresh"; initialTo?: string }) {
+  const [to, setTo] = useState(initialTo ?? "");
   const [amount, setAmount] = useState("");
   const [feeRate, setFeeRate] = useState("2");
   const [rates, setRates] = useState<FeeRates | null>(null);

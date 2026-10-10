@@ -1,0 +1,20 @@
+[OK ] 11-1 Retrait sans preuve de propriété : refusé (Travel Rule) ; vers une adresse qui n'est pas un wallet enregistré du client : refusé
+       solde Swissquote 80000000 sats ; sans preuve : 412 « Travel Rule : preuve de propriété requise pour cette adresse avant tout envoi » ; adresse étrangère : 403 « adresse refusée : seuls les wallets enregistrés à votre nom sont autorisés »
+[OK ] 11-2 Après preuve de propriété vérifiée : retrait de 0,3 BTC envoyé on-chain par le portefeuille omnibus de Swissquote, reçu dans le wallet ; solde Swissquote débité
+       txid 3cf0b0f509436956e227df5b5dfaa3ac79bd7c2381a39469d19d8d7f79f2f10a ; reçu dans le wallet : 30000000 sats ; solde Swissquote : 50000000 sats
+[OK ] 11-3 Enregistrement Travel Rule du retrait : donneur d'ordre et bénéficiaire, wallet auto-hébergé, référence de la preuve
+       Léa Martin (client CH-0003) · compte Swissquote → Léa Martin (client CH-0003) · wallet auto-hébergé (compte n°1) ; preuve de propriété n°f96455e7 vérifiée le 2026-10-10T19:43:55.354Z
+[OK ] 11-4 Retrait supérieur aux avoirs : refusé
+       400 « avoirs insuffisants sur le compte Swissquote »
+[OK ] 11-5 Dépôts : celui du wallet du client (provenance vérifiée) est crédité ; celui d'une source inconnue est mis en attente, non crédité
+       crédités : 1, en attente : 1 ; solde Swissquote : 60000000 sats ; en attente de vérification (provenance NON vérifiée : fonds non crédités) | crédité (provenance vérifiée : toutes les entrées viennent d'un wallet enregistré du client)
+[OK ] 11-6 Signet : compte crypto Swissquote non disponible (portefeuille omnibus non approvisionné), refus explicite
+       501 « compte crypto Swissquote : démo disponible en regtest seulement (le portefeuille omnibus signet n'est pas approvisionné) »
+
+RÉSUMÉ
+11-1 fonctionne         Retrait sans preuve de propriété : refusé (Travel Rule) ; vers une adresse qui n'est pas un wallet enregistré du client : refusé
+11-2 fonctionne         Après preuve de propriété vérifiée : retrait de 0,3 BTC envoyé on-chain par le portefeuille omnibus de Swissquote, reçu dans le wallet ; solde Swissquote débité
+11-3 fonctionne         Enregistrement Travel Rule du retrait : donneur d'ordre et bénéficiaire, wallet auto-hébergé, référence de la preuve
+11-4 fonctionne         Retrait supérieur aux avoirs : refusé
+11-5 fonctionne         Dépôts : celui du wallet du client (provenance vérifiée) est crédité ; celui d'une source inconnue est mis en attente, non crédité
+11-6 fonctionne         Signet : compte crypto Swissquote non disponible (portefeuille omnibus non approvisionné), refus explicite

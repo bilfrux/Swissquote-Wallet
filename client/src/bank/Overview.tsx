@@ -18,14 +18,15 @@ function series(total: number, period: Period) {
   return Array.from({ length: n }, (_, i) => total * (1 - amp * (1 - i / (n - 1)) + amp * 0.35 * Math.sin(i * 1.7 + n)));
 }
 
-type Props = { accounts: BankAccount[] | null; btcSats: bigint | null; customerId: string; onTab: (t: Tab, anchor?: string) => void };
+type Props = { accounts: BankAccount[] | null; btcSats: bigint | null; custodySats?: number; customerId: string; onTab: (t: Tab, anchor?: string) => void };
 
-export function Overview({ accounts, btcSats, customerId, onTab }: Props) {
+export function Overview({ accounts, btcSats, custodySats = 0, customerId, onTab }: Props) {
   const mobile = useIsMobile();
   const [period, setPeriod] = useState<Period>("1S");
   const cash = (accounts ?? []).reduce((s, a) => s + a.balance, 0);
   const btcChf = btcSats === null ? 0 : (Number(btcSats) / 1e8) * BTC_CHF;
-  const total = cash + btcChf;
+  const custodyChf = (custodySats / 1e8) * BTC_CHF;
+  const total = cash + btcChf + custodyChf;
   const points = useMemo(() => series(total || 1, period), [total, period]);
   const change = total - points[points.length - 2];
   const pct = points[points.length - 2] ? (change / points[points.length - 2]) * 100 : 0;
@@ -88,6 +89,11 @@ export function Overview({ accounts, btcSats, customerId, onTab }: Props) {
                 <span>{a.label}<small className="muted mono"> {a.iban}</small></span><strong>{num(a.balance)} {a.currency}</strong><IconChevron />
               </button>
             ))}
+            {custodySats > 0 && (
+              <button className="row-line" onClick={() => onTab("crypto", "transferer")}>
+                <span>Compte crypto Swissquote<small className="muted"> en garde chez Swissquote</small></span><strong>{btcFmt(BigInt(custodySats))} · {num(custodyChf)} CHF</strong><IconChevron />
+              </button>
+            )}
           </section>
           <section className="card rows" data-testid="home-crypto">
             <h2>Crypto · self-custody</h2>

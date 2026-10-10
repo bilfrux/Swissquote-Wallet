@@ -1,6 +1,6 @@
 // Appli Swissquote (banque SIMULÉE) : connexion, accueil, banque, crypto self-custody, démo.
 import { useEffect, useState } from "react";
-import { type BankAccount, type Session, clearSession, loadSession, me } from "./lib/bank";
+import { type BankAccount, type Session, clearSession, custody, loadSession, me } from "./lib/bank";
 import { BTC_CHF } from "./lib/config";
 import { btcFmt } from "./lib/format";
 import { Login } from "./bank/Login";
@@ -16,10 +16,12 @@ export function App() {
   const [tab, setTab] = useState<Tab>("accueil");
   const [accounts, setAccounts] = useState<BankAccount[] | null>(null);
   const [btcSats, setBtcSats] = useState<bigint | null>(null);
+  const [custodySats, setCustodySats] = useState<number>(0); // compte crypto Swissquote (en garde)
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!session) return;
+    custody().then((c) => setCustodySats(c.balanceSats), () => setCustodySats(0));
     me().then((m) => setAccounts(m.accounts), (e) => { setError(e.message); if (/session/.test(e.message)) { clearSession(); setSession(null); } });
   }, [session]);
 
@@ -33,7 +35,7 @@ export function App() {
 
   if (!session) return <Login onLogin={setSession} />;
   const cash = (accounts ?? []).reduce((s, a) => s + a.balance, 0);
-  const btcChf = btcSats === null ? 0 : (Number(btcSats) / 1e8) * BTC_CHF;
+  const btcChf = (btcSats === null ? 0 : (Number(btcSats) / 1e8) * BTC_CHF) + (custodySats / 1e8) * BTC_CHF;
   return (
     <Shell
       tab={tab}
@@ -43,7 +45,7 @@ export function App() {
       totals={{ totalChf: cash + btcChf, cashChf: cash, btc: btcSats === null ? null : btcFmt(btcSats) }}
     >
       {error && <p className="error">{error}</p>}
-      {tab === "accueil" && <Overview accounts={accounts} btcSats={btcSats} customerId={session.customer.id} onTab={go} />}
+      {tab === "accueil" && <Overview accounts={accounts} btcSats={btcSats} custodySats={custodySats} customerId={session.customer.id} onTab={go} />}
       {tab === "banque" && <Accounts accounts={accounts} />}
       {/* L'onglet crypto reste monté (masqué) pour que le solde BTC de l'accueil soit à jour. */}
       <div hidden={tab !== "crypto"}><CryptoTab session={session} onBalance={setBtcSats} /></div>

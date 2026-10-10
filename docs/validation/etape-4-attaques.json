@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-10T19:29:45.689Z",
+  "date": "2026-10-10T19:44:10.033Z",
   "results": [
     {
       "id": "attaque-1",
@@ -34,10 +34,10 @@
       "expected": "succès",
       "outcome": "succès",
       "ok": true,
-      "chainMessage": "diffusée a917b6ec5f29f09b4d9ba34e2d682aa6d0651c2b3f640cd8953f2428813fe07f",
+      "chainMessage": "diffusée c0123e9f948d7c1eb4a5ee29ed9238d08c09d095c5bf9deda8b8d6d9596c8b14",
       "steps": [
         "compte enregistré chez Swissquote (200), puis bank-mock arrêté : injoignable (ECONNREFUSED)",
-        "le client signe avec son wallet externe (tools/client-signer) et diffuse : diffusée a917b6ec5f29f09b4d9ba34e2d682aa6d0651c2b3f640cd8953f2428813fe07f"
+        "le client signe avec son wallet externe (tools/client-signer) et diffuse : diffusée c0123e9f948d7c1eb4a5ee29ed9238d08c09d095c5bf9deda8b8d6d9596c8b14"
       ]
     },
     {

@@ -4,21 +4,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { type HistoryEntry, type WalletConfig, type WalletUtxo, history, outputAt, scan } from "@sq/bitcoin";
-import { ownershipChallenge, ownershipVerify } from "../lib/bank";
 import { addrLink, chain, txLink } from "../lib/chain";
 import { BTC_CHF, type BtcAccount } from "../lib/config";
 import { btcFmt } from "../lib/format";
-import { walletRequest } from "../lib/walletBridge";
+import { proveOwnership } from "../lib/ownership";
 import { num } from "../ui/format";
-import { IconReceive, IconRefresh, IconSend, IconShield } from "../ui/icons";
+import { IconBank, IconReceive, IconRefresh, IconSend, IconShield } from "../ui/icons";
 import { useIsMobile } from "../ui/useIsMobile";
 import { Send } from "./Send";
+import { Transfer } from "./Transfer";
 
 const RECEIVE_KEY = (cfg: WalletConfig) => `sq-wallet:receive-index:${cfg.network}:${cfg.client.fingerprint}`;
 const KIND: Record<HistoryEntry["kind"], string> = {
   "reçu": "Reçu", "reçu par recovery": "Reçu par recovery", "envoyé": "Envoyé", "rafraîchissement": "Rafraîchissement", "recovery sortante": "Recovery (Swissquote + tiers)",
 };
-type Panel = "recevoir" | "envoyer" | "rafraichir";
+type Panel = "recevoir" | "envoyer" | "rafraichir" | "transferer";
 type SubTab = "historique" | "coins" | "securite";
 // Navigation depuis le reste de l'appli (accueil, rail) : événement « sq-crypto » avec le panneau ou l'onglet visé.
 export const openCrypto = (target: string) => window.dispatchEvent(new CustomEvent("sq-crypto", { detail: target }));
@@ -38,6 +38,7 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
   const [qr, setQr] = useState<string>("");
   const [proof, setProof] = useState<{ ok: boolean; text: string } | null>(null);
   const [proving, setProving] = useState(false);
+  const [sendTo, setSendTo] = useState<string | undefined>(undefined);
   const panelRef = useRef<HTMLDivElement>(null);
   const address = outputAt(cfg, 0, receiveIndex).getAddress();
   const tiers = account.tiersName || "votre tiers";
@@ -60,7 +61,7 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
   useEffect(() => {
     const on = (e: Event) => {
       const t = (e as CustomEvent<string>).detail;
-      if (t === "recevoir" || t === "envoyer" || t === "rafraichir") { setPanel(t); if (mobile) panelRef.current?.scrollIntoView({ behavior: "smooth" }); }
+      if (t === "recevoir" || t === "envoyer" || t === "rafraichir" || t === "transferer") { setPanel(t); if (mobile) panelRef.current?.scrollIntoView({ behavior: "smooth" }); }
       if (t === "historique" || t === "coins" || t === "securite") setSub(t);
     };
     window.addEventListener("sq-crypto", on);
@@ -71,9 +72,7 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
     setProof(null);
     setProving(true);
     try {
-      const ch = await ownershipChallenge(cfg.client.raw, 0, receiveIndex);
-      const sig = await walletRequest<{ signature: string }>("prove", { accountKey: cfg.client.raw, change: 0, index: receiveIndex, message: ch.message });
-      const v = await ownershipVerify(ch.challengeId, sig.signature);
+      const v = await proveOwnership(cfg, receiveIndex);
       setProof({ ok: v.verified, text: v.proves });
     } catch (e: any) { setProof({ ok: false, text: e.message }); } finally { setProving(false); }
   };
@@ -102,6 +101,7 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
         <button className={panel === "recevoir" ? "on" : ""} onClick={() => open("recevoir")}><span className="round dark"><IconReceive /></span>Recevoir</button>
         <button className={panel === "envoyer" ? "on" : ""} onClick={() => open("envoyer")}><span className="round dark"><IconSend /></span>Envoyer</button>
         <button className={panel === "rafraichir" ? "on" : ""} onClick={() => open("rafraichir")}><span className="round dark"><IconRefresh /></span>Rafraîchir</button>
+        <button className={panel === "transferer" ? "on" : ""} onClick={() => open("transferer")}><span className="round dark"><IconBank /></span>Transférer</button>
       </div>
     </section>
   );
@@ -122,14 +122,22 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
       {proof && <p className={proof.ok ? "success" : "error"} data-testid="ownership-result">{proof.ok ? "Propriété vérifiée. " : ""}{proof.text}</p>}
     </section>
   );
-  const sidePanel = panel === "recevoir" ? receivePanel : (
+  const sidePanel = panel === "recevoir" ? receivePanel : panel === "transferer" ? (
+    <section className="card side-panel" id="transferer">
+      <div className="panel-head">
+        <h2>Compte Swissquote ↔ wallet</h2>
+        <button className="link" aria-label="Fermer" onClick={() => setPanel("recevoir")}>✕</button>
+      </div>
+      <Transfer cfg={cfg} receiveIndex={receiveIndex} onDone={refresh} onDeposit={(addr) => { setSendTo(addr); setPanel("envoyer"); }} />
+    </section>
+  ) : (
     <section className="card side-panel" id={panel}>
       <div className="panel-head">
         <h2>{panel === "envoyer" ? "Envoyer des bitcoins" : "Rafraîchir mes coins"}</h2>
         <button className="link" aria-label="Fermer" onClick={() => setPanel("recevoir")}>✕</button>
       </div>
       {utxos && utxos.length > 0
-        ? <Send cfg={cfg} utxos={utxos} onSent={refresh} mode={panel === "rafraichir" ? "refresh" : "send"} />
+        ? <Send key={`${panel}:${sendTo ?? ""}`} cfg={cfg} utxos={utxos} onSent={refresh} mode={panel === "rafraichir" ? "refresh" : "send"} initialTo={panel === "envoyer" ? sendTo : undefined} />
         : <p className="muted">Aucun coin à dépenser.</p>}
     </section>
   );

@@ -36,7 +36,8 @@
     "validate:8:alerts": "tsx scripts/validate/etape-8-alerts.ts",
     "validate:9": "tsx scripts/validate/etape-9.ts",
     "validate:9:budget": "tsx scripts/validate/esplora-budget.ts",
-    "validate:10": "tsx scripts/validate/etape-10-auth.ts"
+    "validate:10": "tsx scripts/validate/etape-10-auth.ts",
+    "validate:11": "tsx scripts/validate/etape-11-transfers.ts"
   },
   "devDependencies": {
     "bip322-js": "^4.0.0",

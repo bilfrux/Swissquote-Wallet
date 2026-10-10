@@ -44,6 +44,8 @@ const errors: string[] = [];
 const watch = (p: Page) => {
   p.on("pageerror", (e) => errors.push(`${p.url()} : ${e.message}`));
   p.on("console", (m) => m.type() === "error" && !/CORS|Failed to fetch|ERR_FAILED/.test(m.text()) && errors.push(`${p.url()} : ${m.text()}`));
+  // Erreurs serveur : on note la requête et la réponse pour le diagnostic.
+  p.on("response", async (r) => { if (r.status() >= 500) errors.push(`${r.request().method()} ${r.url()} -> ${r.status()} ${(await r.text().catch(() => "")).slice(0, 200)}`); });
 };
 // MOBILE=1 : mise en page téléphone (390×844, tactile) ; sinon ordinateur.
 const MOBILE = process.env.MOBILE === "1";
@@ -309,6 +311,25 @@ try {
   const rs = await fetch(`${WALLET}/api/sign`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ psbt: recPsbt, network: "regtest" }) });
   const rj: any = await rs.json();
   report("6-12", "Le Wallet du client refuse de signer un PSBT de recovery, même appelé directement", rs.status === 400 && /chemin de recovery/.test(rj.error), `${rs.status} ${rj.error}`);
+
+  // --- Compte Swissquote -> wallet : retrait sous la Travel Rule, preuve de propriété automatique ---
+  await nd.getByRole("button", { name: "Transférer", exact: true }).click();
+  await nd.getByTestId("custody-balance").getByText("BTC").waitFor({ timeout: 15000 });
+  const custodyBefore = (await nd.getByTestId("custody-balance").textContent()) ?? "";
+  await nd.locator("#transferer").getByPlaceholder("0.1").fill("0.1");
+  await nd.getByRole("button", { name: "Transférer vers mon wallet" }).click();
+  await newWallet.getByRole("heading", { name: "Prouver la propriété d'une adresse" }).waitFor({ timeout: 20000 });
+  await typePin(newWallet);
+  await newWallet.getByRole("button", { name: "Signer la preuve" }).click();
+  const tr = (await nd.getByTestId("transfer-result").textContent({ timeout: 30000 })) ?? "";
+  const trTxid = tr.match(/[0-9a-f]{64}/)?.[0];
+  await mine(1);
+  const trList = (await nd.getByTestId("travel-rule").textContent({ timeout: 15000 })) ?? "";
+  await shot(nd, "9-transfert-travel-rule");
+  const onChain = trTxid ? await rpc.call("getrawtransaction", [trTxid, true]) : null;
+  report("6-19", "Retrait compte Swissquote → wallet : preuve de propriété demandée automatiquement au Wallet du client (Travel Rule), envoi on-chain, enregistrement Travel Rule affiché",
+    custodyBefore.includes("BTC") && !!trTxid && onChain?.confirmations === 1 && trList.includes("Retrait vers le wallet") && trList.includes("preuve de propriété"),
+    `compte Swissquote avant : ${custodyBefore} ; ${tr.trim().slice(0, 90)} ; ${trList.replace(/\s+/g, " ").slice(0, 160)}`);
 
   // --- Onglet Démo ---
   await nd.getByRole("button", { name: "Démo", exact: true }).click();
