@@ -10,6 +10,8 @@ or( pk(CLIENT), and( pk(SWISSQUOTE), and( pk(TRUSTED), older(D) ) ) )      P2WSH
 
 Demo: D = 6 blocks. Target production value (assumption, parameter): about 6 months (≈ 26,000 blocks).
 
+Why this model rather than custodial, seed phrase, MPC, smart account or Shamir split: [`docs/custody-models.md`](docs/custody-models.md).
+
 ## Real or mocked
 
 | Component | Status | Detail |
