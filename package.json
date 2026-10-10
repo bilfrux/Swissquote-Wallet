@@ -28,7 +28,9 @@
     "test:attacks": "tsx scripts/attacks/run.ts",
     "attacks:server": "tsx scripts/attacks/server.ts",
     "validate:inv5": "tsx scripts/validate/invariant-5.ts",
-    "validate:4:ui": "tsx scripts/validate/etape-4-ui.ts"
+    "validate:4:ui": "tsx scripts/validate/etape-4-ui.ts",
+    "demo": "concurrently -n appli,bank,console,attaques -c blue,red,green,magenta \"VITE_BTC_NETWORK=regtest npm run dev -w client\" \"npm run dev -w bank-mock\" \"VITE_BTC_NETWORK=regtest npm run dev -w guardian-console\" \"npm run attacks:server\"",
+    "regtest": "tsx scripts/demo/regtest.ts"
   },
   "devDependencies": {
     "concurrently": "^10.0.6",
