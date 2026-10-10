@@ -40,13 +40,19 @@ export const CUSTOMERS: Record<string, Customer> = {
 db.exec("create table if not exists bank_sessions (token text primary key, customer_id text not null, expires_at integer not null)");
 const TTL_MS = 8 * 60 * 60 * 1000;
 
+// Session bancaire (après mot de passe ou passkey).
+export function createSession(customerId: string) {
+  const c = CUSTOMERS[customerId];
+  const token = randomBytes(32).toString("hex");
+  db.prepare("insert into bank_sessions (token, customer_id, expires_at) values (?, ?, ?)").run(token, customerId, Date.now() + TTL_MS);
+  return { token, customer: { id: customerId, firstName: c.firstName, lastName: c.lastName } };
+}
+
 export function login(customerId: unknown, password: unknown) {
   if (typeof customerId !== "string") return null;
   const c = CUSTOMERS[customerId];
   if (!c || c.password !== password) return null;
-  const token = randomBytes(32).toString("hex");
-  db.prepare("insert into bank_sessions (token, customer_id, expires_at) values (?, ?, ?)").run(token, customerId, Date.now() + TTL_MS);
-  return { token, customer: { id: customerId, firstName: c.firstName, lastName: c.lastName } };
+  return createSession(customerId);
 }
 
 export function customerFromSession(authorization: unknown): string | null {

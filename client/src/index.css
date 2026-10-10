@@ -211,3 +211,9 @@ button.round.bell { background: #fff; padding: 0; }
 .crypto.m .asset-actions { justify-content: space-around; gap: 0; }
 @media (max-width: 1100px) { .crypto-grid { grid-template-columns: minmax(0, 1fr) 340px; } }
 @media (max-width: 820px) { .sec-grid { grid-template-columns: 1fr; } }
+
+/* Passkey et sécurité du compte */
+.passkey-btn { margin-top: 8px; }
+.acct-sec { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 8px; }
+.acct-sec p { margin: 4px 0; }
+button.account-pill { background: none; color: var(--text); padding: 6px 8px; font-weight: 500; }

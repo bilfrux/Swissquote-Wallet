@@ -7,6 +7,7 @@ import { IconBank, IconBolt, IconCrypto, IconHome, IconPortfolio, IconShield, Ic
 import { num } from "./format";
 import { useIsMobile } from "./useIsMobile";
 import { NotificationBell } from "./NotificationBell";
+import { AccountSecurity } from "./AccountSecurity";
 
 export type Tab = "accueil" | "banque" | "crypto" | "demo";
 type Props = {
@@ -42,6 +43,7 @@ export function Shell(p: Props) {
           <div className="m-sheet">
             <p><strong>{p.user.firstName} {p.user.lastName}</strong></p>
             <p className="muted small">Banque simulée · Bitcoin {NETWORK}</p>
+            <AccountSecurity />
             <button className="btn-outline-red" onClick={p.onLogout}>Déconnexion</button>
           </div>
         )}
@@ -75,7 +77,10 @@ export function Shell(p: Props) {
         </nav>
         <div className="d-header-right">
           <NotificationBell />
-          <span className="account-pill"><IconUser /> {p.user.firstName} {p.user.lastName}</span>
+          <div className="bell-wrap">
+            <button className="account-pill" aria-label="Mon compte" onClick={() => setSheet(!sheet)}><IconUser /> {p.user.firstName} {p.user.lastName}</button>
+            {sheet && <div className="bell-panel"><p><strong>{p.user.firstName} {p.user.lastName}</strong></p><AccountSecurity /></div>}
+          </div>
           <button className="btn-outline-red" onClick={p.onLogout}>Déconnexion</button>
         </div>
       </header>

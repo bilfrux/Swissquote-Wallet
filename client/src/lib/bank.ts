@@ -1,5 +1,6 @@
 // Appels au backend Swissquote MOCKÉ (bank-mock) : session bancaire simulée, comptes, guardian.
 // L'appli n'en dépend jamais pour dépenser : si bank-mock est arrêté, seules les fonctions bancaires et de guardian manquent.
+import { startAuthentication, startRegistration } from "@simplewebauthn/browser";
 import { NETWORK } from "./config";
 
 export const BANK_URL = import.meta.env.VITE_BANK_MOCK_URL ?? "http://localhost:4000";
@@ -50,3 +51,32 @@ export const ownershipVerify = (challengeId: string, signature: string) =>
 export type Notification = { id: number; accountId: number | null; kind: string; title: string; body: string; createdAt: string; readAt: string | null };
 export const notifications = () => call("/notifications") as Promise<{ unread: number; items: Notification[] }>;
 export const markNotificationsRead = () => call("/notifications/read", {}) as Promise<{ ok: boolean }>;
+
+// --- Passkeys (WebAuthn) : connexion et ré-authentification « step-up » ---
+export const passkeyStatus = () => call("/auth/passkey") as Promise<{ count: number }>;
+export async function registerPasskey() {
+  const optionsJSON = await call("/auth/passkey/register/options", {});
+  return call("/auth/passkey/register/verify", { response: await startRegistration({ optionsJSON }) }) as Promise<{ registered: boolean; count: number }>;
+}
+export async function loginWithPasskey(customerId: string): Promise<Session> {
+  const optionsJSON = await call("/auth/passkey/login/options", { customerId });
+  const s = await call("/auth/passkey/login/verify", { customerId, response: await startAuthentication({ optionsJSON }) });
+  sessionStorage.setItem(SESSION, JSON.stringify(s));
+  return s;
+}
+// Seuil « montant élevé » (sats) : ré-authentification par passkey avant de faire signer le wallet.
+export const HIGH_VALUE_SATS = BigInt(import.meta.env.VITE_HIGH_VALUE_SATS ?? 20_000_000);
+export type StepUp = { status: "approuvé" } | { status: "swissquote-injoignable" };
+export async function stepUp(amountSats: bigint, destination: string, network: string): Promise<StepUp> {
+  let opts;
+  try {
+    if ((await passkeyStatus()).count === 0) await registerPasskey(); // première fois : activation sur place
+    opts = await call("/auth/stepup/options", {});
+  } catch (e: any) {
+    // Swissquote injoignable : l'envoi n'est pas bloqué (le client dépense seul) ; le wallet applique seul ses contrôles.
+    if (e instanceof TypeError) return { status: "swissquote-injoignable" };
+    throw e;
+  }
+  await call("/auth/stepup/verify", { response: await startAuthentication({ optionsJSON: opts }), amountSats: Number(amountSats), destination, network });
+  return { status: "approuvé" };
+}

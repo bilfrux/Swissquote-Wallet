@@ -6,6 +6,7 @@
     "dev": "node --disable-warning=ExperimentalWarning --import tsx src/server.ts"
   },
   "dependencies": {
+    "@simplewebauthn/server": "^14.0.3",
     "@sq/bitcoin": "*",
     "bip322-js": "^4.0.0"
   },

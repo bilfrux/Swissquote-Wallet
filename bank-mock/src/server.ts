@@ -9,7 +9,8 @@ import { type NetworkName, type WalletConfig, addresses, clientKeyAddress, creat
 import { db } from "./db.ts";
 import { signAsSwissquote, swissquoteAccountKey } from "./guardian.ts";
 import { TEST_CUSTOMERS, customerFromToken, verifyIdentity } from "./kyc.ts";
-import { CUSTOMERS, customerFromSession, login } from "./bank.ts";
+import { CUSTOMERS, createSession, customerFromSession, login } from "./bank.ts";
+import { authenticationOptions, passkeyCount, recordStepup, registrationOptions, verifyAuthentication, verifyRegistration } from "./passkeys.ts";
 import { notify, runAlerts } from "./alerts.ts";
 
 const PORT = Number(process.env.BANK_MOCK_PORT ?? 4000);
@@ -75,6 +76,49 @@ async function route(req: IncomingMessage, body: any, url: URL) {
       const s = login(body.customerId, body.password);
       if (!s) throw new HttpError(403, "identifiant ou mot de passe incorrect");
       return s;
+    }
+
+    // ---- Passkeys (WebAuthn) ----
+    case "GET /auth/passkey": {
+      const id = customerFromSession(req.headers.authorization);
+      if (!id) throw new HttpError(401, "session expirée : reconnectez-vous");
+      return { count: passkeyCount(id) };
+    }
+    case "POST /auth/passkey/register/options": {
+      const id = customerFromSession(req.headers.authorization);
+      if (!id) throw new HttpError(401, "session expirée : reconnectez-vous");
+      return registrationOptions(id);
+    }
+    case "POST /auth/passkey/register/verify": {
+      const id = customerFromSession(req.headers.authorization);
+      if (!id) throw new HttpError(401, "session expirée : reconnectez-vous");
+      return verifyRegistration(id, body.response).catch((e) => { throw new HttpError(403, e.message); });
+    }
+    case "POST /auth/passkey/login/options": {
+      if (!CUSTOMERS[body.customerId]) throw new HttpError(403, "client inconnu");
+      return authenticationOptions(body.customerId, "login").catch((e) => { throw new HttpError(404, e.message); });
+    }
+    case "POST /auth/passkey/login/verify": {
+      if (!CUSTOMERS[body.customerId]) throw new HttpError(403, "client inconnu");
+      await verifyAuthentication(body.customerId, "login", body.response).catch((e) => { throw new HttpError(403, e.message); });
+      return createSession(body.customerId);
+    }
+    // Ré-authentification avant un envoi de montant élevé : enregistrée et signalée au client (alerte).
+    case "POST /auth/stepup/options": {
+      const id = customerFromSession(req.headers.authorization);
+      if (!id) throw new HttpError(401, "session expirée : reconnectez-vous");
+      return authenticationOptions(id, "stepup").catch((e) => { throw new HttpError(404, e.message); });
+    }
+    case "POST /auth/stepup/verify": {
+      const id = customerFromSession(req.headers.authorization);
+      if (!id) throw new HttpError(401, "session expirée : reconnectez-vous");
+      await verifyAuthentication(id, "stepup", body.response).catch((e) => { throw new HttpError(403, e.message); });
+      const amount = Number(body.amountSats ?? 0), dest = String(body.destination ?? "");
+      recordStepup(id, String(body.network ?? ""), amount, dest);
+      notify(id, null, "envoi-eleve", "Envoi d'un montant élevé confirmé par passkey",
+        `Vous avez confirmé par passkey l'envoi de ${(amount / 1e8).toFixed(8)} BTC vers ${dest}. Si ce n'est pas vous, ne signez pas dans votre wallet.`,
+        `stepup:${id}:${Date.now()}`);
+      return { approved: true };
     }
 
     case "GET /me": {

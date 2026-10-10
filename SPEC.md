@@ -364,3 +364,13 @@ Cette section complète le « Modèle 2 guardians », sans le modifier.
 - Portée exacte : détention de la clé client, qui suffit seule à dépenser l'adresse d'après la politique enregistrée. Ce n'est pas une signature de l'adresse P2WSH elle-même (non gérée par `bip322-js`).
 - Client de démo vierge `CH-0003` (Léa Martin, `demo0003`, re-KYC `Martin` / `1992-03-21` / `246810`).
 - Ethereum et Taproot : perspectives, non implémentées (README).
+
+## Décisions du 10 octobre 2026 (soir) : track détaillée, EVM réintégré, ordre de travail
+
+Lecture de la track détaillée (`Swissquote Wallet Challenge_EPFL Hackathon_Oct2026.docx`) : 6 sujets obligatoires, notés sur 100 (technique 35, sécurité 20, juridique 15, business 15, UX et pitch 15) ; jusqu'à +20 de bonus (gasless, interaction dApp conforme), accordés seulement si création → signature → recovery fonctionne de bout en bout.
+
+- **EVM réintégré**, prioritaire **une fois la partie Bitcoin finie**. Compte : **Safe dont le propriétaire est l'EOA du client** (clé dans le Wallet du client), recovery Swissquote + tiers par le module Candide. Un EOA seul supprimerait la recovery assistée demandée par la track.
+- Ordre validé :
+  1. Finir Bitcoin : histoire de bout en bout dans l'interface sur signet ; **A1** authentification (passkey) et traitement des montants élevés ; **A2** transfert compte Swissquote ↔ wallet avec preuve de propriété automatique (Travel Rule) ; **A3** recovery sans copier-coller (boîte de réception du tiers).
+  2. EVM : Safe + recovery ; **gasless** (ERC-4337 + paymaster ou EIP-7702 : qui paie, comment on empêche les abus) ; **interaction dApp conforme** (liste approuvée, filtrage sanctions mocké, simulation en clair, contrôles au-dessus d'un seuil) ; puis les fonctions « équivalent MetaMask ».
+  3. **A4** livrables écrits, au fil de l'eau : comparaison des 5 modèles de custody, argumentaire custody et zone grise, Travel Rule, business case chiffré.

@@ -52,6 +52,12 @@ const device = async () => {
   ctx.on("page", watch);
   return ctx;
 };
+// Authentificateur WebAuthn virtuel de Chrome (CDP) : simule une passkey avec vérification de l'utilisateur réussie.
+const addAuthenticator = async (ctx: BrowserContext, p: Page) => {
+  const cdp = await ctx.newCDPSession(p);
+  await cdp.send("WebAuthn.enable");
+  await cdp.send("WebAuthn.addVirtualAuthenticator", { options: { protocol: "ctap2", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true } });
+};
 const shot = (p: Page, n: string) => p.screenshot({ path: `${SHOTS}/etape-6-${MOBILE ? "mobile" : "desktop"}-${n}.png`, fullPage: true });
 const popupOf = async (ctx: BrowserContext, click: () => Promise<void>) => { const [p] = await Promise.all([ctx.waitForEvent("page"), click()]); await p.waitForLoadState(); return p; };
 const login = async (p: Page) => {
@@ -60,7 +66,7 @@ const login = async (p: Page) => {
   await p.reload();
   await p.getByLabel("Identifiant client").fill("CH-0003");
   await p.getByLabel("Mot de passe").fill("demo0003");
-  await p.getByRole("button", { name: "Se connecter" }).click();
+  await p.getByRole("button", { name: "Se connecter", exact: true }).click();
 };
 
 try {
@@ -79,24 +85,35 @@ try {
   // --- Banque : connexion ---
   const ctxA = await device();
   const app = await ctxA.newPage();
+  await addAuthenticator(ctxA, app);
   await app.goto(APP);
   await app.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
   await app.reload();
   await app.getByLabel("Identifiant client").fill("CH-0003");
   await app.getByLabel("Mot de passe").fill("faux");
   const errorsBeforeLogin = errors.length;
-  await app.getByRole("button", { name: "Se connecter" }).click();
+  await app.getByRole("button", { name: "Se connecter", exact: true }).click();
   const badLogin = await app.locator(".error").textContent();
   errors.splice(errorsBeforeLogin); // le 403 du mauvais mot de passe, volontaire, est attendu
   await shot(app, "1-connexion");
   await app.getByLabel("Mot de passe").fill("demo0003");
-  await app.getByRole("button", { name: "Se connecter" }).click();
+  await app.getByRole("button", { name: "Se connecter", exact: true }).click();
   await app.getByText(MOBILE ? "Épargne" : "Compte privé").first().waitFor();
   await app.getByText(/8[’']420\.15/).first().waitFor(); // comptes CHF chargés
   const overview = await app.locator("main").textContent();
   report("6-2", "Connexion e-banking simulée (mauvais mot de passe refusé), aperçu avec comptes CHF et tuile « Créer mon wallet »",
     !!badLogin?.includes("incorrect") && (MOBILE ? !!overview?.includes("Valeur totale") && !!overview?.includes("Cash") && !!overview?.includes("Créer") : !!overview?.includes("Compte privé") && !!overview?.includes("Créer mon wallet")), `${badLogin} ; aperçu affiché`);
   await shot(app, "2-apercu");
+
+  // --- Passkey : activation depuis « Mon compte », déconnexion, reconnexion par passkey ---
+  await app.getByRole("button", { name: "Mon compte" }).click();
+  await app.getByRole("button", { name: "Activer une passkey" }).click();
+  await app.getByText("Passkey activée.").waitFor({ timeout: 15000 });
+  await app.getByRole("button", { name: "Déconnexion" }).click();
+  await app.getByLabel("Identifiant client").fill("CH-0003");
+  await app.getByRole("button", { name: "Se connecter avec une passkey" }).click();
+  await app.getByText(MOBILE ? "Épargne" : "Compte privé").first().waitFor({ timeout: 15000 });
+  report("6-17", "Passkey : activée depuis « Mon compte », puis connexion sans mot de passe par passkey (WebAuthn, vérification de l'utilisateur)", true, "connexion par passkey réussie");
 
   // --- Wallet crypto : création via le Wallet du client ---
   await app.getByRole("button", { name: "Crypto", exact: true }).click();
@@ -204,6 +221,26 @@ try {
   const tile = await app.getByTestId("home-crypto").textContent();
   report("6-8", "Accueil : la ligne / tuile Crypto affiche le solde du wallet (contre-valeur CHF)", MOBILE ? /33[’']99\d\.\d\d/.test(tile ?? "") : !!tile?.includes("0.39") && !!tile?.includes("CHF"), tile?.replace(/\s+/g, " ") ?? "");
 
+  // --- Montant élevé : ré-authentification par passkey (Swissquote) + confirmation renforcée dans le wallet ---
+  await app.getByRole("button", { name: "Crypto", exact: true }).click();
+  await app.getByRole("button", { name: "Envoyer", exact: true }).click();
+  await app.getByPlaceholder("tb1… / bcrt1…").fill(minerAddr);
+  await app.getByPlaceholder("0.0001").fill("0.25");
+  await app.getByRole("button", { name: "Préparer l'envoi" }).click();
+  const highWarn = (await app.locator(".warning", { hasText: "Montant élevé" }).textContent({ timeout: 15000 })) ?? "";
+  await app.getByRole("button", { name: "Signer avec mon Wallet du client" }).click();
+  await wallet.getByText("Montant élevé").first().waitFor({ timeout: 20000 });
+  await shot(wallet, "5b-montant-eleve");
+  const highNote = (await app.getByTestId("stepup-note").textContent({ timeout: 15000 })) ?? "";
+  await wallet.getByLabel("6 derniers caractères de l'adresse").fill(minerAddr.slice(-6));
+  await typePin(wallet);
+  await wallet.getByRole("button", { name: "Confirmer et signer" }).click();
+  await app.getByRole("button", { name: "Diffuser sur le réseau Bitcoin" }).click();
+  const bigSent = (await app.locator(".success", { hasText: "Transaction diffusée" }).last().textContent({ timeout: 20000 })) ?? "";
+  await mine(1);
+  report("6-18", "Montant élevé (0,25 BTC) : avertissement, ré-authentification par passkey auprès de Swissquote, puis 6 derniers caractères de l'adresse + PIN dans le wallet ; diffusé",
+    highWarn.includes("Montant élevé") && highNote.includes("confirmé par passkey") && /[0-9a-f]{64}/.test(bigSent), `${highNote} ; ${bigSent.trim().slice(0, 90)}`);
+
   // --- Perte du wallet, puis recovery depuis un NOUVEL appareil ---
   const lost = await ctxA.newPage();
   await lost.goto(WALLET);
@@ -259,7 +296,7 @@ try {
   await mine(1);
   await nd.getByRole("button", { name: "Ouvrir mon nouveau compte" }).click();
   await nd.getByText("Recovery terminée").waitFor({ timeout: 20000 });
-  try { await nd.getByText(/0\.399/).first().waitFor({ timeout: 20000 }); }
+  try { await nd.getByText(/0\.149/).first().waitFor({ timeout: 20000 }); }
   catch (e) { await shot(nd, "8-ECHEC"); console.log("TEXTE DE LA PAGE :", (await nd.locator("main").textContent())?.replace(/\s+/g, " ").slice(0, 1500)); throw e; }
   await shot(nd, "8-nouveau-wallet");
   report("6-9", "Recovery (nouvel appareil, wallet perdu) : re-KYC, nouveau Wallet du client, Swissquote + tiers ; refus réel avant D, succès à D, nouveau wallet actif",

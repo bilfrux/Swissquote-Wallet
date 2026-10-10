@@ -1,0 +1,11 @@
+[OK ] 10-1 Wallet : 0,25 BTC (≥ seuil de 0,2 BTC) marqué « montant élevé » ; signature refusée sans les 6 derniers caractères de l'adresse ou avec des caractères faux, acceptée avec les bons
+       envoyé 25000000 sats, seuil 20000000 ; sans : 400 « montant élevé : saisissez les 6 derniers caractères de l'adresse de destination » ; faux : 400 ; bons (« rwd549 ») : 200
+[OK ] 10-2 Wallet : 0,05 BTC (sous le seuil) signé avec le seul PIN
+       high=false ; signature : 200
+[OK ] 10-3 Swissquote : step-up impossible sans passkey enregistrée, sans session, ou avec une assertion inventée
+       sans passkey : 404 « aucune passkey enregistrée pour ce client » ; connexion passkey : 404 ; sans session : 401 ; assertion inventée : 403 « passkey inconnue pour ce client »
+
+RÉSUMÉ
+10-1 fonctionne         Wallet : 0,25 BTC (≥ seuil de 0,2 BTC) marqué « montant élevé » ; signature refusée sans les 6 derniers caractères de l'adresse ou avec des caractères faux, acceptée avec les bons
+10-2 fonctionne         Wallet : 0,05 BTC (sous le seuil) signé avec le seul PIN
+10-3 fonctionne         Swissquote : step-up impossible sans passkey enregistrée, sans session, ou avec une assertion inventée

@@ -43,7 +43,7 @@ async function login(ctx: BrowserContext) {
   await p.reload();
   await p.getByLabel("Identifiant client").fill("CH-0003");
   await p.getByLabel("Mot de passe").fill("demo0003");
-  await p.getByRole("button", { name: "Se connecter" }).click();
+  await p.getByRole("button", { name: "Se connecter", exact: true }).click();
   await p.getByRole("button", { name: "Crypto", exact: true }).click();
   return p;
 }

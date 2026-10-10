@@ -38,6 +38,8 @@ function unlock(w: StoredWallet, pin: unknown): string {
 }
 
 const PORT = Number(process.env.CLIENT_WALLET_PORT ?? 5180);
+// Au-delà de ce montant envoyé vers l'extérieur, le wallet exige une confirmation renforcée (en plus du PIN).
+const HIGH_VALUE_SATS = BigInt(process.env.CLIENT_WALLET_HIGH_VALUE_SATS ?? 20_000_000);
 const SELF = `http://localhost:${PORT}`;
 const root = new URL("..", import.meta.url).pathname;
 
@@ -72,7 +74,11 @@ async function describe(psbt: string, network: NetworkName) {
     });
   }
   const fee = inputs.reduce((s, i) => s + BigInt(i.value), 0n) - outputs.reduce((s, o) => s + BigInt(o.value), 0n);
-  return { wallet: wallet ? publicView(wallet) : null, path, delay: inputs[0]?.delay ?? null, inputs, outputs, fee: String(fee) };
+  // Montant qui quitte le compte (sorties qui ne sont pas au client ; sans politique connue, toutes les sorties).
+  const external = outputs.filter((o) => !o.mine);
+  const sent = external.reduce((s, o) => s + BigInt(o.value), 0n);
+  const high = sent >= HIGH_VALUE_SATS;
+  return { wallet: wallet ? publicView(wallet) : null, path, delay: inputs[0]?.delay ?? null, inputs, outputs, fee: String(fee), sent: String(sent), high, highValueSats: String(HIGH_VALUE_SATS), confirmTarget: high ? external[0]?.address ?? null : null };
 }
 
 async function api(req: IncomingMessage, body: any): Promise<unknown> {
@@ -147,6 +153,9 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
       if (!d.wallet) throw new HttpError(400, "ce PSBT ne dépense aucun coin de vos wallets");
       if (d.path !== "client") throw new HttpError(400, "ce PSBT utilise le chemin de recovery (Swissquote + tiers) : votre wallet n'a pas à le signer");
       const w = wallets.find((x) => x.id === d.wallet!.id)!;
+      // Montant élevé : le client ressaisit les 6 derniers caractères de l'adresse de destination (contre une adresse substituée).
+      if (d.high && String(body.confirmDest ?? "").trim().toLowerCase() !== d.confirmTarget!.slice(-6).toLowerCase())
+        throw new HttpError(400, "montant élevé : saisissez les 6 derniers caractères de l'adresse de destination");
       const r = signPsbtWithMnemonic(body.psbt, unlock(w, body.pin), body.network);
       if (r.added === 0) throw new HttpError(400, "aucune entrée signable par ce wallet");
       return r;

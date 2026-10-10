@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { type FeeRates, type PsbtSummary as Summary, type WalletConfig, type WalletUtxo, buildSpend, finalizePsbt, nextIndex, outputAt, simulate } from "@sq/bitcoin";
 import { chain, txLink } from "../lib/chain";
-import { parseBtc } from "../lib/format";
+import { btcFmt, parseBtc } from "../lib/format";
 import { walletRequest } from "../lib/walletBridge";
+import { HIGH_VALUE_SATS, stepUp } from "../lib/bank";
 import { PsbtSummary } from "../simulation/PsbtSummary";
 
 // mode « send » : envoi vers un destinataire ; « refresh » : tout renvoyer vers une adresse neuve du compte.
@@ -22,6 +23,7 @@ export function Send({ cfg, utxos, onSent, mode = "send" }: { cfg: WalletConfig;
   const [result, setResult] = useState<{ txid?: string; error?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [stepNote, setStepNote] = useState<string | null>(null);
 
   const guard = (f: () => Promise<void> | void) => async () => {
     setError(null);
@@ -50,6 +52,9 @@ export function Send({ cfg, utxos, onSent, mode = "send" }: { cfg: WalletConfig;
       }));
     });
 
+  // Montant qui quitte le compte : au-delà du seuil, ré-authentification par passkey (si Swissquote répond).
+  const sentExternal = unsigned ? unsigned.summary.outputs.filter((o) => !o.own).reduce((t, o) => t + o.value, 0n) : 0n;
+  const high = mode === "send" && sentExternal >= HIGH_VALUE_SATS;
   return (
     <div className="send">
       {mode === "send" ? (
@@ -82,9 +87,17 @@ export function Send({ cfg, utxos, onSent, mode = "send" }: { cfg: WalletConfig;
           <PsbtSummary summary={unsigned.summary} delay={cfg.delay} />
           {!signedPsbt ? (
             <>
-              <button disabled={busy} onClick={guard(async () => setSignedPsbt(sameTx((await walletRequest<{ psbt: string }>("sign", { psbt: unsigned.psbt })).psbt)))}>
+              {high && <p className="warning small">Montant élevé ({btcFmt(sentExternal)}) : confirmation par passkey auprès de Swissquote, puis confirmation renforcée dans votre wallet.</p>}
+              <button disabled={busy} onClick={guard(async () => {
+                if (high) {
+                  const r = await stepUp(sentExternal, unsigned.summary.outputs.find((o) => !o.own)?.address ?? "", cfg.network);
+                  setStepNote(r.status === "approuvé" ? "Montant élevé confirmé par passkey." : "Swissquote injoignable : la confirmation renforcée est assurée par votre wallet seul.");
+                }
+                setSignedPsbt(sameTx((await walletRequest<{ psbt: string }>("sign", { psbt: unsigned.psbt })).psbt));
+              })}>
                 Signer avec mon Wallet du client
               </button>
+              {stepNote && <p className="note" data-testid="stepup-note">{stepNote}</p>}
               <p className="note">L'appli ne peut pas signer : votre wallet s'ouvre, affiche la transaction et vous demande de confirmer.</p>
               <details>
                 <summary>Autre wallet externe (PSBT)</summary>

@@ -1,6 +1,6 @@
 // Connexion à la banque SIMULÉE (identifiants de démo).
 import { useState } from "react";
-import { type Session, login } from "../lib/bank";
+import { type Session, login, loginWithPasskey } from "../lib/bank";
 import { Logo } from "../ui/icons";
 
 export function Login({ onLogin }: { onLogin: (s: Session) => void }) {
@@ -19,6 +19,9 @@ export function Login({ onLogin }: { onLogin: (s: Session) => void }) {
           {error && <p className="error">{error}</p>}
           <button type="submit" className="btn-primary wide">Se connecter</button>
         </form>
+        <button className="btn-secondary wide passkey-btn" onClick={async () => { setError(null); try { onLogin(await loginWithPasskey(id.trim())); } catch (err: any) { setError(err.message); } }}>
+          Se connecter avec une passkey
+        </button>
         <p className="muted small center">Banque simulée pour la démo · CH-0002 / demo5678</p>
       </div>
     </div>

@@ -49,3 +49,5 @@ tr.mine td:first-child { color: var(--green); }
 .pin span { display: block; font-size: 12.5px; color: var(--muted); margin: 10px 0 4px; }
 .pin input { width: 100%; padding: 11px; border: 1px solid #cfd6e2; border-radius: 10px; font-size: 18px; letter-spacing: 6px; text-align: center; background: #fff; color: var(--text); }
 .pin input:focus { outline: 2px solid #e9effc; border-color: var(--blue); }
+.high { background: #fdecec; border: 1px solid #f3b8a8; border-radius: 12px; padding: 10px 12px; margin: 10px 0; color: #8a2a12; }
+.high .pin input { letter-spacing: 3px; font-family: ui-monospace, Menlo, monospace; }

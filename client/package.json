@@ -8,6 +8,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@simplewebauthn/browser": "^14.0.0",
     "@sq/bitcoin": "*",
     "qrcode": "^1.5.4",
     "react": "19.3.0",

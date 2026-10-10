@@ -22,6 +22,7 @@ const pinOk = (p: string) => /^\d{6,12}$/.test(p);
 type Description = {
   wallet: WalletView | null; path: "client" | "recovery" | "mixte"; delay: number | null;
   inputs: { value: string }[]; outputs: { address: string; value: string; mine: string | null }[]; fee: string;
+  sent: string; high: boolean; highValueSats: string; confirmTarget: string | null;
 };
 
 async function api(path: string, body?: unknown, method = body ? "POST" : "GET") {
@@ -130,6 +131,7 @@ function PolicyReq({ req, onDone, onError }: { req: Req; onDone: (d: unknown) =>
 function Sign({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unknown) => void; onRefuse: () => void; onError: (e: string) => void }) {
   const [d, setD] = useState<Description | null>(null);
   const [pin, setPin] = useState("");
+  const [confirmDest, setConfirmDest] = useState("");
   useEffect(() => { api("/api/describe", { psbt: req.payload.psbt, network: req.network }).then(setD, (e) => onError(e.message)); }, [req]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!d) return <section><p>Lecture de la transaction…</p></section>;
   const total = d.inputs.reduce((s, i) => s + BigInt(i.value), 0n);
@@ -162,10 +164,18 @@ function Sign({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unknow
         <p><span className="k">Frais</span> {btc(d.fee)}</p>
       </div>
       <p className="hint">Vérifiez l'adresse du destinataire par un autre moyen que l'appli qui vous l'a proposée.</p>
+      {d.high && (
+        <div className="high">
+          <p><strong>Montant élevé</strong> (seuil : {btc(d.highValueSats)}). Pour confirmer, saisissez les <strong>6 derniers caractères</strong> de l'adresse du destinataire.</p>
+          <label className="pin"><span>6 derniers caractères de l'adresse</span>
+            <input value={confirmDest} maxLength={6} autoComplete="off" onChange={(e) => setConfirmDest(e.target.value.trim())} />
+          </label>
+        </div>
+      )}
       {d.wallet?.protected && <PinInput value={pin} onChange={setPin} />}
       <div className="row">
         <button className="secondary" onClick={onRefuse}>Refuser</button>
-        <button disabled={d.path !== "client" || !d.wallet || (d.wallet.protected && !pinOk(pin))} onClick={async () => { try { onDone(await api("/api/sign", { psbt: req.payload.psbt, network: req.network, pin })); } catch (e: any) { onError(e.message); } finally { setPin(""); } }}>
+        <button disabled={d.path !== "client" || !d.wallet || (d.wallet.protected && !pinOk(pin)) || (d.high && confirmDest.length !== 6)} onClick={async () => { try { onDone(await api("/api/sign", { psbt: req.payload.psbt, network: req.network, pin, confirmDest })); } catch (e: any) { onError(e.message); } finally { setPin(""); } }}>
           Confirmer et signer
         </button>
       </div>
