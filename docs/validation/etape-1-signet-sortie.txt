@@ -1,0 +1,9 @@
+PSBT préparé : chemin=client, sorties=859->tb1qzqsel62x8wyct2yuagpcd88x4yehce03qzrksm3hlgd80kj55wvq27ldtm, frais=141
+[client-signer : wallet externe simulé] transaction à signer :
+  entrée 0 : 1000 sats, nSequence=4294967293
+  sortie 0 : 859 sats -> tb1qzqsel62x8wyct2yuagpcd88x4yehce03qzrksm3hlgd80kj55wvq27ldtm
+  frais : 141 sats
+1 signature(s) ajoutée(s)
+signatures après signataire externe : 1
+diffusée : 9203045ed6d150a225821dff8c4287601f94d0c065ec975a795e92f637e6d248
+https://blockstream.info/signet/tx/9203045ed6d150a225821dff8c4287601f94d0c065ec975a795e92f637e6d248

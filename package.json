@@ -1,0 +1,27 @@
+{
+  "name": "swissquote-wallet",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "client",
+    "tools/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w client",
+    "build": "npm run build -w client",
+    "keygen": "npm run -s keygen -w tools/keygen --",
+    "client-signer": "npm run -s sign -w tools/client-signer --",
+    "regtest:up": "docker compose -f docker/regtest.yml up -d",
+    "regtest:down": "docker compose -f docker/regtest.yml down -v",
+    "validate:1": "tsx scripts/validate/etape-1-regtest.ts",
+    "typecheck": "tsc -p packages/bitcoin && tsc -p tools/client-signer && tsc -p tools/keygen && tsc -p client",
+    "validate:1:signet": "tsx scripts/validate/etape-1-signet.ts",
+    "validate:1:ui": "tsx scripts/validate/etape-1-ui.ts"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.64.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}

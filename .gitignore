@@ -1,0 +1,6 @@
+node_modules/
+dist/
+.env
+.local/
+bank-mock/data/
+scripts/feasibility-btc/.keys/

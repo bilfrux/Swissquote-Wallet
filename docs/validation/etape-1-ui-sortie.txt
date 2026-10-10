@@ -1,0 +1,12 @@
+[OK ] Compte créé à partir des 3 clés publiques, adresse affichée
+       adresse affichée : bcrt1q0kvy3asn4fu3f3xcj7vgr0kga5llulr7eq6zx9epdarrv39gaxhswr7vd7
+[OK ] Réception visible : solde et coin avec délai de recovery
+       Solde : 0.40000000 BTC ; ligne : 51a8ef69825c…:1 0.40000000 BTC1dans 5 bloc(s)
+[OK ] PSBT préparé et simulé en clair avant signature
+       Chemin utilisé : clé du client seule (aucun délai)Dépense : 1 coin(s), 0.40000000 BTCSortieMontantDestinationexterne0.10000000 BTCbcrt1qzly8zsstk823arcnzmtyd6w9rd425z0cg75463change (ce compte)0.29999656 BTCbcrt1q7vhm3uhz90mvvcxtf264dsu6gqspzady3np4y9am8xpmj8mh2uqsfdqgcwFrais : 0.00000344 BTCSignatur
+[OK ] PSBT signé à l'extérieur, finalisé et diffusé par l'appli, confirmé
+       Transaction diffusée : 40ff6dfec48b36fd9eab5250856fd446d26df0785c014f786495c7d912ad26fc ; confirmations=1
+[OK ] localStorage : uniquement des clés publiques (aucun tprv, aucune phrase)
+       clés stockées : sq-wallet:btc-account:regtest
+[OK ] Aucune erreur dans la console du navigateur
+       aucune

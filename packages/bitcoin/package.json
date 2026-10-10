@@ -1,0 +1,17 @@
+{
+  "name": "@sq/bitcoin",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./sign": "./src/sign.ts",
+    "./keys": "./src/keys.ts"
+  },
+  "dependencies": {
+    "@bitcoinerlab/descriptors-scure": "3.2.0",
+    "@bitcoinerlab/miniscript": "2.0.0",
+    "@bitcoinerlab/miniscript-policies": "1.1.0",
+    "@scure/base": "2.4.0",
+    "@scure/bip39": "2.4.0"
+  }
+}

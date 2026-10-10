@@ -1,0 +1,22 @@
+[OK ] 1 Politique à un délai compilée, descripteur à plage
+       miniscript = andor(pk(@S),and_v(v:pk(@T),older(6)),pk(@C))
+       descripteur réception = wsh(andor(pk([31c65f90/48'/1'/0'/2']tpubDESp6XkbTikfBDFogvXuh7HqxiJubSFQXwgCzecSbg7NXzkyRLhEHkxicPThQTKjhAJur7T4KraUizYtWQQVsq2wv8pSHWpyeDqX2F84jyh/0/*),and_v(v:pk([9118558c/48'/1'/0'/2']tpubDEtYU9dKxkq5N8tUdcgu6E3RqtRc4kYYAVJSNV2LL1HCCtDi8o6g3bMmtXRkxKxoqKyQuNz5tPGbt9eVwYNdA6oEdpwhGfCGsCDqJXBfjG1/0/*),older(6)),pk([64a11818/48'/1'/0'/2']tpubDF4gWgwcMn5GQN72WbpenPf2zYFAFd5PTabgrEFbKtacdARdQouTBYKV7XXxKTUTDmPpDdZKz6DYd8Y5L5LjpUNX47PC2kzwejD2JxtmycB/0/*)))
+[OK ] 2 Réception sur les adresses 0 et 1 du compte, retrouvées par le scan
+       bcrt1q5g3h0c0udtwccepc6n22f9ywdt05tcmg0asr0fu5hwwhdel82t0s7wvp62 30000000 sats, 1 conf, recovery ouverte dans 5 blocs
+       bcrt1qsry8ld87jd9r7jchjqatcjvyapna4hkpru42x9fraes9u576c89sujyt0p 50000000 sats, 1 conf, recovery ouverte dans 5 blocs
+[OK ] 3a PSBT préparé par l'appli et simulé en clair (chemin, sorties, frais)
+       chemin=client entrées=2 sorties : 60000000 sats -> bcrt1qplw3uk6sjtgqm6v5sacjjtl7gfm6shkr7pmrht ; 19999480 sats -> bcrt1qux9tadwq0mtcnugns2qdh3frs79768kz9xvkq0pugwm96jkderkslemqkz (change, index 0) ; frais=520 sats
+[OK ] 3b Signé par tools/client-signer, finalisé et diffusé par l'appli, confirmé
+       diffusée txid=e48044052e8bd242d140d83ffbcd65fce49e86fca0f3b31b56e9028761bdfae8 ; signatures après signataire = 1,1 ; confirmations=1 ; nSequence=4294967293,4294967293
+[OK ] 4 Signataire externe réel : Bitcoin Core 29 signe le PSBT Miniscript (walletprocesspsbt), l'appli finalise et diffuse
+       import=true,true ; signatures Core par entrée=1 ; diffusée txid=cc952e80b4a51de490ed425a927359f24313964953b66b29e6a8a3e7258f22ad ; txid=cc952e80b4a51de490ed425a927359f24313964953b66b29e6a8a3e7258f22ad
+[OK ] 5 Après envoi total, plus aucun UTXO sur le compte
+       UTXO restants = 0
+
+RÉSUMÉ
+1   fonctionne         Politique à un délai compilée, descripteur à plage
+2   fonctionne         Réception sur les adresses 0 et 1 du compte, retrouvées par le scan
+3a  fonctionne         PSBT préparé par l'appli et simulé en clair (chemin, sorties, frais)
+3b  fonctionne         Signé par tools/client-signer, finalisé et diffusé par l'appli, confirmé
+4   fonctionne         Signataire externe réel : Bitcoin Core 29 signe le PSBT Miniscript (walletprocesspsbt), l'appli finalise et diffuse
+5   fonctionne         Après envoi total, plus aucun UTXO sur le compte

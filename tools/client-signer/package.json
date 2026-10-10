@@ -1,0 +1,16 @@
+{
+  "name": "@sq/client-signer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sign": "tsx client-signer.ts"
+  },
+  "dependencies": {
+    "@bitcoinerlab/descriptors-scure": "3.2.0",
+    "@scure/base": "2.4.0",
+    "@sq/bitcoin": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0"
+  }
+}

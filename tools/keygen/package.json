@@ -1,0 +1,8 @@
+{
+  "name": "@sq/keygen",
+  "private": true,
+  "type": "module",
+  "scripts": { "keygen": "tsx keygen.ts" },
+  "dependencies": { "@sq/bitcoin": "*" },
+  "devDependencies": { "@types/node": "^24.0.0" }
+}

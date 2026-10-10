@@ -309,3 +309,40 @@ Ces décisions, prises le 10 octobre 2026 après la revue de la spec, priment su
 - **Chaîne paramétrable.** Ethereum Sepolia d'abord. Si le module n'y est pas déployé, changer de testnet avant d'écrire du code.
 - **Démo.** Un seul propriétaire. Mise en scène de la recovery : autre profil de navigateur, passkey supprimée devant le public. Backup = EOA dans un autre navigateur ou un fichier.
 - **Périmètre.** Étapes 8 et 10 hors périmètre. Étapes 6 et 7 minimales.
+
+## Modèle 2 guardians (10 octobre 2026, prime sur tout le reste du document)
+
+Cette section remplace les modèles précédents (passkey, backup, chemins D1/D2/D3, signataire WebAuthn). Leur code est conservé sur la branche `archive/exploration-etape-0`.
+
+**Modèle**
+- Le client garde sa seed phrase dans un wallet externe. L'appli ne détient **aucune** clé privée du client : ni clé chiffrée dans le navigateur, ni passkey, ni PRF.
+- Deux guardians : Swissquote (clé dans `bank-mock/`, processus séparé, stockage propre) et le tiers de confiance (clé importée à l'exécution dans la console guardian, jamais persistée).
+- Une seule politique et un seul délai D par chaîne.
+
+**Bitcoin (priorité 1)**
+- Politique : `or(pk(CLIENT),and(pk(SWISSQUOTE),and(pk(TIERS),older(D))))`. La forme imbriquée est obligatoire, car `and()` n'accepte que deux arguments dans le langage de politique. Elle se compile en `andor(pk(S),and_v(v:pk(T),older(D)),pk(C))`.
+- Script P2WSH. Descripteurs à plage pour les trois clés (`/0/*` en réception, `/1/*` en change), dérivation BIP48 `m/48'/1'/0'/2'` sur les testnets. Le xpub est fourni avec son origine : `[empreinte/48'/1'/0'/2']tpub…`.
+- Dépense du client : l'appli prépare un PSBT, le client le signe dans son signataire externe, l'appli finalise et diffuse. `tools/client-signer` remplace Sparrow ou un wallet matériel pour la démo et est étiqueté comme tel. Signataire externe réel validé : Bitcoin Core (wallet de descripteurs, `walletprocesspsbt`). Sparrow ne gère pas les politiques Miniscript à délai (issues #1700 ouverte et #1757 refusée), donc il n'est pas retenu.
+- Recovery : si les coins n'ont pas bougé depuis D blocs, Swissquote et le tiers signent chacun le PSBT vers une nouvelle adresse du client.
+- Rafraîchissement : un envoi à soi-même remet le délai à zéro, par UTXO. L'appli avertit avant l'expiration.
+- D : 6 blocs pour la démo (regtest et signet). Valeur cible présentée dans le pitch : environ 6 mois (≈ 26 000 blocs), comme paramètre.
+- Preuve de propriété (**optionnelle**) : `bip322-js` ne gère pas P2WSH. Repli : le client signe le défi avec sa clé publique qui figure dans la politique ; bank-mock vérifie la signature et recompile l'adresse.
+- Réseaux : regtest (bitcoind 29 dans Docker) pour franchir les délais ; signet (API Esplora de blockstream.info) pour les vraies transactions.
+
+**Ethereum (priorité 2, seulement après la porte B Bitcoin)**
+- Safe dont le propriétaire est le compte EVM du client, signé depuis un wallet externe. Une seule instance du module de recovery Candide, avec deux guardians (Swissquote et tiers), seuil 2.
+- Après toute recovery, appeler `cancelRecovery` et `invalidateNonce`. Retirer un guardian n'annule pas une recovery en cours (version 0.0.1).
+- L'appli présente un seul wallet avec deux comptes. Le Safe n'est déployé qu'à la première utilisation.
+
+**Invariants**
+1. Swissquote seule ne peut dépenser par aucun chemin.
+2. Swissquote + tiers ne peuvent pas dépenser avant D depuis le dernier mouvement des coins (erreur réelle du consensus).
+3. Le client qui rafraîchit avant D bloque toute recovery.
+4. Le client dépense seul à tout moment, même si Swissquote est arrêtée.
+5. Aucune clé privée du client dans l'appli, et aucune clé de guardian dans `client/` ni dans son bundle.
+
+**Attaques** (tests et boutons) : attaquant sans les clés des guardians (refus) ; collusion Swissquote + tiers avant D (refus) ; Swissquote arrêtée, le client dépense seul (succès).
+
+**Limites** : clé du client perdue et Swissquote disparue, alors les fonds sont perdus. Tiers qui perd sa clé, alors il faut le remplacer par une nouvelle politique. Zone grise : Swissquote + tiers peuvent dépenser après D, vers n'importe quelle destination. Sémantique différente sur Ethereum (annulation) et sur Bitcoin (rafraîchissement). Peu de wallets externes gèrent Miniscript (Liana, Bitcoin Core, Ledger, Coldcard, BitBox02). En P2WSH, une dépense révèle la politique ; Taproot est une perspective. Pas de gasless ni de dApp.
+
+**Ordre** : 1. Bitcoin, porte A. 2. bank-mock + console guardian. 3. Recovery Bitcoin, porte B. 4. Attaques et invariants. 5. Livrables. 6. Ethereum.
