@@ -1,18 +1,18 @@
-# Étape 11 (A2) : transferts compte Swissquote ↔ wallet, avec preuve de propriété automatique (Travel Rule)
+# Step 11 (A2): Swissquote account ↔ wallet transfers, with automatic ownership proof (Travel Rule)
 
-Idée de la track : passer du crypto en garde chez Swissquote (offre actuelle) au self-custody, sans copier-coller d'adresse et sous la Travel Rule (wallet auto-hébergé : Swissquote doit établir que le wallet appartient à son client).
+Track idea: move from crypto held in custody by Swissquote (today's offer) to self-custody, without copy-pasting addresses and under the Travel Rule (self-hosted wallet: Swissquote must establish that the wallet belongs to its client).
 
-## Livré
+## Delivered
 
-| Élément | Emplacement |
+| Item | Location |
 | --- | --- |
-| Compte crypto Swissquote **custodial** : registre des avoirs MOCKÉ (soldes de démo : CH-0001 1,5 BTC, CH-0002 0,4 BTC, CH-0003 0,8 BTC) | `bank-mock/src/custody.ts` (`custody_ledger`) |
-| Portefeuille omnibus **réel** de Swissquote dans bitcoind (regtest), créé et approvisionné par minage de démo ; sans rapport avec la clé de guardian | `custody.ts` (`omnibus`) |
-| Retrait vers le wallet : seulement vers une adresse d'un compte enregistré du client (403 sinon), **et seulement après une preuve de propriété vérifiée** pour cette adresse (412 sinon) ; enregistrement Travel Rule (donneur d'ordre, bénéficiaire, référence de la preuve) | `custody.ts` (`withdraw`), routes `POST /custody/withdraw`, `GET /ownership/status`, `GET /custody/travel-rule` |
-| Dépôt vers Swissquote : adresse de dépôt du client ; crédité seulement si **toutes** les entrées viennent d'un wallet enregistré du client, sinon « en attente de vérification », non crédité | `custody.ts` (`depositAddress`, `syncDeposits`) |
-| Interface : bouton « Transférer » du compte ; la preuve de propriété est demandée **automatiquement** au Wallet du client (PIN) quand l'adresse n'en a pas encore ; « Préparer un dépôt » préremplit l'envoi vers l'adresse de dépôt ; liste Travel Rule ; compte crypto Swissquote dans l'accueil | `client/src/wallet/Transfer.tsx`, `lib/ownership.ts`, `lib/bank.ts`, `wallet/Account.tsx`, `bank/Overview.tsx` |
+| Swissquote **custodial** crypto account: MOCKED holdings ledger (demo balances: CH-0001 1.5 BTC, CH-0002 0.4 BTC, CH-0003 0.8 BTC) | `bank-mock/src/custody.ts` (`custody_ledger`) |
+| Swissquote **real** omnibus wallet in bitcoind (regtest), created and funded by demo mining; unrelated to the guardian key | `custody.ts` (`omnibus`) |
+| Withdrawal to the wallet: only to an address of an account registered to the client (403 otherwise), **and only after a verified ownership proof** for that address (412 otherwise); Travel Rule record (originator, beneficiary, proof reference) | `custody.ts` (`withdraw`), routes `POST /custody/withdraw`, `GET /ownership/status`, `GET /custody/travel-rule` |
+| Deposit to Swissquote: client deposit address; credited only if **all** inputs come from a wallet registered to the client, otherwise "awaiting verification", not credited | `custody.ts` (`depositAddress`, `syncDeposits`) |
+| Interface: account "Transfer" button; the ownership proof is requested **automatically** from the Client Wallet (PIN) when the address has none yet; "Prepare a deposit" pre-fills the send to the deposit address; Travel Rule list; Swissquote crypto account on the home page | `client/src/wallet/Transfer.tsx`, `lib/ownership.ts`, `lib/bank.ts`, `wallet/Account.tsx`, `bank/Overview.tsx` |
 
-## Commandes et résultats
+## Commands and results
 
 ```
 npm run regtest:up
@@ -21,28 +21,28 @@ CONSOLE_URL=http://localhost:5175 npm run validate:6:ui
 MOBILE=1 CONSOLE_URL=http://localhost:5175 npm run validate:6:ui
 ```
 
-| # | Critère | Verdict |
+| # | Criterion | Verdict |
 | --- | --- | --- |
-| 11-1 | Retrait sans preuve : 412 « Travel Rule : preuve de propriété requise » ; vers une adresse étrangère : 403 | fonctionne (`etape-11-sortie.txt`) |
-| 11-2 | Après preuve vérifiée (BIP-322, `bip322-js`) : 0,3 BTC envoyés on-chain par l'omnibus, reçus dans le wallet, solde Swissquote débité | fonctionne |
-| 11-3 | Enregistrement Travel Rule : donneur d'ordre et bénéficiaire (même personne, wallet auto-hébergé), référence de la preuve | fonctionne |
-| 11-4 | Retrait supérieur aux avoirs : 400 | fonctionne |
-| 11-5 | Dépôt venant du wallet : crédité ; dépôt d'une source inconnue : en attente, non crédité | fonctionne |
-| 11-6 | Signet : refus explicite (501), l'omnibus signet n'est pas approvisionné | fonctionne |
-| 6-19 | Chrome : « Transférer » 0,1 BTC → preuve signée dans le Wallet du client avec le PIN → envoi → ligne Travel Rule affichée | fonctionne (ordinateur et téléphone : `etape-11-ui-ordinateur-sortie.txt`, `etape-11-ui-telephone-sortie.txt`) |
-| Parcours complet | `validate:6:ui` : 18/18 sur ordinateur, 19/19 sur téléphone | fonctionne |
-| Non-régression | `validate:1`, `2`, `3`, `7`, `8:pin`, `8:alerts`, `10`, `11`, `test:attacks`, `validate:inv5` ; typage des 7 projets | fonctionne (`etape-11-regressions-sortie.txt`) |
-| — | Dépôt depuis l'interface (bouton « Préparer un dépôt » puis « Vérifier mes dépôts ») | **non testé dans Chrome** (logique testée en 11-5) |
+| 11-1 | Withdrawal without proof: 412 "Travel Rule: proof of ownership required"; to a foreign address: 403 | works (`etape-11-sortie.txt`) |
+| 11-2 | After verified proof (BIP-322, `bip322-js`): 0.3 BTC sent on-chain by the omnibus, received in the wallet, Swissquote balance debited | works |
+| 11-3 | Travel Rule record: originator and beneficiary (same person, self-hosted wallet), proof reference | works |
+| 11-4 | Withdrawal above holdings: 400 | works |
+| 11-5 | Deposit from the wallet: credited; deposit from an unknown source: held, not credited | works |
+| 11-6 | Signet: explicit refusal (501), the signet omnibus is not funded | works |
+| 6-19 | Chrome: "Transfer" 0.1 BTC → proof signed in the Client Wallet with the PIN → send → Travel Rule line displayed | works (desktop and phone: `etape-11-ui-ordinateur-sortie.txt`, `etape-11-ui-telephone-sortie.txt`) |
+| Full journey | `validate:6:ui`: 18/18 on desktop, 19/19 on phone | works |
+| Non-regression | `validate:1`, `2`, `3`, `7`, `8:pin`, `8:alerts`, `10`, `11`, `test:attacks`, `validate:inv5`; typing of the 7 projects | works (`etape-11-regressions-sortie.txt`) |
+| — | Deposit from the interface (button "Prepare a deposit" then "Check my deposits") | **not tested in Chrome** (logic tested in 11-5) |
 
-## Ce qui a été observé en chemin
+## What was observed along the way
 
-- Première version : l'appli tentait le retrait, recevait 412, puis faisait la preuve. Le parcours fonctionnait, mais la console du navigateur affichait l'erreur 412. Désormais l'appli demande d'abord `GET /ownership/status` et ne fait la preuve que si nécessaire. Le 412 reste le garde-fou côté serveur (11-1).
-- Une exécution sur ordinateur a montré une fois une **erreur 500** non identifiée (la console ne donnait pas l'URL). Je ne l'ai pas reproduite sur 5 exécutions suivantes (3 sur ordinateur, 2 sur téléphone). Le test note maintenant la méthode, l'URL et la réponse de toute erreur 5xx pour la diagnostiquer si elle revient. **Cause non établie.**
+- First version: the app attempted the withdrawal, received 412, then did the proof. The journey worked, but the browser console showed the 412 error. Now the app first asks `GET /ownership/status` and only does the proof if needed. The 412 remains the server-side safeguard (11-1).
+- One desktop run showed once an unidentified **500 error** (the console did not give the URL). I did not reproduce it in 5 later runs (3 on desktop, 2 on phone). The test now records the method, URL and response of any 5xx error to diagnose it if it comes back. **Cause not established.**
 
-## Limites
+## Limits
 
-- Regtest uniquement : sur signet, l'omnibus n'est pas approvisionné (refus explicite 501).
-- Registre des avoirs mocké ; l'omnibus est approvisionné par minage de démo.
-- La preuve porte sur la détention de la clé client à l'index de l'adresse (voir étape 7), pas sur une signature de l'adresse P2WSH elle-même.
-- Le contrôle de provenance des dépôts est simple : toutes les entrées doivent venir d'une adresse (lookahead 50) d'un compte enregistré du client. Pas d'analyse de chaîne ni de screening de sanctions (mock prévu pour la partie EVM).
-- L'enregistrement Travel Rule est local. Aucune transmission à un autre prestataire (inutile ici : le bénéficiaire est un wallet auto-hébergé du même client).
+- Regtest only: on signet, the omnibus is not funded (explicit 501 refusal).
+- Mocked holdings ledger; the omnibus is funded by demo mining.
+- The proof covers possession of the client key at the address index (see step 7), not a signature of the P2WSH address itself.
+- The deposit source check is simple: all inputs must come from an address (lookahead 50) of a registered account of the client. No chain analysis or sanctions screening (mock planned for the EVM part).
+- The Travel Rule record is local. No transmission to another provider (unnecessary here: the beneficiary is a self-hosted wallet of the same client).

@@ -1,52 +1,52 @@
-# Étape 3 : recovery Bitcoin, refus avant D, rafraîchissement (porte B)
+# Step 3: Bitcoin recovery, refusal before D, refresh (gate B)
 
-## Livré
+## Delivered
 
-| Élément | Emplacement |
+| Item | Location |
 | --- | --- |
-| Écran « Récupérer mon compte » : re-KYC, ancien compte retrouvé, nouvelle clé, demande signée par Swissquote, signature du tiers, diffusion avec l'erreur réelle du réseau, bascule sur le nouveau compte. L'état (données publiques) est conservé pendant l'attente de D | `client/src/recovery/Recovery.tsx` |
-| Avertissement « bientôt dépensable par Swissquote + tiers » et bouton de rafraîchissement | `client/src/wallet/Account.tsx`, `Send.tsx` (depuis l'étape 1) |
-| `POST /accounts/list` (après re-KYC) : clés publiques des comptes du client, pour un nouvel appareil | `bank-mock/src/server.ts` |
-| Étiquette « votre nouveau compte » dans la simulation de recovery | `client/src/simulation/PsbtSummary.tsx` |
-| Outils de validation communs | `scripts/validate/lib.ts` |
+| "Recover my account" screen: re-KYC, old account found, new key, request signed by Swissquote, contact's signature, broadcast with the real network error, switch to the new account. State (public data) is kept while waiting for D | `client/src/recovery/Recovery.tsx` |
+| "Soon spendable by Swissquote + trusted contact" warning and refresh button | `client/src/wallet/Account.tsx`, `Send.tsx` (since step 1) |
+| `POST /accounts/list` (after re-KYC): public keys of the client's accounts, for a new device | `bank-mock/src/server.ts` |
+| "your new account" label in the recovery simulation | `client/src/simulation/PsbtSummary.tsx` |
+| Common validation tools | `scripts/validate/lib.ts` |
 
-## Commandes
+## Commands
 
 ```bash
 npm run regtest:up
-npm run validate:3                                    # regtest : bank-mock dédié (port 4101)
+npm run validate:3                                    # regtest: dedicated bank-mock (port 4101)
 npm run dev                                           # client, bank-mock (4000), console
-npm run validate:3:ui                                 # Chrome headless, 3 profils (CONSOLE_URL / APP_URL si besoin)
-npm run validate:3:signet -- prepare | broadcast      # recovery réelle sur signet, bank-mock sur 4000
+npm run validate:3:ui                                 # headless Chrome, 3 profiles (CONSOLE_URL / APP_URL if needed)
+npm run validate:3:signet -- prepare | broadcast      # real recovery on signet, bank-mock on 4000
 ```
 
-## Résultats regtest (`etape-3-sortie.txt`)
+## Regtest results (`etape-3-sortie.txt`)
 
-| # | Critère | Verdict |
+| # | Criterion | Verdict |
 | --- | --- | --- |
-| 1 | Recovery Swissquote + tiers sur deux coins reçus à 2 blocs d'écart : **refusée par le consensus** (`non-BIP68-final`) à 1 conf, puis tant que le coin le plus récent a moins de D conf ; **acceptée à D** ; fonds sur le nouveau compte, ancien compte vide | fonctionne |
-| 2 | Rafraîchissement : avertissement affiché à D−2 ; après l'envoi à soi-même, la recovery déjà signée est refusée (`missing-inputs`), et une nouvelle recovery sur le coin rafraîchi est refusée (`non-BIP68-final`) : le délai repart de zéro | fonctionne |
-| 3 | Pendant ce temps, le client dépense seul dès 1 confirmation, Swissquote arrêtée | fonctionne |
+| 1 | Swissquote + contact recovery on two coins received 2 blocks apart: **rejected by consensus** (`non-BIP68-final`) at 1 conf, then as long as the newest coin has fewer than D conf; **accepted at D**; funds on the new account, old account empty | works |
+| 2 | Refresh: warning displayed at D−2; after the send-to-self, the already signed recovery is rejected (`missing-inputs`), and a new recovery on the refreshed coin is rejected (`non-BIP68-final`): the delay restarts from zero | works |
+| 3 | Meanwhile, the client spends alone from 1 confirmation, with Swissquote stopped | works |
 
-## Résultats dans le navigateur (`etape-3-ui-sortie.txt`, captures `etape-3-*.png`)
+## Browser results (`etape-3-ui-sortie.txt`, screenshots `etape-3-*.png`)
 
-| # | Critère | Verdict |
+| # | Criterion | Verdict |
 | --- | --- | --- |
-| UI-1 | Ancien appareil : avertissement quand le délai approche | fonctionne |
-| UI-2 | Nouvel appareil (autre profil) : re-KYC, ancien compte retrouvé, nouvelle clé enregistrée, demande signée par Swissquote | fonctionne |
-| UI-3 | Tiers (troisième profil) : signe dans la console guardian | fonctionne |
-| UI-4 | Diffusion avant D : l'appli affiche le refus réel du réseau (`non-BIP68-final`) et le nombre de blocs restants | fonctionne |
-| UI-5 | À D : recovery diffusée ; le nouveau compte s'ouvre avec les fonds | fonctionne |
-| UI-6 | Ancien appareil : compte vide | fonctionne |
-| UI-7 | Aucune erreur dans la console des navigateurs | fonctionne |
+| UI-1 | Old device: warning when the delay approaches | works |
+| UI-2 | New device (other profile): re-KYC, old account found, new key registered, request signed by Swissquote | works |
+| UI-3 | Trusted contact (third profile): signs in the guardian console | works |
+| UI-4 | Broadcast before D: the app shows the real network refusal (`non-BIP68-final`) and the number of remaining blocks | works |
+| UI-5 | At D: recovery broadcast; the new account opens with the funds | works |
+| UI-6 | Old device: empty account | works |
+| UI-7 | No error in the browser consoles | works |
 
 ## Signet (`etape-3-signet-sortie.txt`)
 
-Coin de l'étape 1 (859 sats, `9203045e…d248:0`, confirmé au bloc 325781) sur le compte n°7. Recovery vers le compte n°8 (nouvelle clé client), signée par Swissquote **via le vrai bank-mock** (port 4000, sa propre clé), après re-KYC, et par le tiers.
+Coin from step 1 (859 sats, `9203045e…d248:0`, confirmed at block 325781) on account #7. Recovery to account #8 (new client key), signed by Swissquote **through the real bank-mock** (port 4000, its own key), after re-KYC, and by the trusted contact.
 
-| Critère | Verdict |
+| Criterion | Verdict |
 | --- | --- |
-| Diffusion à 1 confirmation : **refusée par le réseau signet** (`sendrawtransaction RPC error -26: non-BIP68-final`) | fonctionne |
-| Diffusion à 6 confirmations (bloc 325786) : **acceptée par le réseau signet** : 859 sats dépensés par le chemin Swissquote + tiers, 700 sats vers le nouveau compte n°8 (`tb1qv37a3kg6dna8zd252paegjfejrvepsp4cagaeg5kj54y7dvqfw4qyn4xqp`), 159 sats de frais | fonctionne |
+| Broadcast at 1 confirmation: **rejected by the signet network** (`sendrawtransaction RPC error -26: non-BIP68-final`) | works |
+| Broadcast at 6 confirmations (block 325786): **accepted by the signet network**: 859 sats spent through the Swissquote + contact path, 700 sats to the new account #8 (`tb1qv37a3kg6dna8zd252paegjfejrvepsp4cagaeg5kj54y7dvqfw4qyn4xqp`), 159 sats of fee | works |
 
-Transaction de recovery réelle : [d26b94de30f36cbfa8b1a7f39976bf74a09e7afafda09b7a66a916b37326c519](https://blockstream.info/signet/tx/d26b94de30f36cbfa8b1a7f39976bf74a09e7afafda09b7a66a916b37326c519). Observé : diffusion acceptée par l'API Esplora. La confirmation en bloc n'a pas été vérifiée au moment de l'écriture.
+Real recovery transaction: [d26b94de30f36cbfa8b1a7f39976bf74a09e7afafda09b7a66a916b37326c519](https://blockstream.info/signet/tx/d26b94de30f36cbfa8b1a7f39976bf74a09e7afafda09b7a66a916b37326c519). Observed: broadcast accepted by the Esplora API. Block confirmation was not checked at the time of writing.

@@ -1,41 +1,44 @@
-# Outils d'IA utilisés
+# AI tools used
 
-## Outils
+## Tools
 
-| Outil | Modèle | Usage |
+| Tool | Model | Use |
 | --- | --- | --- |
-| Claude Code (CLI d'Anthropic) | Claude Opus 5.5 | Revue critique de la spec, scripts de faisabilité (Ethereum puis Bitcoin), implémentation de tout le code du dépôt, scripts de validation et d'attaque, exécution des tests, rédaction des rapports `docs/validation/` et de ces livrables |
-| *(à compléter par l'équipe)* | — | Outils éventuellement utilisés hors du dépôt (rédaction de la spec et des prompts, pitch, slides) : ce document ne peut pas les déduire de l'historique |
+| Claude Code (Anthropic CLI) | Claude Opus 5.5, then Claude Sonnet 5.5 | Critical review of the spec, feasibility scripts (Ethereum then Bitcoin), implementation of all the code in the repository, validation and attack scripts, running the tests, writing the `docs/validation/` reports and these deliverables, translation of the interface and documentation into English |
+| *(to be completed by the team)* | — | Tools possibly used outside the repository (writing the spec and prompts, pitch, slides): this document cannot infer them from the history |
 
-Tous les commits après le commit initial portent la mention `Co-Authored-By: Claude Opus 5.5` (`git log`).
+All commits after the initial commit carry a `Co-Authored-By: Claude …` line (`git log`).
 
-## Méthode de travail
+## Working method
 
-- **L'humain décide, l'IA exécute et rapporte.** Le modèle de custody a changé trois fois sur décision de l'équipe. L'IA s'arrêtait et signalait chaque hypothèse fausse avant de la contourner (règle de `CLAUDE.md`).
-- **Une étape à la fois, une preuve par étape** : un commit et un `docs/validation/etape-N.md` par étape, avec commandes et sorties brutes.
-- **Rien n'est déclaré réussi sans exécution** : chaque ligne « fonctionne » renvoie à une sortie de test ; les points non exécutés sont marqués « non testé ».
-- **Pas de cryptographie générée par l'IA** : signatures, dérivations et PSBT viennent de bibliothèques établies (`@scure/*`, `@noble/curves`, `@bitcoinerlab/*`, compilateur Miniscript de référence).
+- **The human decides, the AI executes and reports.** The custody model changed three times on the team's decision. The AI stopped and flagged each false assumption before working around it (`CLAUDE.md` rule).
+- **One step at a time, one proof per step**: one commit and one `docs/validation/etape-N.md` per step, with commands and raw outputs.
+- **Nothing is declared successful without execution**: each "works" line points to a test output; points not executed are marked "not tested".
+- **No AI-generated cryptography**: signatures, derivations and PSBTs come from established libraries (`@scure/*`, `@noble/curves`, `@bitcoinerlab/*`, reference Miniscript compiler).
 
-## Erreurs détectées par l'exécution (et non par relecture)
+## Errors caught by execution (not by review)
 
-L'exécution systématique a fait apparaître des erreurs, de la spec comme du code produit par l'IA :
+Systematic execution brought out errors, in the spec as well as in the AI-produced code:
 
-| Type | Constat | Comment il a été détecté |
+| Type | Finding | How it was detected |
 | --- | --- | --- |
-| Hypothèse de spec fausse | La première politique Bitcoin réutilisait les mêmes clés dans plusieurs chemins : Miniscript l'interdit | `[compile error]` du compilateur de référence |
-| Hypothèse de spec fausse | `and(a, b, c)` n'existe pas dans le langage de politique (deux arguments seulement) | Erreur de compilation ; forme imbriquée retenue |
-| Hypothèse de spec à nuancer | Les modules Candide déployés sont en version 0.0.1, sans 14 correctifs d'audit de 2026 | `cast call … VERSION()` sur Sepolia, lecture du code (branche archive) |
-| Hypothèse non retenue | Sparrow ne gère très probablement pas les politiques Miniscript à délai | Issues GitHub #1700 et #1757 (non vérifié en lançant Sparrow) |
-| Bug de code IA | Chemins relatifs des outils résolus depuis le mauvais dossier (`npm run -w`) | Échec de `client-signer` dans le test de l'étape 1 |
-| Bug de code IA | Deux `scantxoutset` simultanés : bitcoind en refuse un (HTTP 500) | Erreur console dans le test Chrome de l'étape 1 |
-| Bug de test IA | Message d'erreur attendu inexact (`bad-txns-inputs-missingorspent` au lieu de `missing-inputs`, renvoyé par Bitcoin Core 29) | Test rouge alors que le comportement était correct |
-| Bug de test IA | Temporisation erronée : le test de rafraîchissement aurait laissé le nouveau coin atteindre D | Relecture du test avant exécution |
-| Bug de test IA | Lectures trop tôt dans l'interface (ligne d'un ancien coin, élément sans le montant, mots de la phrase non encore affichés) | Tests Chrome rouges, corrigés côté test |
-| Bug de code IA | Course entre deux scans : à la bascule vers le nouveau wallet après recovery, un scan obsolète de l'ancien compte écrasait le solde par 0 | Test de bout en bout de l'étape 6 (fonds bien sur la chaîne, solde affiché à 0) |
-| Bug de code IA | « Simuler la perte de l'appareil » ne supprimait rien : le contrôle anti-requêtes « simples » du wallet refusait aussi le DELETE (415), et l'erreur n'était pas affichée | Test 6-9 (« ancien wallet effacé : false ») |
-| Bug de code IA | Deux instances du Wallet du client se disputaient le port de rechargement à chaud de Vite | Erreurs websocket dans la console, test 6-11 |
+| False spec assumption | The first Bitcoin policy reused the same keys in several paths: Miniscript forbids it | `[compile error]` from the reference compiler |
+| False spec assumption | `and(a, b, c)` does not exist in the policy language (two arguments only) | Compilation error; nested form chosen |
+| Spec assumption to qualify | The deployed Candide modules are version 0.0.1, without 14 audit fixes from 2026 | `cast call … VERSION()` on Sepolia, code reading (archive branch) |
+| Assumption not retained | Sparrow most likely does not handle Miniscript policies with a delay | GitHub issues #1700 and #1757 (not verified by running Sparrow) |
+| AI code bug | Relative paths of the tools resolved from the wrong folder (`npm run -w`) | `client-signer` failure in the step 1 test |
+| AI code bug | Two simultaneous `scantxoutset`: bitcoind rejects one (HTTP 500) | Console error in the step 1 Chrome test |
+| AI test bug | Wrong expected error message (`bad-txns-inputs-missingorspent` instead of `missing-inputs`, returned by Bitcoin Core 29) | Red test while the behaviour was correct |
+| AI test bug | Wrong timing: the refresh test would have let the new coin reach D | Re-reading the test before running it |
+| AI test bug | Reads too early in the interface (row of an old coin, element without the amount, phrase words not yet displayed) | Red Chrome tests, fixed on the test side |
+| AI code bug | Race between two scans: when switching to the new wallet after recovery, a stale scan of the old account overwrote the balance with 0 | Step 6 end-to-end test (funds on the chain, balance displayed as 0) |
+| AI code bug | "Simulate losing the device" deleted nothing: the wallet's "simple request" guard also refused DELETE (415), and the error was not displayed | Test 6-9 ("old wallet erased: false") |
+| AI code bug | Two instances of the Client Wallet fought over Vite's hot-reload port | Websocket errors in the console, test 6-11 |
+| AI test bug | Console error 412 expected by design (first withdrawal attempt without ownership proof) flagged as a failure; fixed by checking the proof status first | Test 6-11 |
+| Unexplained | One 500 error seen once in the desktop Chrome test, not reproduced in 5 further runs; cause not established | Test 6-11 (now logs the method, URL and response of any 5xx) |
+| Translation | The ownership-proof tamper test no longer altered anything after the message was translated | `validate:7`, test 7-4 |
 
-## Limites de cet usage
+## Limits of this use
 
-- Le code a été écrit très vite et principalement par l'IA. Il est couvert par des tests d'intégration contre un vrai nœud, mais **n'a pas été audité**.
-- Les affirmations juridiques et business (custody, Travel Rule, business case) ne figurent pas dans ces livrables techniques. Elles sont à formuler comme des hypothèses de conception et à faire relire par l'équipe.
+- The code was written very quickly and mainly by the AI. It is covered by integration tests against a real node, but **has not been audited**.
+- The legal and business statements (custody, Travel Rule, business case) do not appear in these technical deliverables. They are to be phrased as design hypotheses and reviewed by the team.

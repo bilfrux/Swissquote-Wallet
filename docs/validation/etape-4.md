@@ -1,72 +1,72 @@
-# Étape 4 : attaques, invariants et preuves
+# Step 4: attacks, invariants and proofs
 
-Toutes les attaques sont exécutées contre un vrai nœud (bitcoind 29, regtest). Chaque scénario crée un compte de **démo** avec des graines jetables. Les rôles « Swissquote » et « tiers » complices utilisent leurs propres clés de démo et **contournent bank-mock**, comme le ferait un guardian malveillant : seul le consensus est testé.
+All attacks are run against a real node (bitcoind 29, regtest). Each scenario creates a **demo** account with throw-away seeds. The colluding "Swissquote" and "trusted contact" roles use their own demo keys and **bypass bank-mock**, as a malicious guardian would: only consensus is tested.
 
-## Livré
+## Delivered
 
-| Élément | Emplacement |
+| Item | Location |
 | --- | --- |
-| Scénarios (3 attaques et invariant 1), partagés par les tests et le panneau | `scripts/attacks/attacks.ts` |
-| `npm run test:attacks` : exécute tout, écrit `docs/validation/etape-4-attaques.json` | `scripts/attacks/run.ts` |
-| Serveur du panneau (démo regtest, port 4200, processus séparé ; ne renvoie que verdicts et messages) | `scripts/attacks/server.ts` |
-| Panneau « Attaques » (affiché en regtest) | `client/src/attacks/AttackPanel.tsx` |
-| Invariant 5, avec témoin positif | `scripts/validate/invariant-5.ts` |
+| Scenarios (3 attacks and invariant 1), shared by the tests and the panel | `scripts/attacks/attacks.ts` |
+| `npm run test:attacks`: runs everything, writes `docs/validation/etape-4-attaques.json` | `scripts/attacks/run.ts` |
+| Panel server (regtest demo, port 4200, separate process; only returns verdicts and messages) | `scripts/attacks/server.ts` |
+| "Attacks" panel (shown on regtest) | `client/src/attacks/AttackPanel.tsx` |
+| Invariant 5, with positive control | `scripts/validate/invariant-5.ts` |
 
-Pour les invariants 1 et l'attaque 1, la bibliothèque refuse de finaliser. On pose donc le témoin P2WSH à la main (signatures produites par `@scure/btc-signer`, `@bitcoinerlab/descriptors` ou `@noble/curves`, et le `witnessScript` du compte) pour obtenir le **verdict du consensus**.
+For invariant 1 and attack 1, the library refuses to finalize. The P2WSH witness is therefore placed by hand (signatures produced by `@scure/btc-signer`, `@bitcoinerlab/descriptors` or `@noble/curves`, and the account's `witnessScript`) to obtain the **consensus verdict**.
 
-## Commandes
+## Commands
 
 ```bash
 npm run regtest:up
-npm run test:attacks          # sortie : etape-4-attaques-sortie.txt, preuves JSON : etape-4-attaques.json
-npm run validate:inv5         # sortie : etape-4-invariant-5-sortie.txt
-npm run attacks:server        # puis l'appli en regtest
-npm run validate:4:ui         # sortie : etape-4-ui-sortie.txt, capture : captures/etape-4-panneau-attaques.png
+npm run test:attacks          # output: etape-4-attaques-sortie.txt, JSON proofs: etape-4-attaques.json
+npm run validate:inv5         # output: etape-4-invariant-5-sortie.txt
+npm run attacks:server        # then the app on regtest
+npm run validate:4:ui         # output: etape-4-ui-sortie.txt, screenshot: captures/etape-4-panneau-attaques.png
 ```
 
-## Résultats
+## Results
 
-| # | Scénario | Attendu | Message réel de la chaîne | Verdict |
+| # | Scenario | Expected | Actual chain message | Verdict |
 | --- | --- | --- | --- | --- |
-| Inv. 1 | Swissquote seule, **après D**, chemin recovery (témoin `[∅, sig Swissquote]`) | refus | `mempool-script-verify-flag-failed (Script failed an OP_CHECKSIGVERIFY operation)` | fonctionne |
-| Inv. 1 | Swissquote seule, chemin client (signature Swissquote à la place du client) | refus | `mempool-script-verify-flag-failed (Signature must be zero for failed CHECK(MULTI)SIG operation)` | fonctionne |
-| Inv. 1 | Bibliothèque : finalisation avec la seule signature Swissquote | refus | `unresolvable miniscript andor(pk(@0),and_v(v:pk(@1),older(6)),pk(@2))` | fonctionne |
-| Att. 1 | Téléphone + email volés, sans clés : re-KYC Swissquote refusé (403) ; après D, deux signatures de l'attaquant à la place des guardians | refus | `mempool-script-verify-flag-failed (Signature must be zero for failed CHECK(MULTI)SIG operation)` | fonctionne |
-| Att. 2 | Collusion Swissquote + tiers, à 1 et à 5 confirmations (D = 6) | refus | `non-BIP68-final` | fonctionne |
-| Att. 2 (info) | Même transaction à D, sans rafraîchissement (non diffusée) | zone grise assumée | `accepté` | observé |
-| Att. 3 | bank-mock arrêté (`ECONNREFUSED`) ; le client signe avec `tools/client-signer` et diffuse | succès | `diffusée <txid>` | fonctionne |
-| Inv. 5 | Témoin : la recherche retrouve les 14 graines là où elles sont stockées | 14/14 | — | fonctionne |
-| Inv. 5 | Aucune des 14 graines de la machine, ni sa clé privée de compte, dans `client/src`, `client/dist`, `client/index.html`, `client/vite.config.ts` | rien | — | fonctionne |
-| Inv. 5 | Aucun xprv/tprv, aucune clé WIF dans les sources, pas de liste BIP39 dans le bundle | rien | — | fonctionne |
-| Inv. 5 | `client/src` n'importe ni signature, ni graine, ni dérivation de clé privée | rien | — | fonctionne |
-| UI-1…3 | Les trois boutons du panneau : verdict, « conforme », message réel affiché | — | (identiques aux lignes ci-dessus) | fonctionne |
-| UI-4 | Aucune erreur dans la console du navigateur | — | — | fonctionne |
+| Inv. 1 | Swissquote alone, **after D**, recovery path (witness `[∅, Swissquote sig]`) | rejection | `mempool-script-verify-flag-failed (Script failed an OP_CHECKSIGVERIFY operation)` | works |
+| Inv. 1 | Swissquote alone, client path (Swissquote signature in place of the client's) | rejection | `mempool-script-verify-flag-failed (Signature must be zero for failed CHECK(MULTI)SIG operation)` | works |
+| Inv. 1 | Library: finalization with the Swissquote signature alone | rejection | `unresolvable miniscript andor(pk(@0),and_v(v:pk(@1),older(6)),pk(@2))` | works |
+| Att. 1 | Phone + email stolen, no keys: Swissquote re-KYC refused (403); after D, two attacker signatures in place of the guardians | rejection | `mempool-script-verify-flag-failed (Signature must be zero for failed CHECK(MULTI)SIG operation)` | works |
+| Att. 2 | Swissquote + contact collusion, at 1 and 5 confirmations (D = 6) | rejection | `non-BIP68-final` | works |
+| Att. 2 (info) | Same transaction at D, without refresh (not broadcast) | accepted grey zone | `accepted` | observed |
+| Att. 3 | bank-mock stopped (`ECONNREFUSED`); the client signs with `tools/client-signer` and broadcasts | success | `broadcast <txid>` | works |
+| Inv. 5 | Control: the search finds the 14 seeds where they are stored | 14/14 | — | works |
+| Inv. 5 | None of the machine's 14 seeds, nor its account private key, in `client/src`, `client/dist`, `client/index.html`, `client/vite.config.ts` | nothing | — | works |
+| Inv. 5 | No xprv/tprv, no WIF key in the sources, no BIP39 list in the bundle | nothing | — | works |
+| Inv. 5 | `client/src` imports no signing, seed or private-key derivation | nothing | — | works |
+| UI-1…3 | The three panel buttons: verdict, "as expected", actual message displayed | — | (same as the lines above) | works |
+| UI-4 | No error in the browser console | — | — | works |
 
-Information, non bloquante : le bundle contient le **code** des fonctions `signBIP32` et `signECPair` de la bibliothèque (non éliminé au build). L'appli ne l'appelle jamais et n'a aucune clé à lui fournir.
+Information, non-blocking: the bundle contains the **code** of the library's `signBIP32` and `signECPair` functions (not removed at build time). The app never calls it and has no key to give it.
 
-Commandes de recherche de l'invariant 5 (les secrets passent par un fichier temporaire hors du dépôt) :
+Search commands of invariant 5 (secrets go through a temporary file outside the repository):
 
 ```bash
-grep -rlF -f <graines + tprv de .local/ et bank-mock/data/> client/src client/dist client/index.html client/vite.config.ts   # -> rien
-grep -rlF -f <idem> .local bank-mock/data                                                                                # témoin -> 14 fichiers
-grep -rlE '[tx]prv[1-9A-HJ-NP-Za-km-z]{100,}' client/src client/dist client/index.html client/vite.config.ts             # -> rien
-grep -rlE '\b[c9KL5][1-9A-HJ-NP-Za-km-z]{50,51}\b' client/src                                                           # -> rien
-grep -rl '"abandon","ability"' client/dist                                                                               # -> rien
-grep -rnE '@sq/bitcoin/(sign|keys)|mnemonicToSeed|fromMasterSeed|privateExtendedKey|signBIP32|signers\.' client/src      # -> rien
+grep -rlF -f <seeds + tprv from .local/ and bank-mock/data/> client/src client/dist client/index.html client/vite.config.ts   # -> nothing
+grep -rlF -f <same> .local bank-mock/data                                                                                    # control -> 14 files
+grep -rlE '[tx]prv[1-9A-HJ-NP-Za-km-z]{100,}' client/src client/dist client/index.html client/vite.config.ts                 # -> nothing
+grep -rlE '\b[c9KL5][1-9A-HJ-NP-Za-km-z]{50,51}\b' client/src                                                               # -> nothing
+grep -rl '"abandon","ability"' client/dist                                                                                   # -> nothing
+grep -rnE '@sq/bitcoin/(sign|keys)|mnemonicToSeed|fromMasterSeed|privateExtendedKey|signBIP32|signers\.' client/src          # -> nothing
 ```
 
-## Qui signe les dépenses du client, et où sont les clés ?
+## Who signs the client's spends, and where are the keys?
 
-**L'appli ne signe jamais et ne reçoit jamais de clé privée.** Elle ne prépare que des PSBT non signés, puis finalise et diffuse ce qu'on lui rend.
+**The app never signs and never receives a private key.** It only prepares unsigned PSBTs, then finalizes and broadcasts what it is given back.
 
-Ce qui signe les dépenses du client aujourd'hui :
-1. **`tools/client-signer`** : le signataire de démo qui remplace le wallet externe. Processus séparé ; il lit la phrase à l'exécution (saisie ou `--mnemonic-file`), affiche ce qu'il signe, signe et n'écrit que le PSBT signé. C'est lui qu'utilisent les tests, le signet de l'étape 1 et l'attaque 3.
-2. **Bitcoin Core 29** (`walletprocesspsbt`) : un vrai signataire externe, validé à l'étape 1 en regtest. Il détient une clé client de **test** dans son wallet `client-core`, à l'intérieur du conteneur Docker.
+What signs the client's spends today:
+1. **`tools/client-signer`**: the demo signer replacing the external wallet. Separate process; it reads the phrase at run time (typed or `--mnemonic-file`), displays what it signs, signs and only writes the signed PSBT. The tests, the step 1 signet run and attack 3 use it.
+2. **Bitcoin Core 29** (`walletprocesspsbt`): a real external signer, validated at step 1 on regtest. It holds a **test** client key in its `client-core` wallet, inside the Docker container.
 
-Clés de **test** du client stockées sur la machine, toutes en mode 600 et ignorées par git (aucune n'est suivie : le seul fichier suivi qui contient le mot `mnemonic` est un test qui vérifie son absence) :
-- `.local/signet/client.json` et `.local/signet/client-new.json` : comptes signet (étapes 1 et 3) ;
-- `.local/regtest/client.json`, `.local/regtest-ui/client.json`, `.local/bm-test/client.json` : écrits par les scripts de validation ;
-- `scripts/validate/lib.ts` (`clientSign`) écrit un fichier temporaire et le **supprime** après signature.
+**Test** client keys stored on the machine, all in mode 600 and ignored by git (none is tracked: the only tracked file containing the word `mnemonic` is a test that checks for its absence):
+- `.local/signet/client.json` and `.local/signet/client-new.json`: signet accounts (steps 1 and 3);
+- `.local/regtest/client.json`, `.local/regtest-ui/client.json`, `.local/bm-test/client.json`: written by the validation scripts;
+- `scripts/validate/lib.ts` (`clientSign`) writes a temporary file and **deletes** it after signing.
 
-Ces fichiers représentent le wallet externe du client pour la démo. Dans le modèle réel, ils n'existent pas : la phrase reste dans le wallet du client.
-Autres graines présentes : Swissquote dans `bank-mock/data/` (et `.local/bm-*` pour les instances de test), tiers dans `.local/signet/tiers.json` et `.local/regtest-ui/tiers.json`.
+These files stand for the client's external wallet for the demo. In the real model, they do not exist: the phrase stays in the client's wallet.
+Other seeds present: Swissquote in `bank-mock/data/` (and `.local/bm-*` for test instances), trusted contact in `.local/signet/tiers.json` and `.local/regtest-ui/tiers.json`.

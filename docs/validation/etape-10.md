@@ -1,31 +1,31 @@
-# Étape 10 (A1) : authentification par passkey et montants élevés
+# Step 10 (A1): passkey authentication and high-value amounts
 
-Sujet 4 de la track : « How the client proves who they are before signing […] Show how a high-value transaction differs from a small one ».
+Track topic 4: "How the client proves who they are before signing […] Show how a high-value transaction differs from a small one".
 
-## Livré
+## Delivered
 
-| Élément | Emplacement |
+| Item | Location |
 | --- | --- |
-| Passkeys WebAuthn (`@simplewebauthn/server` 14.0.3 et `/browser` 14.0.0, aucune crypto maison) : enregistrement, connexion, step-up ; vérification de l'utilisateur exigée, défis à usage unique (5 min), compteur anti-clonage | `bank-mock/src/passkeys.ts`, routes `/auth/passkey/*`, `/auth/stepup/*` |
-| Connexion « Se connecter avec une passkey » ; activation dans « Mon compte » | `client/src/bank/Login.tsx`, `client/src/ui/AccountSecurity.tsx`, `Shell.tsx` |
-| Montant élevé (≥ 0,2 BTC envoyé hors du compte) côté appli : avertissement, ré-authentification par passkey (activation sur place si besoin), enregistrement et alerte chez Swissquote ; non bloquant si Swissquote est injoignable | `client/src/lib/bank.ts` (`stepUp`), `wallet/Send.tsx` |
-| Montant élevé côté Wallet du client : bannière, PIN + 6 derniers caractères de l'adresse, **vérifiés par le serveur du wallet** | `client-wallet/src/server.ts`, `ui/App.tsx` |
+| WebAuthn passkeys (`@simplewebauthn/server` 14.0.3 and `/browser` 14.0.0, no home-made crypto): registration, login, step-up; user verification required, single-use challenges (5 min), anti-cloning counter | `bank-mock/src/passkeys.ts`, routes `/auth/passkey/*`, `/auth/stepup/*` |
+| "Log in with a passkey" login; activation in "My account" | `client/src/bank/Login.tsx`, `client/src/ui/AccountSecurity.tsx`, `Shell.tsx` |
+| High-value amount (≥ 0.2 BTC sent out of the account) on the app side: warning, passkey re-authentication (activation on the spot if needed), record and alert at Swissquote; non-blocking if Swissquote is unreachable | `client/src/lib/bank.ts` (`stepUp`), `wallet/Send.tsx` |
+| High-value amount on the Client Wallet side: banner, PIN + last 6 characters of the address, **verified by the wallet's server** | `client-wallet/src/server.ts`, `ui/App.tsx` |
 
-## Résultats
+## Results
 
-| # | Critère | Verdict |
+| # | Criterion | Verdict |
 | --- | --- | --- |
-| 10-1 | Wallet : 0,25 BTC marqué « montant élevé » ; signature refusée sans les 6 caractères ou avec des caractères faux, acceptée avec les bons | fonctionne (`etape-10-sortie.txt`) |
-| 10-2 | Wallet : 0,05 BTC signé avec le seul PIN | fonctionne |
-| 10-3 | Swissquote : step-up impossible sans passkey, sans session, ou avec une assertion inventée | fonctionne |
-| 6-17 | Chrome (authentificateur virtuel WebAuthn de Chrome) : passkey activée, déconnexion, connexion par passkey | fonctionne (ordinateur et téléphone) |
-| 6-18 | Chrome : envoi de 0,25 BTC, avertissement, step-up passkey (« Montant élevé confirmé par passkey »), 6 caractères + PIN dans le wallet, diffusion | fonctionne (ordinateur et téléphone) |
-| Parcours complet | `validate:6:ui` : 17/17 sur ordinateur, 18/18 sur téléphone | fonctionne |
-| Non-régression | `validate:1` à `validate:8:alerts`, `test:attacks`, `validate:inv5` ; typage | fonctionne |
-| — | Montant élevé avec Swissquote injoignable : l'appli poursuit, le wallet applique seul ses contrôles | **non testé** dans l'interface (logique écrite ; la signature par le wallet ne dépend pas de Swissquote, cf. 10-1) |
+| 10-1 | Wallet: 0.25 BTC marked "high-value"; signature refused without the 6 characters or with wrong characters, accepted with the right ones | works (`etape-10-sortie.txt`) |
+| 10-2 | Wallet: 0.05 BTC signed with the PIN alone | works |
+| 10-3 | Swissquote: step-up impossible without a passkey, without a session, or with an invented assertion | works |
+| 6-17 | Chrome (Chrome's virtual WebAuthn authenticator): passkey enabled, logout, passkey login | works (desktop and phone) |
+| 6-18 | Chrome: send of 0.25 BTC, warning, passkey step-up ("High-value amount confirmed by passkey"), 6 characters + PIN in the wallet, broadcast | works (desktop and phone) |
+| Full journey | `validate:6:ui`: 17/17 on desktop, 18/18 on phone | works |
+| Non-regression | `validate:1` to `validate:8:alerts`, `test:attacks`, `validate:inv5`; typing | works |
+| — | High-value amount with Swissquote unreachable: the app continues, the wallet applies its checks alone | **not tested** in the interface (logic written; the wallet's signature does not depend on Swissquote, see 10-1) |
 
-## Limites (écrites dans le README)
+## Limits (written in the README)
 
-- Sur Bitcoin, **aucune différence on-chain** selon le montant : le chemin client `pk(CLIENT)` ne connaît pas les montants. Les contrôles sont applicatifs (Swissquote) et dans le signataire (Wallet du client).
-- Une nouvelle passkey peut être ajoutée par une session ouverte. Une vraie banque exigerait une vérification supplémentaire pour un nouvel appareil.
-- Dans le test, la biométrie est simulée par l'authentificateur virtuel de Chrome.
+- On Bitcoin, **no on-chain difference** by amount: the client path `pk(CLIENT)` does not know amounts. The checks are application-level (Swissquote) and in the signer (Client Wallet).
+- A new passkey can be added by an open session. A real bank would require extra verification for a new device.
+- In the test, biometrics are simulated by Chrome's virtual authenticator.

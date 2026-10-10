@@ -1,4 +1,4 @@
-# bitcoind regtest local. Identifiants RPC de test uniquement (réseau local, aucune valeur réelle).
+# Local regtest bitcoind. Test RPC credentials only (local network, no real value).
 services:
   bitcoind:
     image: bitcoin/bitcoin:29

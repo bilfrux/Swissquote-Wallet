@@ -1,30 +1,30 @@
-# Étape 12 (A3, première partie) : recovery sans copier-coller, relais Swissquote vers le tiers
+# Step 12 (A3, first part): recovery without copy-paste, Swissquote relay to the trusted contact
 
-## Livré
+## Delivered
 
-- bank-mock : `POST /relay` (session du client, dépose le PSBT déjà signé par Swissquote), `GET /relay?id=` (lecture par le tiers), `POST /relay/signed` (renvoi de la signature ; refusé si ce n'est pas la même transaction). Identifiant aléatoire de 128 bits. Table `relay`.
-- Appli (recovery, étape 5) : « Envoyer la demande à <tiers> » donne un lien vers la console ; « Récupérer la signature du tiers ». L'échange manuel du PSBT reste disponible, replié, si Swissquote est indisponible.
-- Console du tiers : ouverte avec `?req=…`, elle charge la demande, le tiers vérifie le décodage et signe avec sa phrase (toujours lue au clic, jamais transmise), puis « Renvoyer au client via Swissquote ».
+- bank-mock: `POST /relay` (client session, deposits the PSBT already signed by Swissquote), `GET /relay?id=` (read by the contact), `POST /relay/signed` (return of the signature; refused if it is not the same transaction). Random 128-bit identifier. Table `relay`.
+- App (recovery, step 5): "Send the request to <contact>" gives a link to the console; "Fetch the trusted contact's signature". The manual PSBT exchange remains available, folded, if Swissquote is unavailable.
+- Contact console: opened with `?req=…`, it loads the request, the contact checks the decoding and signs with their phrase (still read on click, never transmitted), then "Send back to the client via Swissquote".
 
-## Commandes et résultats
+## Commands and results
 
 ```
 npm run regtest:up
 npm run validate:12
-npm run validate:6:ui            # et MOBILE=1
+npm run validate:6:ui            # and MOBILE=1
 ```
 
-| # | Critère | Verdict |
+| # | Criterion | Verdict |
 | --- | --- | --- |
-| 12-1 | Dépôt de la demande refusé sans session (401) ; le tiers relit le PSBT identique par l'identifiant | fonctionne (`etape-12-sortie.txt`) |
-| 12-2 | Signature du tiers renvoyée puis récupérée ; PSBT d'une autre transaction refusé (400) ; identifiant inconnu (404) | fonctionne |
-| 6-20 | Chrome : envoi au tiers par lien, PSBT chargé dans sa console, signature renvoyée, récupérée, recovery diffusée | fonctionne (ordinateur 19/19, téléphone 20/20) |
-| — | Parcours signet (`validate:8:signet`) : adapté pour ouvrir l'échange manuel replié | **non exécuté** (attente du coin signet) |
-| — | Autres non-régressions (`validate:1`…`11`, attaques) | **non relancées** pour cette petite étape ; seul le typage et `validate:6:ui` l'ont été |
+| 12-1 | Request deposit refused without a session (401); the contact re-reads the identical PSBT by identifier | works (`etape-12-sortie.txt`) |
+| 12-2 | Contact's signature sent back then fetched; PSBT of another transaction refused (400); unknown identifier (404) | works |
+| 6-20 | Chrome: send to the contact by link, PSBT loaded in their console, signature returned, fetched, recovery broadcast | works (desktop 19/19, phone 20/20) |
+| — | Signet journey (`validate:8:signet`): adapted to open the folded manual exchange | **not run** (waiting for the signet coin) |
+| — | Other non-regressions (`validate:1`…`11`, attacks) | **not rerun** for this small step; only typing and `validate:6:ui` were |
 
-## Limites
+## Limits
 
-- Le lien est transmis au tiers hors de l'appli (pas encore de notification ni de boîte de réception du tiers).
-- Le lien suffit pour lire la demande (pas d'authentification du tiers) : il révèle le PSBT, qui n'est pas un secret de dépense, mais révèle des montants et adresses.
-- Swissquote transporte : elle pourrait bloquer le relais, d'où l'échange manuel conservé.
-- La console du test 6 est désormais une instance propre au test (port 5192), et non `CONSOLE_URL`.
+- The link is passed to the contact outside the app (no notification or inbox yet).
+- The link is enough to read the request (no authentication of the contact): it reveals the PSBT, which is not a spending secret, but reveals amounts and addresses.
+- Swissquote transports: it could block the relay, hence the manual exchange is kept.
+- The step 6 console is now an instance of its own for the test (port 5192), not `CONSOLE_URL`.

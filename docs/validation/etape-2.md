@@ -1,67 +1,67 @@
-# Étape 2 : bank-mock (guardian Swissquote) et console guardian (tiers)
+# Step 2: bank-mock (Swissquote guardian) and guardian console (trusted contact)
 
-## Livré
+## Delivered
 
-| Élément | Emplacement | Rôle |
+| Item | Location | Role |
 | --- | --- | --- |
-| bank-mock | `bank-mock/src/` (port 4000, stockage `bank-mock/data/` : SQLite + graine en mode 600, ignoré par git) | Guardian Swissquote **mocké**, processus séparé |
-| Console guardian | `guardian-console/` (port 5174, appli séparée) | Le tiers lit la demande en clair, saisit sa phrase, signe ; rien n'est conservé |
-| Appli cliente | `client/src/lib/bank.ts`, `AccountSetup.tsx`, `App.tsx` | Récupère la clé publique Swissquote et enregistre le compte. Facultatif : l'appli fonctionne sans bank-mock |
+| bank-mock | `bank-mock/src/` (port 4000, storage `bank-mock/data/`: SQLite + seed in mode 600, ignored by git) | **Mocked** Swissquote guardian, separate process |
+| Guardian console | `guardian-console/` (port 5174, separate app) | The contact reads the request in plain language, enters their phrase, signs; nothing is stored |
+| Client app | `client/src/lib/bank.ts`, `AccountSetup.tsx`, `App.tsx` | Fetches Swissquote's public key and registers the account. Optional: the app works without bank-mock |
 
-### Endpoints de bank-mock
+### bank-mock endpoints
 
-| Route | Effet |
+| Route | Effect |
 | --- | --- |
-| `GET /guardian/key?network=` | Clé **publique** de compte Swissquote (la graine ne sort jamais) |
-| `POST /accounts/register` | Enregistre un compte (clé client, clé tiers, délai) pour un client de la banque simulée |
-| `POST /identity/verify` | Re-KYC **mocké** : un dossier de test par client ; renvoie un jeton valable 10 min |
-| `POST /guardian/sign` | Signe un PSBT **seulement si** : jeton KYC valide ; toutes les entrées dépensent un script d'un compte enregistré de ce client (le scriptPubKey est recalculé) ; chemin recovery (nSequence = D) ; toutes les sorties vont vers un **autre** compte enregistré du **même** client. Chaque décision est journalisée (`sign_log`) |
+| `GET /guardian/key?network=` | Swissquote **public** account key (the seed never leaves) |
+| `POST /accounts/register` | Registers an account (client key, contact key, delay) for a client of the simulated bank |
+| `POST /identity/verify` | **Mocked** re-KYC: one test file per client; returns a token valid for 10 min |
+| `POST /guardian/sign` | Signs a PSBT **only if**: valid KYC token; all inputs spend a script of an account registered to that client (the scriptPubKey is recomputed); recovery path (nSequence = D); all outputs go to **another** registered account of the **same** client. Each decision is logged (`sign_log`) |
 
-Ces contrôles sont une couche en plus. La garantie réelle, deux signatures et le délai D, est imposée par le consensus Bitcoin (voir le test 6).
+These checks are an extra layer. The real guarantee, two signatures and the delay D, is enforced by Bitcoin consensus (see test 6).
 
-## Commandes
+## Commands
 
 ```bash
 npm run regtest:up
-npm run validate:2        # lance son propre bank-mock (port 4100, stockage .local/bm-test), puis l'arrête au test 7
+npm run validate:2        # starts its own bank-mock (port 4100, storage .local/bm-test), then stops it at test 7
 npm run dev               # client (5173), bank-mock (4000), console (5174)
-npm run validate:2:ui     # Chrome headless ; CONSOLE_URL / APP_URL si les ports par défaut sont pris
+npm run validate:2:ui     # headless Chrome; CONSOLE_URL / APP_URL if the default ports are taken
 ```
 
-## Résultats (`etape-2-sortie.txt`, `etape-2-ui-sortie.txt`)
+## Results (`etape-2-sortie.txt`, `etape-2-ui-sortie.txt`)
 
-| # | Critère | Verdict |
+| # | Criterion | Verdict |
 | --- | --- | --- |
-| 1 | Clé Swissquote générée au premier lancement, dans le stockage de bank-mock (mode 600) ; seule la clé publique est exposée | fonctionne |
-| 2 | Enregistrement des comptes ; client inconnu refusé (403) | fonctionne |
-| 3 | **Identité non vérifiée refusée** par `/guardian/sign` (sans jeton, jeton inventé) ; mauvais code OTP refusé | fonctionne |
-| 4 | Après re-KYC : Swissquote signe la recovery A → B du même client, avec sa propre clé (vérifiée sur la signature) | fonctionne |
-| 5 | Refus : dépense courante (chemin client), recovery vers une adresse étrangère, coins d'un autre client | fonctionne |
-| 6 | Le tiers signe (code de la console) ; le PSBT combiné est refusé par le nœud avant D (`non-BIP68-final`) et accepté à D | fonctionne (aperçu de l'étape 3) |
-| 7 | **bank-mock arrêté** : `/guardian/sign` injoignable (`ECONNREFUSED`), et **le client dépense seul** (signature externe, diffusion) | fonctionne |
-| 8 | **Aucune clé dans `client/`** : 0 clé privée étendue, graine Swissquote absente, aucun import de signature ou de graine, pas de liste BIP39 dans le bundle | fonctionne |
-| UI-1 | Console : la clé publique affichée correspond à la phrase ; le champ phrase est vidé | fonctionne |
-| UI-2 | Console : une dépense courante est signalée (« PAS une recovery ») et le bouton de signature est désactivé | fonctionne |
-| UI-3 | Console : la recovery est décodée (délai, destination) puis signée avec la clé du tiers | fonctionne |
-| UI-4 | Console : phrase absente de localStorage, de sessionStorage, du DOM et des champs après signature | fonctionne |
-| UI-5 | Appli : clé Swissquote obtenue de bank-mock, compte créé puis enregistré | fonctionne |
-| UI-6 | Aucune erreur dans la console des navigateurs | fonctionne |
+| 1 | Swissquote key generated at first launch, in bank-mock's storage (mode 600); only the public key is exposed | works |
+| 2 | Account registration; unknown client refused (403) | works |
+| 3 | **Unverified identity refused** by `/guardian/sign` (no token, invented token); wrong OTP code refused | works |
+| 4 | After re-KYC: Swissquote signs the A → B recovery of the same client, with its own key (checked on the signature) | works |
+| 5 | Refusals: ordinary spend (client path), recovery to a foreign address, another client's coins | works |
+| 6 | The contact signs (console code); the combined PSBT is rejected by the node before D (`non-BIP68-final`) and accepted at D | works (preview of step 3) |
+| 7 | **bank-mock stopped**: `/guardian/sign` unreachable (`ECONNREFUSED`), and **the client spends alone** (external signature, broadcast) | works |
+| 8 | **No key in `client/`**: 0 extended private keys, Swissquote seed absent, no signing or seed import, no BIP39 list in the bundle | works |
+| UI-1 | Console: the displayed public key matches the phrase; the phrase field is cleared | works |
+| UI-2 | Console: an ordinary spend is flagged ("NOT a recovery") and the sign button is disabled | works |
+| UI-3 | Console: the recovery is decoded (delay, destination) then signed with the contact's key | works |
+| UI-4 | Console: phrase absent from localStorage, sessionStorage, the DOM and fields after signing | works |
+| UI-5 | App: Swissquote key obtained from bank-mock, account created then registered | works |
+| UI-6 | No error in the browser consoles | works |
 
-Commande de recherche de clés du test 8 :
+Key-search command of test 8:
 
 ```bash
 grep -rlE '[tx]prv[1-9A-HJ-NP-Za-km-z]{100,}' client/src client/dist
-grep -rlF "<graine Swissquote>" client/src client/dist
+grep -rlF "<Swissquote seed>" client/src client/dist
 grep -rlE '@sq/bitcoin/(sign|keys)|mnemonicToSeed|swissquote-seed|bank-mock/data' client/src
 grep -rl '"abandon","ability"' client/dist
 ```
 
-Captures : `captures/etape-2-console-guardian.png`, `captures/etape-2-appli-enregistree.png`.
+Screenshots: `captures/etape-2-console-guardian.png`, `captures/etape-2-appli-enregistree.png`.
 
-## Limites assumées
+## Accepted limits
 
-- Re-KYC **mocké** : deux dossiers de test codés en dur (`bank-mock/src/kyc.ts`). Le jeton est réutilisable pendant 10 min.
-- La session bancaire est mockée : le client est identifié par `VITE_CUSTOMER_ID`, sans authentification.
-- `node:sqlite` est marqué expérimental dans Node 24 (avertissement masqué au lancement).
-- La console guardian tourne dans un navigateur : la phrase y transite en mémoire le temps de la signature. Un vrai tiers utiliserait son propre wallet.
-- La preuve de propriété d'adresse (optionnelle) n'est pas faite.
+- **Mocked** re-KYC: two hard-coded test files (`bank-mock/src/kyc.ts`). The token is reusable for 10 min.
+- The bank session is mocked: the client is identified by `VITE_CUSTOMER_ID`, without authentication (later replaced, see step 6).
+- `node:sqlite` is flagged experimental in Node 24 (warning hidden at launch).
+- The guardian console runs in a browser: the phrase transits in memory for the time of signing. A real contact would use their own wallet.
+- Address ownership proof (optional) was not done at this step (see step 7).

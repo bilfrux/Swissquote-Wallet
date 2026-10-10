@@ -1,133 +1,136 @@
-# Swissquote · wallet Bitcoin self-custody avec recovery à deux guardians
+# Swissquote · self-custody Bitcoin wallet with two-guardian recovery
 
-> « La banque construit l'outil, mais ne tient jamais les clés. »
+> "The bank builds the tool, but never holds the keys."
 
-Le client se connecte à son e-banking Swissquote (simulé, au style de la plateforme et de l'appli Swissquote, en version ordinateur et téléphone), ouvre l'onglet **Crypto** et crée son wallet Bitcoin. La graine est générée dans **son** « Wallet du client », une appli séparée qui représente un wallet matériel ou une appli téléphone : la banque ne reçoit que la clé publique. Le client dépense seul, à tout moment, après confirmation dans son wallet. Si le client perd sa clé, **Swissquote et un tiers de confiance choisi par le client** peuvent ensemble déplacer ses coins vers un nouveau compte, mais **seulement pour des coins restés immobiles D blocs**. Ces règles ne sont pas appliquées par Swissquote : elles sont écrites dans le script Bitcoin et imposées par le consensus.
+The client logs in to their Swissquote e-banking (simulated, styled after the Swissquote platform and app, in desktop and phone layouts), opens the **Crypto** tab and creates their Bitcoin wallet. The seed is generated in **their own** "Client Wallet", a separate app that stands for a hardware wallet or a phone app: the bank only receives the public key. The client spends alone, at any time, after confirming in their wallet. If the client loses their key, **Swissquote and a trusted contact chosen by the client** can together move the coins to a new account, but **only for coins that have not moved for D blocks**. These rules are not enforced by Swissquote: they are written in the Bitcoin script and enforced by consensus.
 
 ```
-or( pk(CLIENT), and( pk(SWISSQUOTE), and( pk(TIERS), older(D) ) ) )      P2WSH, Miniscript
+or( pk(CLIENT), and( pk(SWISSQUOTE), and( pk(TRUSTED), older(D) ) ) )      P2WSH, Miniscript
 ```
 
-Démo : D = 6 blocs. Valeur visée en production (hypothèse, paramètre) : environ 6 mois (≈ 26 000 blocs).
+Demo: D = 6 blocks. Target production value (assumption, parameter): about 6 months (≈ 26,000 blocks).
 
-## Réel ou mocké
+## Real or mocked
 
-| Élément | Statut | Détail |
+| Component | Status | Detail |
 | --- | --- | --- |
-| Politique Miniscript, adresses, PSBT, délai `older(D)` | **Réel** | Compilateur de référence (sipa), `@bitcoinerlab/descriptors`, `@scure/btc-signer`. Aucune cryptographie maison |
-| Nœud Bitcoin | **Réel** | bitcoind 29 en regtest (Docker) ; signet via l'API Esplora de blockstream.info |
-| Transactions signet | **Réel** | Dépense du client [9203045e…](https://blockstream.info/signet/tx/9203045ed6d150a225821dff8c4287601f94d0c065ec975a795e92f637e6d248) ; recovery Swissquote + tiers refusée avant D (`non-BIP68-final`), puis diffusée à D : [d26b94de…](https://blockstream.info/signet/tx/d26b94de30f36cbfa8b1a7f39976bf74a09e7afafda09b7a66a916b37326c519) |
-| Appli de la banque | **Réel** (wallet) / **mocké** (banque) | `client/` : e-banking simulé au style Swissquote (connexion, accueil avec graphique simulé, comptes CHF), onglet Crypto réel. Aucune clé privée, uniquement des clés publiques et des PSBT |
-| **Wallet du client** | **Implémentation de référence** | `client-wallet/` : appli séparée (processus et stockage propres) qui représente le wallet matériel ou l'appli téléphone du client. Graine générée par `@scure/bip39`, affichée une fois, puis **chiffrée par un code PIN** (scrypt + AES-256-GCM, `node:crypto`) ; PIN demandé à chaque signature, blocage 60 s après 5 erreurs ; signature seulement après un écran de confirmation (sorties, montants, frais, chemin) ; API fermée aux autres origines |
-| Signataire externe réel | **Réel** | Bitcoin Core 29 (`walletprocesspsbt`), validé en regtest |
-| Signataire en ligne de commande | **Outil de test** | `tools/client-signer` : signataire utilisé par les scripts de validation (il lit la phrase à l'exécution et ne stocke rien) |
-| Backend Swissquote (guardian) | **Mocké**, processus séparé | `bank-mock/` : clé propre dans son stockage, re-KYC mocké (dossiers de test), signature limitée aux recoveries vers un compte du même client |
-| Connexion e-banking, comptes et opérations CHF, re-KYC, cours BTC/CHF | **Mocké** | Clients de test codés en dur (`bank-mock/src/bank.ts`, `kyc.ts`) |
-| Console du tiers de confiance | **Réel** (logique), démo | `guardian-console/` : création de l'identité du tiers (phrase affichée une fois), décodage et signature ; la phrase n'est jamais conservée |
-| Authentification et montants élevés | **Réel** (WebAuthn, `@simplewebauthn`) | Connexion à la banque par **passkey** (biométrie ou verrouillage de l'appareil) ou mot de passe mocké. **Au-delà de 0,2 BTC** : ré-authentification par passkey auprès de Swissquote (enregistrée, alerte au client), puis, dans le Wallet du client, PIN **et** ressaisie des 6 derniers caractères de l'adresse de destination (contrôle appliqué par le serveur du wallet) |
-| Historique et frais | **Réel** | Historique du compte (reçu, envoyé, rafraîchissement, recovery) lu sur la chaîne : Esplora en signet, wallet bitcoind en lecture seule (descripteurs publics) en regtest. Frais estimés par le réseau (préréglages Économique / Normal / Rapide), jamais sous 1 sat/vB |
-| Alertes au client | **Réel** (surveillance) / **email simulé** | bank-mock surveille les comptes (regtest toutes les 30 s, signet toutes les 5 min) : coin bientôt ou déjà dépensable par Swissquote + tiers, et alerte immédiate quand Swissquote signe une recovery. Cloche dans l'appli et email simulé (`bank-mock/data/outbox.log`) |
-| Preuve de propriété d'adresse | **Réel** | Défi émis par bank-mock, signé par le Wallet du client (BIP-322 « simple », `bip322-js`), vérifié en mode strict. Ce qui est prouvé est détaillé ci-dessous |
-| Compte crypto Swissquote et transferts (Travel Rule) | **Mocké** (registre) / **réel** (on-chain, regtest) | Avoirs en garde chez Swissquote (offre actuelle) ; « Transférer » vers le wallet : Swissquote n'envoie qu'après une **preuve de propriété** signée automatiquement par le Wallet du client, depuis un portefeuille omnibus bitcoind ; dépôts crédités seulement s'ils viennent d'un wallet enregistré du client. Regtest uniquement |
-| Panneau « Attaques » | **Réel**, démo regtest | Scénarios exécutés contre bitcoind avec des graines jetables (`scripts/attacks/`) |
-| Ethereum, Taproot, gasless, dApp, DeFi | **Hors périmètre** | Non développés (voir « Perspectives ») |
+| Miniscript policy, addresses, PSBT, `older(D)` delay | **Real** | Reference compiler (sipa), `@bitcoinerlab/descriptors`, `@scure/btc-signer`. No home-made cryptography |
+| Bitcoin node | **Real** | bitcoind 29 on regtest (Docker); signet through the blockstream.info Esplora API |
+| Signet transactions | **Real** | Client spend [9203045e…](https://blockstream.info/signet/tx/9203045ed6d150a225821dff8c4287601f94d0c065ec975a795e92f637e6d248); Swissquote + trusted-contact recovery rejected before D (`non-BIP68-final`), then broadcast at D: [d26b94de…](https://blockstream.info/signet/tx/d26b94de30f36cbfa8b1a7f39976bf74a09e7afafda09b7a66a916b37326c519) |
+| Bank app | **Real** (wallet) / **mocked** (bank) | `client/`: simulated Swissquote-style e-banking (login, home with simulated chart, CHF accounts), real Crypto tab. No private key, only public keys and PSBTs |
+| **Client Wallet** | **Reference implementation** | `client-wallet/`: separate app (own process and storage) standing for the client's hardware wallet or phone app. Seed generated by `@scure/bip39`, shown once, then **encrypted with a PIN** (scrypt + AES-256-GCM, `node:crypto`); PIN required for every signature, 60 s lockout after 5 errors; signs only after a confirmation screen (outputs, amounts, fee, path); API closed to other origins |
+| Real external signer | **Real** | Bitcoin Core 29 (`walletprocesspsbt`), validated on regtest |
+| Command-line signer | **Test tool** | `tools/client-signer`: signer used by the validation scripts (reads the phrase at run time and stores nothing) |
+| Swissquote backend (guardian) | **Mocked**, separate process | `bank-mock/`: own key in its own storage, mocked re-KYC (test files), signs only recoveries towards another account of the same client |
+| E-banking login, CHF accounts and transactions, re-KYC, BTC/CHF rate | **Mocked** | Hard-coded test clients (`bank-mock/src/bank.ts`, `kyc.ts`) |
+| Trusted-contact console | **Real** (logic), demo | `guardian-console/`: creation of the contact's identity (phrase shown once), decoding and signing; the phrase is never stored |
+| Authentication and high-value amounts | **Real** (WebAuthn, `@simplewebauthn`) | Bank login by **passkey** (biometrics or device lock) or mocked password. **Above 0.2 BTC**: passkey re-authentication with Swissquote (recorded, alert sent to the client), then, in the Client Wallet, PIN **and** retyping the last 6 characters of the destination address (check enforced by the wallet's server) |
+| History and fees | **Real** | Account history (received, sent, refresh, recovery) read from the chain: Esplora on signet, watch-only bitcoind wallet (public descriptors) on regtest. Fees estimated by the network (Economy / Normal / Fast presets), never below 1 sat/vB |
+| Client alerts | **Real** (monitoring) / **simulated email** | bank-mock watches accounts (regtest every 30 s, signet every 5 min): coin soon or already spendable by Swissquote + trusted contact, and an immediate alert when Swissquote signs a recovery. Bell in the app and simulated email (`bank-mock/data/outbox.log`) |
+| Address ownership proof | **Real** | Challenge issued by bank-mock, signed by the Client Wallet (BIP-322 "simple", `bip322-js`), verified in strict mode. What is proved is detailed below |
+| Swissquote crypto account and transfers (Travel Rule) | **Mocked** (ledger) / **real** (on-chain, regtest) | Assets held in custody by Swissquote (today's offer); "Transfer" to the wallet: Swissquote only sends after an **ownership proof** signed automatically by the Client Wallet, from a bitcoind omnibus wallet; deposits are credited only if they come from a wallet registered to the client. Regtest only |
+| Recovery without copy-paste | **Real** | Swissquote relays the request to the trusted contact through a link; the contact signs in their console and sends the signature back. Manual PSBT exchange remains available |
+| "Attacks" panel | **Real**, regtest demo | Scenarios run against bitcoind with throw-away seeds (`scripts/attacks/`) |
+| Ethereum, Taproot, gasless, dApp, DeFi | **Out of scope** | Not developed (see "Perspectives") |
 
-## Lancer la démo (trois commandes)
+## Run the demo (three commands)
 
-Prérequis : Node 24, Docker.
+Prerequisites: Node 24, Docker.
 
 ```bash
 npm install
-npm run regtest:up      # bitcoind 29 regtest dans Docker
-npm run demo            # banque :5173 · console du tiers :5174 · Wallet du client :5180 · bank-mock :4000 · attaques :4200
+npm run regtest:up      # bitcoind 29 regtest in Docker
+npm run demo            # bank :5173 · trusted-contact console :5174 · Client Wallet :5180 · bank-mock :4000 · attacks :4200
 ```
 
-Si un port de Vite est déjà pris, la console prend le suivant (affiché dans le terminal). Les ports fixes sont configurables (`.env.example`).
+If a Vite port is already taken, the console takes the next one (shown in the terminal). Fixed ports are configurable (`.env.example`).
 
-### Parcours de démo
+### Demo walkthrough
 
-1. **Le tiers** ouvre la console (http://localhost:5174), clique sur « Créer mon identité de tiers », note sa phrase et transmet sa clé publique au client.
-2. **Le client** se connecte à la banque (http://localhost:5173) : identifiant `CH-0003`, mot de passe `demo0003`. C'est le client de démo **vierge**, sans aucun compte Bitcoin. `CH-0001` et `CH-0002` contiennent des comptes créés par les tests.
-3. **Crypto → Créer mon wallet** : saisir le nom et la clé du tiers, puis « Créer mon wallet avec le Wallet du client ». Dans la fenêtre du Wallet du client, choisir un code PIN : le wallet génère la phrase, l'affiche une fois, puis la chiffre. Le client confirme l'avoir notée ; seule la clé publique revient à la banque.
-4. **Recevoir** : `npm run regtest -- fund <adresse affichée> 0.5`, puis « Actualiser ».
-   **Preuve de propriété** : « Prouver à Swissquote que je contrôle cette adresse ». Le Wallet du client affiche le défi en entier, le client signe, Swissquote vérifie.
-5. **Envoyer** : préparer l'envoi (simulation en clair), « Signer avec mon Wallet du client », vérifier l'écran de confirmation du wallet, signer, puis diffuser. `npm run regtest -- mine 1` confirme la transaction.
-6. **Perte du wallet** : dans le Wallet du client (http://localhost:5180), « Simuler la perte de cet appareil ». Puis, dans un autre profil de navigateur, se reconnecter et cliquer sur « J'ai perdu mon wallet ». Re-KYC mocké de CH-0003 : `Martin`, `1992-03-21`, `246810`. Ensuite : nouveau wallet, signature Swissquote, signature du tiers dans sa console, diffusion. **Le réseau refuse** (`non-BIP68-final`) ; après `npm run regtest -- mine 6`, diffuser à nouveau : accepté.
-7. **Alertes** : la cloche de l'en-tête signale un coin bientôt dépensable par Swissquote + tiers, ou une recovery signée par Swissquote (y compris sur l'ancien appareil).
-8. **Démo** : les trois boutons d'attaque.
+1. **The trusted contact** opens the console (http://localhost:5174), clicks "Create my trusted-contact identity", writes down their phrase and sends their public key to the client.
+2. **The client** logs in to the bank (http://localhost:5173): client ID `CH-0003`, password `demo0003`. This is the **blank** demo client, with no Bitcoin account. `CH-0001` and `CH-0002` hold accounts created by the tests.
+3. **Crypto → Create my wallet**: enter the contact's name and key, then "Create my wallet with the Client Wallet". In the Client Wallet window, choose a PIN: the wallet generates the phrase, shows it once, then encrypts it. The client confirms having written it down; only the public key goes back to the bank.
+4. **Receive**: `npm run regtest -- fund <displayed address> 0.5`, then "Reload".
+   **Ownership proof**: "Prove to Swissquote that I control this address". The Client Wallet shows the full challenge, the client signs, Swissquote verifies.
+5. **Send**: prepare the transfer (plain-language simulation), "Sign with my Client Wallet", check the wallet's confirmation screen, sign, then broadcast. `npm run regtest -- mine 1` confirms the transaction.
+6. **Wallet loss**: in the Client Wallet (http://localhost:5180), "Simulate losing this device". Then, in another browser profile, log in again and click "I lost my wallet". Mocked re-KYC for CH-0003: `Martin`, `1992-03-21`, `246810`. Then: new wallet, Swissquote signature, trusted contact's signature in their console (via the link), broadcast. **The network rejects it** (`non-BIP68-final`); after `npm run regtest -- mine 6`, broadcast again: accepted.
+7. **Alerts**: the bell in the header signals a coin soon spendable by Swissquote + trusted contact, or a recovery signed by Swissquote (including on the old device).
+8. **Demo**: the three attack buttons.
 
-Sur le vrai réseau signet : `npm run demo:signet` (sans onglet Démo). Il faut des signet BTC, à obtenir d'un faucet.
+On the real signet network: `npm run demo:signet` (no Demo tab). You need signet BTC from a faucet.
 
-Le logo est le logo officiel fourni par l'équipe (`client/public/`). L'interface s'adapte à la largeur : version téléphone sous 820 px (barre d'onglets en bas), version ordinateur au-delà (menu, rail latéral, barre d'état).
+The logo is the official logo supplied by the team (`client/public/`). The interface adapts to the width: phone layout below 820 px (tab bar at the bottom), desktop layout above (menu, side rail, status bar). The whole interface is in English.
 
-## Preuves
+## Evidence
 
-Toutes les affirmations de ce dépôt renvoient à une exécution consignée dans `docs/validation/` (commandes, sorties brutes, captures).
+Every claim in this repository points to a recorded run in `docs/validation/` (commands, raw output, screenshots).
 
-| Commande | Ce qu'elle prouve |
+| Command | What it proves |
 | --- | --- |
-| `npm run validate:1` / `validate:1:signet` | Politique, adresses, dépense du client par signataire externe (client-signer, Bitcoin Core), signet |
-| `npm run validate:2` | bank-mock, re-KYC, refus de Swissquote, bank-mock arrêté → le client dépense seul |
-| `npm run validate:3` / `validate:3:signet` | Recovery refusée avant D et acceptée à D, rafraîchissement, recovery réelle sur signet |
-| `npm run test:attacks` | Les trois attaques et l'invariant 1 contre le consensus |
-| `npm run validate:6:ui` (et `MOBILE=1 npm run validate:6:ui`) | Parcours complet dans Chrome sur une pile isolée, en version ordinateur et téléphone : connexion, création du wallet via le Wallet du client, envoi confirmé dans le wallet, API du wallet fermée à la banque, perte du wallet et recovery |
-| `npm run validate:7` | Preuve de propriété (valide, et refus : rejeu, message altéré, autre clé, format BIP-137, autre client) ; client vierge CH-0003 |
-| `npm run validate:9` | Historique (classement et montants de chaque type de transaction, en regtest ; réception réelle en signet) et estimation des frais (regtest et signet réel) |
-| `npm run validate:10` | Montants élevés dans le wallet (refus sans confirmation renforcée) et cas d'échec du step-up passkey chez Swissquote |
-| `npm run validate:11` | Transferts compte Swissquote ↔ wallet : refus sans preuve de propriété ou vers une adresse étrangère, retrait après preuve, enregistrement Travel Rule, dépôts crédités ou mis en attente selon la provenance |
-| `npm run validate:8:pin` | Code PIN : graine chiffrée sur le disque, PIN faux refusé, blocage après 5 erreurs, ancien wallet protégé |
-| `npm run validate:8:alerts` | Alertes : seuil, sans doublon, recovery ouverte, recovery signée par Swissquote, email simulé, étanchéité entre clients |
-| `npm run validate:8:signet -- create\|spend\|recover` | Parcours de l'interface sur le vrai réseau signet |
-| `npm run validate:inv5` | Aucune clé privée ni graine dans `client/` et son bundle (avec témoin positif) |
+| `npm run validate:1` / `validate:1:signet` | Policy, addresses, client spend through an external signer (client-signer, Bitcoin Core), signet |
+| `npm run validate:2` | bank-mock, re-KYC, Swissquote refusals, bank-mock stopped → the client spends alone |
+| `npm run validate:3` / `validate:3:signet` | Recovery rejected before D and accepted at D, refresh, real recovery on signet |
+| `npm run test:attacks` | The three attacks and invariant 1 against consensus |
+| `npm run validate:6:ui` (and `MOBILE=1 npm run validate:6:ui`) | Full journey in Chrome on an isolated stack, desktop and phone layouts: login, wallet creation through the Client Wallet, send confirmed in the wallet, wallet API closed to the bank, wallet loss and recovery (including the relay to the trusted contact) |
+| `npm run validate:7` | Ownership proof (valid, and rejections: replay, altered message, other key, BIP-137 format, other client); blank client CH-0003 |
+| `npm run validate:9` | History (classification and amounts of each transaction type, on regtest; real receive on signet) and fee estimation (regtest and real signet) |
+| `npm run validate:10` | High-value amounts in the wallet (refusal without enhanced confirmation) and failure cases of the passkey step-up with Swissquote |
+| `npm run validate:11` | Swissquote account ↔ wallet transfers: refusal without ownership proof or to a foreign address, withdrawal after proof, Travel Rule record, deposits credited or held depending on source |
+| `npm run validate:12` | Relay to the trusted contact: request deposit and reading, signature return, foreign transaction refused |
+| `npm run validate:8:pin` | PIN: seed encrypted on disk, wrong PIN refused, lockout after 5 errors, old wallet protected |
+| `npm run validate:8:alerts` | Alerts: threshold, no duplicates, recovery open, recovery signed by Swissquote, simulated email, isolation between clients |
+| `npm run validate:8:signet -- create\|spend\|recover` | Interface journey on the real signet network |
+| `npm run validate:inv5` | No private key or seed in `client/` and its bundle (with positive control) |
 
-Les tests Chrome des étapes 1 à 4 visaient l'interface précédente (commit `779a5bd`) ; ils sont remplacés par `validate:6:ui`.
+The Chrome tests of steps 1 to 4 targeted the previous interface (commit `779a5bd`); they are replaced by `validate:6:ui`. The recorded outputs in `docs/validation/` are kept as observed, in the language of the time (French before the translation).
 
-Voir aussi : [docs/threat-model.md](docs/threat-model.md), [docs/architecture.md](docs/architecture.md), [docs/ia.md](docs/ia.md).
+See also: [docs/threat-model.md](docs/threat-model.md), [docs/architecture.md](docs/architecture.md), [docs/ia.md](docs/ia.md).
 
-## Qui applique quoi : authentification et montants élevés
+## Who enforces what: authentication and high-value amounts
 
-| Contrôle | Appliqué par | Ce qu'il empêche | Limite |
+| Control | Enforced by | What it prevents | Limit |
 | --- | --- | --- | --- |
-| Passkey de connexion (WebAuthn, vérification de l'utilisateur exigée) | Swissquote (bank-mock) | Accès à l'appli avec un simple mot de passe volé | Ne protège pas les fonds : la clé Bitcoin est dans le Wallet du client |
-| Ré-authentification par passkey au-delà de 0,2 BTC | Swissquote, via l'appli | Envoi important depuis une session ouverte par un tiers ; traçabilité et alerte | **Non bloquante si Swissquote est injoignable**, sinon le client ne pourrait plus dépenser seul (invariant 4) |
-| PIN + 6 derniers caractères de l'adresse au-delà de 0,2 BTC | **Wallet du client** (le signataire) | Signature à l'aveugle, adresse substituée par une appli compromise | Un attaquant qui détient la graine contourne tout contrôle applicatif |
-| Différence on-chain selon le montant | **Aucune sur Bitcoin** : le chemin `pk(CLIENT)` ne connaît pas les montants | — | Sur EVM, un module ou un guard du Safe peut imposer une limite on-chain (perspective) |
+| Login passkey (WebAuthn, user verification required) | Swissquote (bank-mock) | Access to the app with a stolen password alone | Does not protect funds: the Bitcoin key is in the Client Wallet |
+| Passkey re-authentication above 0.2 BTC | Swissquote, through the app | Large transfer from a session opened by a third party; traceability and alert | **Not blocking if Swissquote is unreachable**, otherwise the client could no longer spend alone (invariant 4) |
+| PIN + last 6 characters of the address above 0.2 BTC | **Client Wallet** (the signer) | Blind signing, address substituted by a compromised app | An attacker who holds the seed bypasses any application-level control |
+| On-chain difference by amount | **None on Bitcoin**: the `pk(CLIENT)` path does not know amounts | — | On EVM, a Safe module or guard can enforce an on-chain limit (perspective) |
 
-## Ce que prouve la preuve de propriété (et ce qu'elle ne prouve pas)
+## What the ownership proof proves (and what it does not)
 
-Swissquote émet un défi à usage unique (10 min) qui nomme le client et l'adresse n°i de son compte. Le Wallet du client le signe avec sa **clé client** à l'index i. Swissquote recalcule cette clé depuis le xpub enregistré, sans faire confiance à l'appli, et vérifie la signature en mode strict.
+Swissquote issues a single-use challenge (10 min) naming the client and address #i of their account. The Client Wallet signs it with its **client key** at index i. Swissquote recomputes that key from the registered xpub, without trusting the app, and verifies the signature in strict mode.
 
-- **Prouvé** : le client détient la clé privée de sa clé client à l'index i (signature BIP-322 « simple », vérifiée pour l'adresse P2WPKH de cette clé). D'après la politique enregistrée par Swissquote, cette clé suffit **seule** à dépenser l'adresse n°i (chemin client).
-- **Pas prouvé** : ce n'est **pas** une signature BIP-322 de l'adresse P2WSH du compte elle-même, car `bip322-js` ne gère pas P2WSH. Le lien entre la clé et l'adresse repose sur le descripteur que Swissquote connaît, pas sur une preuve produite par le script de l'adresse. La preuve ne dit rien de l'identité de la personne qui tient la clé : elle est rattachée au client par la session bancaire.
+- **Proved**: the client holds the private key of their client key at index i (BIP-322 "simple" signature, verified for the P2WPKH address of that key). According to the policy registered by Swissquote, that key **alone** is enough to spend address #i (client path).
+- **Not proved**: this is **not** a BIP-322 signature of the account's P2WSH address itself, because `bip322-js` does not handle P2WSH. The link between the key and the address relies on the descriptor Swissquote knows, not on a proof produced by the address script. The proof says nothing about the identity of the person holding the key: it is tied to the client through the bank session.
 
-## Limites assumées
+## Accepted limits
 
-- **Swissquote disparaît ET le client perd sa clé : les fonds sont perdus.** Aucun chemin ne fonctionne sans Swissquote si le client n'a plus sa clé. Extension possible : un chemin « backup du client + tiers » après un délai plus long.
-- **Le tiers perd sa clé : la recovery devient impossible.** Le client doit le remplacer tant qu'il a sa clé : nouvelle politique et déplacement des coins. Ce changement de tiers n'est pas implémenté.
-- **Zone grise de custody.** Swissquote + tiers peuvent dépenser, **vers n'importe quelle destination**, tout coin resté immobile D blocs. Observé dans `npm run test:attacks` (attaque 2, ligne « zone grise »). Atténuations : tiers choisi par le client et sans lien avec Swissquote, avertissement dans l'appli avant l'échéance, rafraîchissement par le client. Bitcoin ne permet pas de contraindre la destination.
-- **Rafraîchissement obligatoire.** Pour bloquer toute recovery, le client doit déplacer chaque coin avant D : c'est un coût en frais, et l'activité devient visible sur la chaîne.
-- **Peu de wallets externes signent ce type de script** (Miniscript avec délai) : Bitcoin Core (vérifié), Liana et certains wallets matériels (annoncés, non vérifiés). Sparrow ne le gère très probablement pas (issues GitHub #1700 ouverte et #1757 refusée ; non vérifié en lançant Sparrow).
-- **Confidentialité.** En P2WSH, chaque dépense révèle la politique, donc l'existence du délai.
-- **Pas d'Ethereum, pas de Taproot, pas de gasless, pas de dApp conforme** : voir « Perspectives ».
-- **Code PIN du Wallet du client** : il protège l'usage du wallet (5 essais, puis blocage), mais **pas un vol du fichier** suivi d'une attaque hors ligne. scrypt ralentit chaque essai, mais un PIN de 6 chiffres reste à portée d'une recherche exhaustive. En production, il faut un élément sécurisé (wallet matériel, enclave du téléphone).
-- **Alertes** : simple information. Elles dépendent de Swissquote (Swissquote arrêtée = plus d'alertes), et l'email est simulé. La protection reste le délai imposé par le consensus et le rafraîchissement par le client.
-- Re-KYC et session bancaire mockés ; `node:sqlite` est expérimental dans Node 24.
+- **Swissquote disappears AND the client loses their key: funds are lost.** No path works without Swissquote if the client no longer has their key. Possible extension: a "client backup + trusted contact" path after a longer delay.
+- **The trusted contact loses their key: recovery becomes impossible.** The client must replace them while they still have their key: new policy and coin move. This change of contact is not implemented.
+- **Custody grey zone.** Swissquote + trusted contact can spend, **to any destination**, any coin that has not moved for D blocks. Observed in `npm run test:attacks` (attack 2, "grey zone" line). Mitigations: contact chosen by the client and unrelated to Swissquote, in-app warning before the deadline, refresh by the client. Bitcoin cannot restrict the destination.
+- **Refresh is mandatory.** To block any recovery, the client must move each coin before D: it costs fees, and activity becomes visible on-chain.
+- **Few external wallets sign this kind of script** (Miniscript with delay): Bitcoin Core (verified), Liana and some hardware wallets (announced, not verified). Sparrow most likely does not support it (GitHub issues #1700 open and #1757 declined; not verified by running Sparrow).
+- **Privacy.** With P2WSH, every spend reveals the policy, hence the existence of the delay.
+- **No Ethereum, no Taproot, no gasless, no compliant dApp**: see "Perspectives".
+- **Client Wallet PIN**: it protects use of the wallet (5 attempts, then lockout), but **not file theft** followed by an offline attack. scrypt slows each attempt, but a 6-digit PIN is within reach of an exhaustive search. In production, a secure element is needed (hardware wallet, phone enclave).
+- **Alerts**: information only. They depend on Swissquote (Swissquote stopped = no more alerts), and the email is simulated. Protection remains the consensus-enforced delay and the client's refresh.
+- **Relay to the trusted contact**: the link is sent to the contact by the client (no notification or inbox yet); anyone with the link can read the request (amounts and addresses), but cannot spend.
+- Re-KYC and bank session are mocked; `node:sqlite` is experimental in Node 24.
 
-## Perspectives (non implémentées)
+## Perspectives (not implemented)
 
-- **Ethereum.** Un Safe dont le propriétaire est le compte EVM du client, avec le module de recovery de Candide (Swissquote + tiers, seuil 2, un délai). L'exploration sur fork Sepolia est conservée sur la branche `archive/exploration-etape-0`. Elle a montré le fonctionnement, et deux pièges de la version 0.0.1 déployée : après une recovery, il faut appeler `cancelRecovery` **et** `invalidateNonce` ; retirer un guardian n'annule pas une recovery en cours. La sémantique diffère de Bitcoin : le propriétaire **annule** une recovery en cours, au lieu de rafraîchir ses coins.
-- **Taproot.** `tr(CLIENT, {and(SWISSQUOTE, TIERS, older(D))})` : la dépense du client passe par le chemin de clé et ressemble à un paiement ordinaire à signature unique. Elle coûte moins cher et ne révèle jamais l'existence du délai. La preuve de propriété pourrait alors porter sur l'adresse du compte elle-même. C'est à vérifier : la clé Taproot dépend de l'arbre de scripts, et `bip322-js` n'annonce que la dépense par clé simple.
+- **Ethereum.** A Safe owned by the client's EVM account, with Candide's recovery module (Swissquote + trusted contact, threshold 2, one delay). The exploration on a Sepolia fork is kept on the `archive/exploration-etape-0` branch. It showed how it works, and two pitfalls of the deployed version 0.0.1: after a recovery, you must call `cancelRecovery` **and** `invalidateNonce`; removing a guardian does not cancel an ongoing recovery. The semantics differ from Bitcoin: the owner **cancels** an ongoing recovery, instead of refreshing their coins.
+- **Taproot.** `tr(CLIENT, {and(SWISSQUOTE, TRUSTED, older(D))})`: the client's spend goes through the key path and looks like an ordinary single-signature payment. It is cheaper and never reveals the existence of the delay. The ownership proof could then cover the account address itself. To be verified: the Taproot key depends on the script tree, and `bip322-js` only advertises plain key-path spending.
 
 ## Structure
 
 ```
-packages/bitcoin/   politique, descripteurs, PSBT, simulation, finalisation (index.ts : aucune clé ; sign.ts/keys.ts : outils seulement)
-client/             appli de la banque (Vite + React) : e-banking simulé, Wallet crypto, recovery, Démo · Attaques
-client-wallet/      Wallet du client (implémentation de référence ; processus et stockage propres)
-bank-mock/          guardian Swissquote mocké (processus séparé, stockage propre)
-guardian-console/   console du tiers de confiance
-tools/              client-signer (signataire des scripts de test), keygen
-scripts/            validations, attaques, aides de démo
+packages/bitcoin/   policy, descriptors, PSBT, simulation, finalization (index.ts: no key; sign.ts/keys.ts: tools only)
+client/             bank app (Vite + React): simulated e-banking, crypto wallet, recovery, Demo · Attacks
+client-wallet/      Client Wallet (reference implementation; own process and storage)
+bank-mock/          mocked Swissquote guardian (separate process, own storage)
+guardian-console/   trusted-contact console
+tools/              client-signer (signer for the test scripts), keygen
+scripts/            validations, attacks, demo helpers
 docker/             bitcoind regtest
 docs/               validation/, threat-model, architecture, ia
 ```
