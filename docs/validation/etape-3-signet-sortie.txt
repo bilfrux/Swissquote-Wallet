@@ -5,3 +5,10 @@ tiers : 1 signature
 coins de l'ancien compte : 859 sats, 1 conf (recovery dans 5 blocs)
 PSBT : chemin=recovery, signatures=2, sortie=700 -> tb1qv37a3kg6dna8zd252paegjfejrvepsp4cagaeg5kj54y7dvqfw4qyn4xqp, frais=159
 REFUSÉE par le réseau signet : sendrawtransaction RPC error -26: non-BIP68-final
+
+--- npm run validate:3:signet -- broadcast (à 6 confirmations)
+coins de l'ancien compte : 859 sats, 6 conf (recovery dans 0 blocs)
+PSBT : chemin=recovery, signatures=2, sortie=700 -> tb1qv37a3kg6dna8zd252paegjfejrvepsp4cagaeg5kj54y7dvqfw4qyn4xqp, frais=159
+DIFFUSÉE : d26b94de30f36cbfa8b1a7f39976bf74a09e7afafda09b7a66a916b37326c519
+https://blockstream.info/signet/tx/d26b94de30f36cbfa8b1a7f39976bf74a09e7afafda09b7a66a916b37326c519
+

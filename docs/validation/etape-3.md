@@ -47,4 +47,6 @@ Coin de l'étape 1 (859 sats, `9203045e…d248:0`, confirmé au bloc 325781) sur
 | Critère | Verdict |
 | --- | --- |
 | Diffusion à 1 confirmation : **refusée par le réseau signet** (`sendrawtransaction RPC error -26: non-BIP68-final`) | fonctionne |
-| Diffusion à 6 confirmations | voir la section ci-dessous |
+| Diffusion à 6 confirmations (bloc 325786) : **acceptée par le réseau signet** : 859 sats dépensés par le chemin Swissquote + tiers, 700 sats vers le nouveau compte n°8 (`tb1qv37a3kg6dna8zd252paegjfejrvepsp4cagaeg5kj54y7dvqfw4qyn4xqp`), 159 sats de frais | fonctionne |
+
+Transaction de recovery réelle : [d26b94de30f36cbfa8b1a7f39976bf74a09e7afafda09b7a66a916b37326c519](https://blockstream.info/signet/tx/d26b94de30f36cbfa8b1a7f39976bf74a09e7afafda09b7a66a916b37326c519). Observé : diffusion acceptée par l'API Esplora. La confirmation en bloc n'a pas été vérifiée au moment de l'écriture.
