@@ -163,6 +163,20 @@ export function simulate(cfg: WalletConfig, psbt: string, lookahead = 50): PsbtS
   return { path: [...paths][0] as SpendPath, inputs, outputs, fee, vsize };
 }
 
+// Vrai si TOUTES les entrées du PSBT dépensent un script de ce compte : le chemin BIP32 de la clé client
+// désigne (change, index), et le scriptPubKey dépensé doit être exactement celui dérivé à cet index.
+export function inputsBelongTo(cfg: WalletConfig, psbt: string): boolean {
+  const tx = fromB64(psbt);
+  if (tx.inputsLength === 0) return false;
+  for (let i = 0; i < tx.inputsLength; i++) {
+    const inp = tx.getInput(i);
+    const meta = inputMeta(cfg, inp);
+    if (!meta || !inp.witnessUtxo) return false;
+    if (hex.encode(inp.witnessUtxo.script) !== hex.encode(outputAt(cfg, meta.change, meta.index).getScriptPubKey())) return false;
+  }
+  return true;
+}
+
 export function combinePsbts(psbts: string[]): string {
   const [first, ...rest] = psbts.map(fromB64);
   for (const t of rest) first.combine(t);

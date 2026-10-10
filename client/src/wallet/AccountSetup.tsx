@@ -2,6 +2,7 @@
 // celle de Swissquote et celle du tiers de confiance.
 import { useState } from "react";
 import type { AccountInput } from "../lib/config";
+import { fetchSwissquoteKey } from "../lib/bank";
 
 const FORMAT = "[empreinte/48'/1'/0'/2']tpub…";
 
@@ -25,6 +26,15 @@ export function AccountSetup({ initial, onCreate }: { initial: AccountInput | nu
       </p>
       {field("client", "Votre clé publique (wallet externe)", "Exportée de votre wallet : sert à dériver vos adresses.")}
       {field("swissquote", "Clé publique du guardian Swissquote", "Fournie par Swissquote : ne peut jamais dépenser seule.")}
+      <button
+        className="secondary small"
+        onClick={async () => {
+          setError(null);
+          try { setForm({ ...form, swissquote: await fetchSwissquoteKey() }); } catch (e: any) { setError(`Swissquote injoignable : ${e.message}`); }
+        }}
+      >
+        Obtenir la clé de Swissquote
+      </button>
       {field("tiers", "Clé publique de votre tiers de confiance", "Choisie par vous : nécessaire, avec Swissquote, pour une recovery.")}
       {error && <p className="error">{error}</p>}
       <button

@@ -1,0 +1,12 @@
+[OK ] Console : la clé publique affichée correspond à la phrase du tiers ; champ phrase vidé
+       affichée = [9419eec7/48'/1'/0'/2']tpubDEMK7jDiEjbW3… ; champ après usage = ""
+[OK ] Console : une dépense courante du client est signalée et ne peut pas être signée
+       Type : PAS une recovery : dépense courante du client. ; bouton désactivé = true
+[OK ] Console : recovery décodée (délai, destination) puis signée avec la clé du tiers
+       Type : recovery (valable seulement si les coins n'ont pas bougé depuis 6 blocs) ; signature de la clé du tiers : true
+[OK ] Console : phrase du tiers absente de localStorage, sessionStorage, du DOM et des champs après signature
+       {"storage":0,"inHtml":false,"inFields":false}
+[OK ] Appli : clé Swissquote obtenue de bank-mock, compte créé puis enregistré auprès du guardian
+       Compte enregistré auprès du guardian Swissquote.
+[OK ] Aucune erreur dans la console des navigateurs
+       aucune

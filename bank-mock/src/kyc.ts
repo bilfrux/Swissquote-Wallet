@@ -1,0 +1,26 @@
+// Re-KYC MOCKÉ : un seul dossier de test par client est accepté. Ce contrôle n'est qu'une couche en plus :
+// la défense réelle est on-chain (deux guardians + délai D appliqués par le consensus).
+import { randomBytes } from "node:crypto";
+import { db } from "./db.ts";
+
+// Dossiers de test (mock) : identifiant client de la banque simulée et réponses attendues.
+export const TEST_CUSTOMERS: Record<string, { lastName: string; birthDate: string; otp: string }> = {
+  "CH-0001": { lastName: "Muster", birthDate: "1990-01-01", otp: "123456" },
+  "CH-0002": { lastName: "Exemple", birthDate: "1985-06-15", otp: "654321" },
+};
+const TTL_MS = 10 * 60 * 1000;
+
+export function verifyIdentity(b: { customerId?: string; lastName?: string; birthDate?: string; otp?: string }) {
+  const c = b.customerId ? TEST_CUSTOMERS[b.customerId] : undefined;
+  if (!c || c.lastName !== b.lastName || c.birthDate !== b.birthDate || c.otp !== b.otp) return null;
+  const token = randomBytes(32).toString("hex");
+  const expires = Date.now() + TTL_MS;
+  db.prepare("insert into kyc_sessions (token, customer_id, expires_at) values (?, ?, ?)").run(token, b.customerId!, expires);
+  return { token, expiresAt: new Date(expires).toISOString() };
+}
+
+export function customerFromToken(token: unknown): string | null {
+  if (typeof token !== "string") return null;
+  const row = db.prepare("select customer_id, expires_at from kyc_sessions where token = ?").get(token) as any;
+  return row && row.expires_at > Date.now() ? row.customer_id : null;
+}

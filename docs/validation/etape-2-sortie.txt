@@ -1,0 +1,26 @@
+[OK ] 1 Clé Swissquote générée au premier lancement, dans le stockage de bank-mock (mode 600) ; seule la clé publique est exposée
+       GET /guardian/key -> [a86eeb83/48'/1'/0'/2']tpubDE8zB5VHdBGxN… ; .local/bm-test/swissquote-seed.json mode=600
+[OK ] 2 Enregistrement des comptes : A (ancienne clé) et B (nouvelle clé) pour CH-0001, un compte pour CH-0002 ; client inconnu refusé
+       A={"accountId":1} B={"accountId":2} CH-0002={"accountId":3} inconnu=403 client inconnu de la banque simulée
+[OK ] 3 Identité non vérifiée : /guardian/sign refuse (sans jeton, jeton inventé) ; re-KYC avec un mauvais code refusé
+       sans jeton : 403 identité non vérifiée : re-KYC requis avant toute signature ; jeton inventé : 403 ; mauvais OTP : 403 vérification d'identité refusée (dossier de test inconnu ou réponses incorrectes)
+[OK ] 4 Après re-KYC mocké : Swissquote signe la recovery du compte A vers le compte B du même client, avec SA clé
+       KYC : 200, expire 2026-10-10T16:26:41.342Z ; signature : 200 1 ajoutée, revue={"source":1,"destination":2} ; clé signataire = clé Swissquote : true
+[OK ] 5 Swissquote refuse : dépense courante du client, recovery vers une adresse étrangère, coins d'un autre client
+       chemin client : Swissquote ne signe que le chemin de recovery (nSequence = D), jamais une dépense courante | vers le mineur : toutes les sorties doivent aller vers un AUTRE compte enregistré du même client (nouvelle clé client) | autre client : les coins dépensés n'appartiennent à aucun compte enregistré de ce client
+[OK ] 6 Tiers signe (code de la console guardian) ; PSBT combiné finalisable ; refusé par le nœud avant D, accepté à D (aperçu étape 3)
+       signatures par entrée=2 ; à 1 conf : non-BIP68-final ; à 6 conf : allowed=true
+[OK ] 7 bank-mock arrêté : /guardian/sign injoignable, mais le client dépense seul (signature externe, diffusion)
+       /guardian/sign : injoignable (ECONNREFUSED) ; dépense client : aa4b15644f5237d6e1fd80d4fd7523d790e07fa6cf2a284b1065bea7955c709d
+[OK ] 8 Aucune clé privée, graine ou import de signature dans client/src et client/dist ; graine Swissquote absente
+       grep -rlE '[tx]prv…' -> rien ; grep -rlF <graine Swissquote> -> rien ; imports sign/keys -> rien ; liste BIP39 -> rien
+
+RÉSUMÉ
+1   fonctionne         Clé Swissquote générée au premier lancement, dans le stockage de bank-mock (mode 600) ; seule la clé publique est exposée
+2   fonctionne         Enregistrement des comptes : A (ancienne clé) et B (nouvelle clé) pour CH-0001, un compte pour CH-0002 ; client inconnu refusé
+3   fonctionne         Identité non vérifiée : /guardian/sign refuse (sans jeton, jeton inventé) ; re-KYC avec un mauvais code refusé
+4   fonctionne         Après re-KYC mocké : Swissquote signe la recovery du compte A vers le compte B du même client, avec SA clé
+5   fonctionne         Swissquote refuse : dépense courante du client, recovery vers une adresse étrangère, coins d'un autre client
+6   fonctionne         Tiers signe (code de la console guardian) ; PSBT combiné finalisable ; refusé par le nœud avant D, accepté à D (aperçu étape 3)
+7   fonctionne         bank-mock arrêté : /guardian/sign injoignable, mais le client dépense seul (signature externe, diffusion)
+8   fonctionne         Aucune clé privée, graine ou import de signature dans client/src et client/dist ; graine Swissquote absente

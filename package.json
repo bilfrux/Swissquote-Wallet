@@ -5,21 +5,26 @@
   "workspaces": [
     "packages/*",
     "client",
-    "tools/*"
+    "tools/*",
+    "bank-mock",
+    "guardian-console"
   ],
   "scripts": {
-    "dev": "npm run dev -w client",
+    "dev": "concurrently -n client,bank,console -c blue,red,green \"npm run dev -w client\" \"npm run dev -w bank-mock\" \"npm run dev -w guardian-console\"",
     "build": "npm run build -w client",
     "keygen": "npm run -s keygen -w tools/keygen --",
     "client-signer": "npm run -s sign -w tools/client-signer --",
     "regtest:up": "docker compose -f docker/regtest.yml up -d",
     "regtest:down": "docker compose -f docker/regtest.yml down -v",
     "validate:1": "tsx scripts/validate/etape-1-regtest.ts",
-    "typecheck": "tsc -p packages/bitcoin && tsc -p tools/client-signer && tsc -p tools/keygen && tsc -p client",
+    "typecheck": "tsc -p packages/bitcoin && tsc -p tools/client-signer && tsc -p tools/keygen && tsc -p client && tsc -p bank-mock && tsc -p guardian-console",
     "validate:1:signet": "tsx scripts/validate/etape-1-signet.ts",
-    "validate:1:ui": "tsx scripts/validate/etape-1-ui.ts"
+    "validate:1:ui": "tsx scripts/validate/etape-1-ui.ts",
+    "validate:2": "tsx scripts/validate/etape-2.ts",
+    "validate:2:ui": "tsx scripts/validate/etape-2-ui.ts"
   },
   "devDependencies": {
+    "concurrently": "^10.0.6",
     "playwright-core": "^1.64.0",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0"
