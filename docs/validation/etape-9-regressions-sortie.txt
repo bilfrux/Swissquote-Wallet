@@ -1,0 +1,53 @@
+=== npm run validate:1
+[OK ] 1 Politique à un délai compilée, descripteur à plage
+[OK ] 2 Réception sur les adresses 0 et 1 du compte, retrouvées par le scan
+[OK ] 3a PSBT préparé par l'appli et simulé en clair (chemin, sorties, frais)
+[OK ] 3b Signé par tools/client-signer, finalisé et diffusé par l'appli, confirmé
+[OK ] 4 Signataire externe réel : Bitcoin Core 29 signe le PSBT Miniscript (walletprocesspsbt), l'appli finalise et diffuse
+[OK ] 5 Après envoi total, plus aucun UTXO sur le compte
+=== npm run validate:2
+[OK ] 1 Clé Swissquote générée au premier lancement, dans le stockage de bank-mock (mode 600) ; seule la clé publique est exposée
+[OK ] 2 Enregistrement des comptes : A (ancienne clé) et B (nouvelle clé) pour CH-0001, un compte pour CH-0002 ; client inconnu refusé
+[OK ] 3 Identité non vérifiée : /guardian/sign refuse (sans jeton, jeton inventé) ; re-KYC avec un mauvais code refusé
+[OK ] 4 Après re-KYC mocké : Swissquote signe la recovery du compte A vers le compte B du même client, avec SA clé
+[OK ] 5 Swissquote refuse : dépense courante du client, recovery vers une adresse étrangère, coins d'un autre client
+[OK ] 6 Tiers signe (code de la console guardian) ; PSBT combiné finalisable ; refusé par le nœud avant D, accepté à D (aperçu étape 3)
+[OK ] 7 bank-mock arrêté : /guardian/sign injoignable, mais le client dépense seul (signature externe, diffusion)
+[OK ] 8 Aucune clé privée, graine ou import de signature dans client/src et client/dist ; graine Swissquote absente
+=== npm run validate:3
+[OK ] 1 Recovery Swissquote + tiers : refusée par le consensus avant D, acceptée à D pour le coin le plus récent ; fonds sur le nouveau compte
+[OK ] 2 Rafraîchissement avant D : la recovery déjà signée devient invalide ; sur le nouveau coin le délai repart de zéro
+[OK ] 3 Client seul, 1 confirmation, Swissquote arrêtée : dépense acceptée
+=== npm run test:attacks
+[OK ] attaque-1 — Attaquant avec téléphone et email, sans les clés des guardians
+[OK ] attaque-2 — Collusion Swissquote + tiers avant D
+[OK ] attaque-3 — Swissquote arrêtée : le client dépense seul
+[OK ] invariant-1 — Swissquote seule tente de dépenser (après D, par les deux chemins)
+=== npm run validate:inv5
+[OK ] Témoin : la même recherche retrouve bien les graines là où elles sont stockées
+[OK ] Aucune des 21 graines de la machine (y compris celles du Wallet du client), ni leurs clés privées de compte, dans client/
+[OK ] Aucune clé privée étendue (xprv/tprv), aucune clé WIF dans les sources, pas de liste BIP39 dans le bundle
+[OK ] client/src n'importe ni signature, ni graine, ni dérivation de clé privée
+=== npm run validate:7
+[OK ] 7-1 Client de démo vierge CH-0003 : connexion, comptes CHF, aucun compte Bitcoin
+[OK ] 7-2 Preuve valide : défi Swissquote pour l'adresse n°3, signé par le Wallet du client, vérifié par Swissquote (mode strict)
+[OK ] 7-3 Rejeu d'un défi déjà utilisé : refusé
+[OK ] 7-4 Signature d'un message différent du défi : refusée
+[OK ] 7-5 Signature du bon défi par une autre clé que celle du client : refusée
+[OK ] 7-6 Bonne clé mais format BIP-137 (ancien) : refusé, seule une signature BIP-322 pour l'adresse de la clé est acceptée
+[OK ] 7-7 Défi demandé par un autre client pour ce compte : refusé
+[OK ] 7-8 Le Wallet du client refuse de prouver pour un compte qui n'est pas sur l'appareil
+=== npm run validate:8:pin
+[OK ] 8-5 Création sans code PIN : refusée
+[OK ] 8-6 Graine chiffrée sur le disque : ni la phrase ni aucun de ses 24 mots en clair ; scrypt + AES-256-GCM ; le bon PIN la redonne
+[OK ] 8-7 Signature avec un PIN faux ou absent : refusée, essais restants indiqués
+[OK ] 8-8 Signature avec le bon PIN : PSBT signé (une signature ajoutée)
+[OK ] 8-9 Après 5 PIN faux : wallet bloqué, même le bon PIN est refusé pendant 60 s
+[OK ] 8-10 Ancien wallet en clair : signalé « non protégé », puis chiffré par un PIN ; la phrase en clair disparaît du disque
+=== npm run validate:8:alerts
+[OK ] 8-11 1 confirmation (recovery dans 5 blocs) : aucune alerte
+[OK ] 8-12 Recovery dans 2 blocs : alerte « bientôt » créée une seule fois (pas de doublon au passage suivant)
+[OK ] 8-13 Recovery ouverte (D confirmations) : alerte « ouverte » créée
+[OK ] 8-14 Swissquote signe une recovery : le client reçoit immédiatement l'alerte « Swissquote a signé une demande de recovery »
+[OK ] 8-15 Chaque alerte est aussi « envoyée » par email simulé (outbox.log)
+[OK ] 8-16 Alertes marquées lues ; un autre client ne voit pas ces alertes

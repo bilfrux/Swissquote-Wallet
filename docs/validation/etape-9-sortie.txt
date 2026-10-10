@@ -1,0 +1,20 @@
+[OK ] 9-1 Historique regtest : réceptions, envoi, rafraîchissement et recovery sortante, chacune classée avec son montant
+       reçu 30000000 sats, frais —, bloc 787 | reçu 20000000 sats, frais —, bloc 787 | envoyé -10000000 sats, frais 602, bloc 788 | rafraîchissement 0 sats, frais 458, bloc 789 | recovery sortante -39998622 sats, frais 318, en attente
+[OK ] 9-2 Du côté du nouveau compte, la même transaction apparaît « reçu par recovery »
+       reçu par recovery 39998622 sats, frais —, en attente
+[OK ] 9-3 Frais à taux fractionnaire (3,5 sat/vB) : montant entier et cohérent
+       frais de l'envoi : 602 sats
+[OK ] 9-4 Frais regtest : estimation du nœud, ou valeurs par défaut s'il n'en a pas ; toutes ≥ 1 sat/vB
+       {"fast":2.1,"normal":2.1,"slow":2.1,"source":"réseau"}
+[OK ] 9-5 Frais signet : estimation réelle de l'API Esplora, planchérisée au minimum de relais (1 sat/vB)
+       {"fast":68.1,"normal":68.1,"slow":1,"source":"réseau"}
+[OK ] 9-6 Historique signet réel du wallet CH-0003 : réception du faucet visible
+       8a34bfcdca… reçu 10000 sats, frais —, en attente
+
+RÉSUMÉ
+9-1 fonctionne         Historique regtest : réceptions, envoi, rafraîchissement et recovery sortante, chacune classée avec son montant
+9-2 fonctionne         Du côté du nouveau compte, la même transaction apparaît « reçu par recovery »
+9-3 fonctionne         Frais à taux fractionnaire (3,5 sat/vB) : montant entier et cohérent
+9-4 fonctionne         Frais regtest : estimation du nœud, ou valeurs par défaut s'il n'en a pas ; toutes ≥ 1 sat/vB
+9-5 fonctionne         Frais signet : estimation réelle de l'API Esplora, planchérisée au minimum de relais (1 sat/vB)
+9-6 fonctionne         Historique signet réel du wallet CH-0003 : réception du faucet visible

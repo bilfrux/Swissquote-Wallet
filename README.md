@@ -24,6 +24,7 @@ Démo : D = 6 blocs. Valeur visée en production (hypothèse, paramètre) : envi
 | Backend Swissquote (guardian) | **Mocké**, processus séparé | `bank-mock/` : clé propre dans son stockage, re-KYC mocké (dossiers de test), signature limitée aux recoveries vers un compte du même client |
 | Connexion e-banking, comptes et opérations CHF, re-KYC, cours BTC/CHF | **Mocké** | Clients de test codés en dur (`bank-mock/src/bank.ts`, `kyc.ts`) |
 | Console du tiers de confiance | **Réel** (logique), démo | `guardian-console/` : création de l'identité du tiers (phrase affichée une fois), décodage et signature ; la phrase n'est jamais conservée |
+| Historique et frais | **Réel** | Historique du compte (reçu, envoyé, rafraîchissement, recovery) lu sur la chaîne : Esplora en signet, wallet bitcoind en lecture seule (descripteurs publics) en regtest. Frais estimés par le réseau (préréglages Économique / Normal / Rapide), jamais sous 1 sat/vB |
 | Alertes au client | **Réel** (surveillance) / **email simulé** | bank-mock surveille les comptes (regtest toutes les 30 s, signet toutes les 5 min) : coin bientôt ou déjà dépensable par Swissquote + tiers, et alerte immédiate quand Swissquote signe une recovery. Cloche dans l'appli et email simulé (`bank-mock/data/outbox.log`) |
 | Preuve de propriété d'adresse | **Réel** | Défi émis par bank-mock, signé par le Wallet du client (BIP-322 « simple », `bip322-js`), vérifié en mode strict. Ce qui est prouvé est détaillé ci-dessous |
 | Panneau « Attaques » | **Réel**, démo regtest | Scénarios exécutés contre bitcoind avec des graines jetables (`scripts/attacks/`) |
@@ -69,6 +70,7 @@ Toutes les affirmations de ce dépôt renvoient à une exécution consignée dan
 | `npm run test:attacks` | Les trois attaques et l'invariant 1 contre le consensus |
 | `npm run validate:6:ui` (et `MOBILE=1 npm run validate:6:ui`) | Parcours complet dans Chrome sur une pile isolée, en version ordinateur et téléphone : connexion, création du wallet via le Wallet du client, envoi confirmé dans le wallet, API du wallet fermée à la banque, perte du wallet et recovery |
 | `npm run validate:7` | Preuve de propriété (valide, et refus : rejeu, message altéré, autre clé, format BIP-137, autre client) ; client vierge CH-0003 |
+| `npm run validate:9` | Historique (classement et montants de chaque type de transaction, en regtest ; réception réelle en signet) et estimation des frais (regtest et signet réel) |
 | `npm run validate:8:pin` | Code PIN : graine chiffrée sur le disque, PIN faux refusé, blocage après 5 erreurs, ancien wallet protégé |
 | `npm run validate:8:alerts` | Alertes : seuil, sans doublon, recovery ouverte, recovery signée par Swissquote, email simulé, étanchéité entre clients |
 | `npm run validate:8:signet -- create\|spend\|recover` | Parcours de l'interface sur le vrai réseau signet |

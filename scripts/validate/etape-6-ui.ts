@@ -154,6 +154,7 @@ try {
   // --- Envoi : refus, puis confirmation dans le Wallet du client ---
   await app.getByPlaceholder("tb1… / bcrt1…").fill(minerAddr);
   await app.getByPlaceholder("0.0001").fill("0.1");
+  const presets = (await app.getByTestId("fee-presets").textContent({ timeout: 15000 })) ?? "";
   await app.getByRole("button", { name: "Préparer l'envoi" }).click();
   await app.getByRole("button", { name: "Signer avec mon Wallet du client" }).click();
   await wallet.getByRole("heading", { name: "Confirmer l'envoi" }).waitFor({ timeout: 15000 });
@@ -174,6 +175,15 @@ try {
     !!refused?.includes("refusé par le client") && confirm.includes("votre clé seule") && confirm.includes(minerAddr) && confirm.includes("0.10000000 BTC") && confirm.includes("change (votre compte)") && confirm.includes("Frais") && tx?.confirmations === 1,
     `refus : « ${refused?.trim()} » ; écran : ${confirm.replace(/\s+/g, " ").slice(0, 200)}… ; confirmations=${tx?.confirmations}`);
   await shot(app, "6-envoi");
+
+  // --- Historique et frais ---
+  await app.getByRole("button", { name: "Actualiser" }).first().click();
+  const hist = app.getByTestId("history");
+  await hist.getByText("Envoyé").waitFor({ timeout: 20000 });
+  const histText = (await hist.textContent()) ?? "";
+  report("6-16", "Frais : préréglages Économique / Normal / Rapide affichés ; historique : « Reçu » +0,5 BTC et « Envoyé » −0,1 BTC",
+    presets.includes("Économique") && presets.includes("Normal") && presets.includes("Rapide") && histText.includes("Reçu") && histText.includes("+0.50000000 BTC") && histText.includes("Envoyé") && histText.includes("-0.10000000 BTC"),
+    `frais : ${presets.replace(/\s+/g, " ").slice(0, 120)} ; historique : ${histText.replace(/\s+/g, " ").slice(0, 200)}`);
 
   // --- La banque ne peut pas appeler l'API du wallet (signature sans confirmation impossible) ---
   const errorsBefore = errors.length;

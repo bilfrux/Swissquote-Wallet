@@ -1,7 +1,7 @@
 // Vue du wallet Bitcoin : solde, réception, envoi, coins avec délai de recovery, sécurité.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type WalletConfig, type WalletUtxo, outputAt, scan } from "@sq/bitcoin";
-import { addrLink, chain } from "../lib/chain";
+import { type HistoryEntry, type WalletConfig, type WalletUtxo, history, outputAt, scan } from "@sq/bitcoin";
+import { addrLink, chain, txLink } from "../lib/chain";
 import { BTC_CHF, type BtcAccount } from "../lib/config";
 import { btcFmt } from "../lib/format";
 import { num } from "../ui/format";
@@ -12,11 +12,15 @@ import { walletRequest } from "../lib/walletBridge";
 import { Send } from "./Send";
 
 const RECEIVE_KEY = (cfg: WalletConfig) => `sq-wallet:receive-index:${cfg.network}:${cfg.client.fingerprint}`;
+const KIND: Record<HistoryEntry["kind"], string> = {
+  "reçu": "Reçu", "reçu par recovery": "Reçu par recovery", "envoyé": "Envoyé", "rafraîchissement": "Rafraîchissement (envoi à soi-même)", "recovery sortante": "Recovery (Swissquote + tiers)",
+};
 const jump = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
 export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig; account: BtcAccount; onLost: () => void; onBalance: (s: bigint) => void }) {
   const [utxos, setUtxos] = useState<WalletUtxo[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [hist, setHist] = useState<HistoryEntry[] | null>(null);
   const [proof, setProof] = useState<{ ok: boolean; text: string } | null>(null);
   // Preuve de propriété : défi Swissquote -> signature dans le Wallet du client (après confirmation) -> vérification Swissquote.
   const prove = async () => {
@@ -41,6 +45,8 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
       if (n !== lastScan.current) return;
       setUtxos(u);
       onBalance(u.reduce((s, x) => s + x.value, 0n));
+      // Historique : chargé après le solde, sans bloquer l'affichage s'il échoue.
+      history(cfg, chain).then((h) => { if (n === lastScan.current) setHist(h); }, () => undefined);
     } catch (e: any) { if (n === lastScan.current) setError(`lecture de la chaîne impossible : ${e.message}`); }
   }, [cfg]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { refresh(); }, [refresh]);
@@ -132,6 +138,28 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
       </section>
 
       {utxos && utxos.length > 0 && <Send cfg={cfg} utxos={utxos} onSent={refresh} />}
+
+      <section className="card" id="historique" data-testid="history">
+        <h2>Historique</h2>
+        {!hist && <p className="muted small">Chargement…</p>}
+        {hist && hist.length === 0 && <p className="muted small">Aucune transaction.</p>}
+        {hist && hist.length > 0 && (
+          <table className="history">
+            <thead><tr><th>Date</th><th>Opération</th><th className="num">Montant</th><th className="num hide-m">Frais</th><th className="hide-m">Transaction</th></tr></thead>
+            <tbody>
+              {hist.map((h) => (
+                <tr key={h.txid} className={`kind-${h.kind.replace(/ /g, "-")}`}>
+                  <td className="muted">{h.height === null ? "en attente" : h.time ? new Date(h.time * 1000).toLocaleDateString("fr-CH") : `bloc ${h.height}`}</td>
+                  <td>{KIND[h.kind]}{h.counterpart && <small className="muted mono hide-m"> → {h.counterpart.slice(0, 14)}…</small>}</td>
+                  <td className={`num ${h.amount < 0n ? "neg" : h.amount > 0n ? "pos" : ""}`}>{h.amount > 0n ? "+" : ""}{btcFmt(h.amount)}</td>
+                  <td className="num hide-m muted">{h.fee !== null ? `${h.fee} sats` : "—"}</td>
+                  <td className="hide-m mono">{txLink(h.txid) ? <a href={txLink(h.txid)!} target="_blank" rel="noreferrer">{h.txid.slice(0, 10)}…</a> : `${h.txid.slice(0, 10)}…`}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
     </div>
   );
 }

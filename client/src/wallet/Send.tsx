@@ -1,7 +1,7 @@
 // Dépense du client : l'appli prépare le PSBT et le simule ; le Wallet du client le décode, le fait confirmer et le signe ;
 // l'appli finalise et diffuse. Autre wallet externe : PSBT à exporter et à recoller.
-import { useState } from "react";
-import { type PsbtSummary as Summary, type WalletConfig, type WalletUtxo, buildSpend, finalizePsbt, nextIndex, outputAt, simulate } from "@sq/bitcoin";
+import { useEffect, useState } from "react";
+import { type FeeRates, type PsbtSummary as Summary, type WalletConfig, type WalletUtxo, buildSpend, finalizePsbt, nextIndex, outputAt, simulate } from "@sq/bitcoin";
 import { chain, txLink } from "../lib/chain";
 import { parseBtc } from "../lib/format";
 import { walletRequest } from "../lib/walletBridge";
@@ -11,6 +11,10 @@ export function Send({ cfg, utxos, onSent }: { cfg: WalletConfig; utxos: WalletU
   const [to, setTo] = useState("");
   const [amount, setAmount] = useState("");
   const [feeRate, setFeeRate] = useState("2");
+  const [rates, setRates] = useState<FeeRates | null>(null);
+  const [touched, setTouched] = useState(false);
+  // Estimation des frais par le réseau (Esplora) ou le nœud (regtest) ; « Normal » par défaut.
+  useEffect(() => { chain.feeRates().then((r) => { setRates(r); if (!touched) setFeeRate(String(r.normal)); }, () => undefined); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [unsigned, setUnsigned] = useState<{ psbt: string; summary: Summary } | null>(null);
   const [signedPsbt, setSignedPsbt] = useState<string | null>(null);
   const [manual, setManual] = useState("");
@@ -51,8 +55,18 @@ export function Send({ cfg, utxos, onSent }: { cfg: WalletConfig; utxos: WalletU
       <div className="row">
         <label><span>Destinataire</span><input className="mono" value={to} onChange={(e) => setTo(e.target.value)} placeholder="tb1… / bcrt1…" /></label>
         <label><span>Montant (BTC)</span><input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.0001" /></label>
-        <label><span>Frais (sat/vB)</span><input value={feeRate} onChange={(e) => setFeeRate(e.target.value)} /></label>
+        <label><span>Frais (sat/vB)</span><input value={feeRate} onChange={(e) => { setTouched(true); setFeeRate(e.target.value); }} /></label>
       </div>
+      {rates && (
+        <div className="fee-presets" data-testid="fee-presets">
+          {([["slow", "Économique", "~1 jour"], ["normal", "Normal", "~30 min"], ["fast", "Rapide", "~10 min"]] as const).map(([k, label, eta]) => (
+            <button key={k} type="button" className={String(rates[k]) === feeRate ? "on" : ""} onClick={() => { setTouched(true); setFeeRate(String(rates[k])); }}>
+              <strong>{label}</strong> <span>{rates[k]} sat/vB · {eta}</span>
+            </button>
+          ))}
+          <span className="muted small">{rates.source === "réseau" ? "Estimation du réseau" : "Valeurs par défaut (pas d'estimation sur ce réseau)"} · minimum 1 sat/vB</span>
+        </div>
+      )}
       <button disabled={busy} className="btn-primary" onClick={prepare(false)}>Préparer l'envoi</button>{" "}
       <button disabled={busy} className="btn-secondary" onClick={prepare(true)}>Rafraîchir mes coins (envoi à moi-même)</button>
       {error && <p className="error">{error}</p>}

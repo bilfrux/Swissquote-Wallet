@@ -2,7 +2,7 @@
 // PSBT : @scure/btc-signer (BIP174), via @bitcoinerlab/descriptors-scure. Aucune clé privée ici.
 import { Output, btc } from "@bitcoinerlab/descriptors-scure";
 import { base64, hex } from "@scure/base";
-import type { ChainBackend } from "./backend.ts";
+import type { ChainBackend, ChainTx } from "./backend.ts";
 import { type WalletConfig, btcNetwork, descriptor, pubkeyAt } from "./policy.ts";
 
 export type SpendPath = "client" | "recovery";
@@ -83,14 +83,14 @@ export async function buildSpend(p: BuildSpendParams) {
   let changeValue = 0n;
   if (p.amount === undefined) {
     selected = sorted;
-    fee = BigInt(vbytes(TX_OVERHEAD_WEIGHT + selected.reduce((s, u) => s + inW(u), 0) + recipient.outputWeight()) * p.feeRate);
+    fee = BigInt(Math.ceil(vbytes(TX_OVERHEAD_WEIGHT + selected.reduce((s, u) => s + inW(u), 0) + recipient.outputWeight()) * p.feeRate));
   } else {
     let total = 0n, weight = TX_OVERHEAD_WEIGHT + recipient.outputWeight() + change.outputWeight();
     for (const u of sorted) {
       selected.push(u);
       total += u.value;
       weight += inW(u);
-      fee = BigInt(vbytes(weight) * p.feeRate);
+      fee = BigInt(Math.ceil(vbytes(weight) * p.feeRate));
       if (total >= p.amount + fee) break;
     }
     changeValue = total - p.amount - fee;
@@ -202,4 +202,30 @@ export function finalizePsbt(cfg: WalletConfig, psbt: string): { hex: string; tx
     finalize({ psbt: signed, validate: false });
   }
   return { hex: signed.hex, txid: signed.id };
+}
+
+// Historique du compte : chaque transaction classée du point de vue du compte.
+export type HistoryKind = "reçu" | "reçu par recovery" | "envoyé" | "rafraîchissement" | "recovery sortante";
+export type HistoryEntry = { txid: string; height: number | null; time: number | null; kind: HistoryKind; amount: bigint; fee: bigint | null; counterpart: string | null };
+
+export async function history(cfg: WalletConfig, backend: ChainBackend, count = 20): Promise<HistoryEntry[]> {
+  const own = new Set(addresses(cfg, count).map((a) => a.address));
+  const raw: ChainTx[] = await backend.history([...own], [descriptor(cfg, 0), descriptor(cfg, 1)]);
+  const entries = raw.map((t): HistoryEntry => {
+    const ownIn = t.vin.filter((i) => i.address && own.has(i.address));
+    const inSum = ownIn.reduce((s, i) => s + i.value, 0n);
+    const outOwn = t.vout.filter((o) => o.address && own.has(o.address)).reduce((s, o) => s + o.value, 0n);
+    const ext = t.vout.filter((o) => !o.address || !own.has(o.address));
+    const extSum = ext.reduce((s, o) => s + o.value, 0n);
+    const fee = inSum > 0n ? (t.fee ?? inSum - outOwn - extSum) : null;
+    // nSequence = D : chemin de recovery (Swissquote + tiers)
+    const recoveryPath = t.vin.some((i) => i.sequence === cfg.delay);
+    let kind: HistoryKind, amount: bigint;
+    if (inSum === 0n) { kind = recoveryPath ? "reçu par recovery" : "reçu"; amount = outOwn; }
+    else if (extSum === 0n) { kind = "rafraîchissement"; amount = 0n; }
+    else { kind = recoveryPath ? "recovery sortante" : "envoyé"; amount = -extSum; }
+    return { txid: t.txid, height: t.height, time: t.time, kind, amount, fee, counterpart: kind === "envoyé" || kind === "recovery sortante" ? ext[0]?.address ?? null : null };
+  });
+  // En attente d'abord, puis du plus récent au plus ancien.
+  return entries.sort((a, b) => (a.height === null ? -1 : b.height === null ? 1 : b.height - a.height));
 }
