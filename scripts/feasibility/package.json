@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "fork": "anvil --fork-url ${SEPOLIA_RPC_URL:-https://ethereum-sepolia-rpc.publicnode.com} --port 8545 --silent",
-    "recovery": "tsx recovery.ts"
+    "recovery": "tsx recovery.ts",
+    "gasless": "tsx gasless.ts"
   },
   "dependencies": {
     "abstractionkit": "0.4.3",

@@ -1,0 +1,28 @@
+$ cd scripts/feasibility && npx tsx gasless.ts   # 1er essai (lecture des gardiens par AbstractionKit)
+Safe (contrefactuel) : 0x147B893F85495ff1BCF04dFE2dE6d019413164B7
+propriétaire (EOA) : 0xC3588439A3aB96d38aC6A221dda81C1C9370269f
+gardiens : Swissquote 0x092B469c60E3Ef599b8249a69E41b32cE1EaDf7f, tiers 0xb0a1d56FeC3B2976218469615ECA14F1d82D5ec2
+solde ETH du Safe avant : 0
+paymaster : parrainage accordé (paymaster 0x8b1f6cb5d062aa2ce8d581942bbb960420d875ba)
+UserOperation envoyée : 0x73b3b35f506d7b48009a735432a58fc16915187a8992e569da69cdd4bfa9c0be
+incluse : success=true tx=0x65be64b008fd5df87482f79be28e6eef31370882878134da0ad09ced99287682 https://sepolia.etherscan.io/tx/0x65be64b008fd5df87482f79be28e6eef31370882878134da0ad09ced99287682
+Safe déployé : true ; solde ETH après : 0
+gardiens sur le module (lu sur Sepolia) :  ; seuil : 2
+RÉSULTAT : ne fonctionne pas
+
+$ cast call 0x949d…8c66 (module 3 min) sur Sepolia, Safe 0x147B…64B7, juste après
+getGuardians -> [0xb0a1d56FeC3B2976218469615ECA14F1d82D5ec2, 0x092B469c60E3Ef599b8249a69E41b32cE1EaDf7f]
+guardiansCount -> 2 ; isGuardian(Swissquote) -> true ; isGuardian(tiers) -> true
+isModuleEnabled -> true ; getOwners -> [0xC3588439A3aB96d38aC6A221dda81C1C9370269f]
+
+$ npx tsx gasless.ts   # 2e essai (lecture directe du contrat par viem)
+Safe (contrefactuel) : 0x78B35EFD1625c130DC5708a6A2A67cd18174A2B9
+propriétaire (EOA) : 0x3BDf4a540F06E168A9c251DDea9E199c502982aF
+gardiens : Swissquote 0x052c7Ecbd155f63e05984c5138A2010025fb08DE, tiers 0x3918b27B004ecD84F7c64ef21dBB5A857029Cc55
+solde ETH du Safe avant : 0
+paymaster : parrainage accordé (paymaster 0x8b1f6cb5d062aa2ce8d581942bbb960420d875ba)
+UserOperation envoyée : 0xdaa85d593e116e2b31dc458c2c3d2f3739ecd7a77622c72c5bdaac9a2cf71885
+incluse : success=true tx=0xd6ae8454ff1527b04c622affdfeec721efac3c9578f3465579107c2da67d8bf0 https://sepolia.etherscan.io/tx/0xd6ae8454ff1527b04c622affdfeec721efac3c9578f3465579107c2da67d8bf0
+Safe déployé : true ; solde ETH après : 0
+gardiens sur le module (lu sur Sepolia) : 0x3918b27B004ecD84F7c64ef21dBB5A857029Cc55, 0x052c7Ecbd155f63e05984c5138A2010025fb08DE ; seuil : 2
+RÉSULTAT : fonctionne
