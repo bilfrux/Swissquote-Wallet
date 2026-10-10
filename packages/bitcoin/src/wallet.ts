@@ -34,8 +34,24 @@ export function addresses(cfg: WalletConfig, count = 20): AddressInfo[] {
   return out;
 }
 
+// Adresses à interroger : par limite d'écart si le backend sait dire si une adresse a servi (on s'arrête après
+// `gap` adresses consécutives jamais utilisées, par chaîne), sinon un nombre fixe.
+export async function discover(cfg: WalletConfig, backend: ChainBackend, count = 20, gap = 5, max = 200): Promise<AddressInfo[]> {
+  if (!backend.isUsed) return addresses(cfg, count);
+  const out: AddressInfo[] = [];
+  for (const change of [0, 1] as const) {
+    let lastUsed = -1;
+    for (let index = 0; index < max && index <= lastUsed + gap; index++) {
+      const address = outputAt(cfg, change, index).getAddress();
+      out.push({ address, change, index });
+      if (await backend.isUsed(address)) lastUsed = index;
+    }
+  }
+  return out;
+}
+
 export async function scan(cfg: WalletConfig, backend: ChainBackend, count = 20): Promise<WalletUtxo[]> {
-  const infos = addresses(cfg, count);
+  const infos = await discover(cfg, backend, count);
   const byAddr = new Map(infos.map((a) => [a.address, a]));
   const [tip, utxos] = await Promise.all([backend.tipHeight(), backend.utxos(infos.map((a) => a.address))]);
   return utxos.map((u) => {
@@ -209,8 +225,10 @@ export type HistoryKind = "reçu" | "reçu par recovery" | "envoyé" | "rafraîc
 export type HistoryEntry = { txid: string; height: number | null; time: number | null; kind: HistoryKind; amount: bigint; fee: bigint | null; counterpart: string | null };
 
 export async function history(cfg: WalletConfig, backend: ChainBackend, count = 20): Promise<HistoryEntry[]> {
-  const own = new Set(addresses(cfg, count).map((a) => a.address));
-  const raw: ChainTx[] = await backend.history([...own], [descriptor(cfg, 0), descriptor(cfg, 1)]);
+  // Adresses du compte connues (lookahead large) pour classer les sorties ; requêtes limitées aux adresses découvertes.
+  const own = new Set([...addresses(cfg, count), ...(await discover(cfg, backend, count))].map((a) => a.address));
+  const queried = (await discover(cfg, backend, count)).map((a) => a.address);
+  const raw: ChainTx[] = await backend.history(queried, [descriptor(cfg, 0), descriptor(cfg, 1)]);
   const entries = raw.map((t): HistoryEntry => {
     const ownIn = t.vin.filter((i) => i.address && own.has(i.address));
     const inSum = ownIn.reduce((s, i) => s + i.value, 0n);

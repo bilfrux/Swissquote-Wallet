@@ -56,8 +56,11 @@ export function App() {
   return (
     <main>
       <header>
-        <div className="brand">Wallet du client</div>
-        <div className="tag">Implémentation de référence · en production : wallet matériel ou appli téléphone · indépendant de Swissquote</div>
+        <div className="brand">
+          <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="10" fill="#1f2633" /><circle cx="13" cy="15" r="5" fill="none" stroke="#fff" strokeWidth="2.2" /><path d="M17 17.5h9v3.5M22.5 17.5v3" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" fill="none" /></svg>
+          <div><div className="brand-name">Wallet du client</div><div className="tag">Indépendant de Swissquote · vos clés restent sur cet appareil</div></div>
+        </div>
+        <div className="ref">Implémentation de référence · en production : wallet matériel ou appli téléphone</div>
       </header>
       {error && <p className="error">{error}</p>}
       {done && <p className="done">{done}</p>}
@@ -130,10 +133,18 @@ function Sign({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unknow
   useEffect(() => { api("/api/describe", { psbt: req.payload.psbt, network: req.network }).then(setD, (e) => onError(e.message)); }, [req]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!d) return <section><p>Lecture de la transaction…</p></section>;
   const total = d.inputs.reduce((s, i) => s + BigInt(i.value), 0n);
+  const ext = d.outputs.filter((o) => !o.mine);
+  const sent = ext.reduce((s, o) => s + BigInt(o.value), 0n);
   return (
     <section>
       <h2>Confirmer l'envoi</h2>
-      <p>Demande de <strong>{req.origin}</strong> · wallet « {d.wallet?.label ?? "inconnu"} »</p>
+      <p className="small muted">Demande de <strong>{req.origin}</strong> · wallet « {d.wallet?.label ?? "inconnu"} »</p>
+      <div className="hero">
+        <p className="hero-label">{ext.length ? "Vous envoyez" : "Envoi à vous-même"}</p>
+        <p className="hero-amount">{btc(ext.length ? sent : total - BigInt(d.fee))}</p>
+        {ext.length > 0 && <p className="hero-to">à <span className="mono">{ext[0].address}</span></p>}
+        <p className="hero-fee">+ frais {btc(d.fee)}</p>
+      </div>
       <div className="card">
         <p><span className="k">Chemin de dépense</span>{" "}
           {d.path === "client" ? "votre clé seule (dépense normale, sans délai)" : d.path === "recovery" ? `recovery Swissquote + tiers (délai ${d.delay} blocs) : votre wallet ne signe pas ce chemin` : "mixte (refusé)"}

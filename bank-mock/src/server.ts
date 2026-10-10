@@ -211,9 +211,9 @@ createServer(async (req, res: ServerResponse) => {
   }
 }).listen(PORT, () => console.log(`[bank-mock] guardian Swissquote sur http://localhost:${PORT}`));
 
-// Surveillance périodique des comptes (alertes au client) : regtest toutes les 30 s ; signet toutes les 5 min
-// (API Esplora publique : on limite le nombre de requêtes). 0 désactive.
+// Surveillance périodique des comptes (alertes au client) : regtest toutes les 30 s ; signet toutes les 15 min
+// (API Esplora publique limitée à 700 requêtes/heure/IP chez blockstream). 0 désactive.
 const REGTEST_MS = Number(process.env.ALERT_INTERVAL_MS ?? 30_000);
-const SIGNET_MS = Number(process.env.ALERT_SIGNET_INTERVAL_MS ?? 300_000);
+const SIGNET_MS = Number(process.env.ALERT_SIGNET_INTERVAL_MS ?? 900_000);
 if (REGTEST_MS > 0) setInterval(() => { runAlerts(configOf, ["regtest"]).catch(() => undefined); }, REGTEST_MS);
 if (SIGNET_MS > 0) setInterval(() => { runAlerts(configOf, ["signet"]).catch(() => undefined); }, SIGNET_MS);

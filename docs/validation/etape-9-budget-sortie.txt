@@ -1,0 +1,5 @@
+[OK ] 9-7 Esplora : un rafraîchissement (scan + historique) reste sous ~20 requêtes grâce à la limite d'écart et au cache (avant : ~80)
+       15 requêtes (12 txs, 2 utxo, 1 hauteur) ; coins trouvés : 2
+
+RÉSUMÉ
+9-7 fonctionne         Esplora : un rafraîchissement (scan + historique) reste sous ~20 requêtes grâce à la limite d'écart et au cache (avant : ~80)

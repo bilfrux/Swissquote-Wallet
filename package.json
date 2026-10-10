@@ -34,7 +34,8 @@
     "validate:8:signet": "tsx scripts/validate/etape-8-signet-ui.ts",
     "validate:8:pin": "tsx scripts/validate/etape-8-pin.ts",
     "validate:8:alerts": "tsx scripts/validate/etape-8-alerts.ts",
-    "validate:9": "tsx scripts/validate/etape-9.ts"
+    "validate:9": "tsx scripts/validate/etape-9.ts",
+    "validate:9:budget": "tsx scripts/validate/esplora-budget.ts"
   },
   "devDependencies": {
     "bip322-js": "^4.0.0",

@@ -25,10 +25,25 @@ export interface ChainBackend {
   // Transactions touchant ces adresses. `descriptors` : descripteurs PUBLICS du compte (utiles au backend bitcoind).
   history(addresses: string[], descriptors: string[]): Promise<ChainTx[]>;
   feeRates(): Promise<FeeRates>;
+  // Facultatif : l'adresse a-t-elle déjà servi ? Permet une découverte par limite d'écart (gap limit) au lieu d'un nombre fixe.
+  isUsed?(address: string): Promise<boolean>;
 }
 
 export class EsploraBackend implements ChainBackend {
   constructor(private base: string) {}
+  // API publique limitée (ex. 700 requêtes/heure/IP chez blockstream) : cache court des lectures par adresse.
+  private cache = new Map<string, { t: number; v: Promise<any> }>();
+  private cached(path: string, ttl = 20_000): Promise<any> {
+    const hit = this.cache.get(path);
+    if (hit && Date.now() - hit.t < ttl) return hit.v;
+    const v = this.get(path).then((b) => JSON.parse(b));
+    v.catch(() => this.cache.delete(path));
+    this.cache.set(path, { t: Date.now(), v });
+    return v;
+  }
+  async isUsed(address: string) {
+    return (await this.cached(`/address/${address}/txs`)).length > 0;
+  }
   private async get(path: string, init?: RequestInit) {
     const r = await fetch(this.base + path, init);
     const body = await r.text();
@@ -36,12 +51,13 @@ export class EsploraBackend implements ChainBackend {
     return body;
   }
   async tipHeight() {
-    return Number(await this.get("/blocks/tip/height"));
+    return Number(await this.cached("/blocks/tip/height", 10_000));
   }
   async utxos(addresses: string[]) {
     const out: ChainUtxo[] = [];
     for (const address of addresses) {
-      const list = JSON.parse(await this.get(`/address/${address}/utxo`));
+      if (!(await this.isUsed(address))) continue; // adresse jamais utilisée : pas d'UTXO, pas de requête de plus
+      const list = await this.cached(`/address/${address}/utxo`, 5_000);
       for (const u of list)
         out.push({ txid: u.txid, vout: u.vout, value: BigInt(u.value), height: u.status.confirmed ? u.status.block_height : null, address });
     }
@@ -51,12 +67,13 @@ export class EsploraBackend implements ChainBackend {
     return this.get(`/tx/${txid}/hex`);
   }
   broadcast(hex: string) {
+    this.cache.clear(); // après une diffusion, relire l'état réel
     return this.get("/tx", { method: "POST", body: hex });
   }
   async history(addresses: string[]) {
     const seen = new Map<string, ChainTx>();
     for (const a of addresses) {
-      for (const t of JSON.parse(await this.get(`/address/${a}/txs`))) {
+      for (const t of await this.cached(`/address/${a}/txs`)) {
         if (seen.has(t.txid)) continue;
         seen.set(t.txid, {
           txid: t.txid,
@@ -71,7 +88,7 @@ export class EsploraBackend implements ChainBackend {
     return [...seen.values()];
   }
   async feeRates(): Promise<FeeRates> {
-    const e = JSON.parse(await this.get("/fee-estimates"));
+    const e = await this.cached("/fee-estimates", 60_000);
     return { fast: floorRate(e["1"], 2), normal: floorRate(e["3"] ?? e["6"], 1), slow: floorRate(e["144"], 1), source: "réseau" };
   }
 }

@@ -7,7 +7,8 @@ import { parseBtc } from "../lib/format";
 import { walletRequest } from "../lib/walletBridge";
 import { PsbtSummary } from "../simulation/PsbtSummary";
 
-export function Send({ cfg, utxos, onSent }: { cfg: WalletConfig; utxos: WalletUtxo[]; onSent: () => void }) {
+// mode « send » : envoi vers un destinataire ; « refresh » : tout renvoyer vers une adresse neuve du compte.
+export function Send({ cfg, utxos, onSent, mode = "send" }: { cfg: WalletConfig; utxos: WalletUtxo[]; onSent: () => void; mode?: "send" | "refresh" }) {
   const [to, setTo] = useState("");
   const [amount, setAmount] = useState("");
   const [feeRate, setFeeRate] = useState("2");
@@ -50,25 +51,29 @@ export function Send({ cfg, utxos, onSent }: { cfg: WalletConfig; utxos: WalletU
     });
 
   return (
-    <section className="card" id="envoyer">
-      <h2>Envoyer</h2>
-      <div className="row">
-        <label><span>Destinataire</span><input className="mono" value={to} onChange={(e) => setTo(e.target.value)} placeholder="tb1… / bcrt1…" /></label>
-        <label><span>Montant (BTC)</span><input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.0001" /></label>
-        <label><span>Frais (sat/vB)</span><input value={feeRate} onChange={(e) => { setTouched(true); setFeeRate(e.target.value); }} /></label>
-      </div>
+    <div className="send">
+      {mode === "send" ? (
+        <>
+          <label><span>Destinataire</span><input className="mono" value={to} onChange={(e) => setTo(e.target.value)} placeholder="tb1… / bcrt1…" /></label>
+          <label><span>Montant (BTC)</span><input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.0001" /></label>
+        </>
+      ) : (
+        <p className="small">Tous vos coins sont renvoyés vers une nouvelle adresse de votre compte. Le délai de recovery repart de zéro : Swissquote et votre tiers ne peuvent plus les déplacer avant {cfg.delay} blocs.</p>
+      )}
+      <label><span>Frais (sat/vB)</span><input value={feeRate} onChange={(e) => { setTouched(true); setFeeRate(e.target.value); }} /></label>
       {rates && (
         <div className="fee-presets" data-testid="fee-presets">
           {([["slow", "Économique", "~1 jour"], ["normal", "Normal", "~30 min"], ["fast", "Rapide", "~10 min"]] as const).map(([k, label, eta]) => (
             <button key={k} type="button" className={String(rates[k]) === feeRate ? "on" : ""} onClick={() => { setTouched(true); setFeeRate(String(rates[k])); }}>
-              <strong>{label}</strong> <span>{rates[k]} sat/vB · {eta}</span>
+              <strong>{label}</strong><span>{rates[k]} sat/vB</span><span>{eta}</span>
             </button>
           ))}
           <span className="muted small">{rates.source === "réseau" ? "Estimation du réseau" : "Valeurs par défaut (pas d'estimation sur ce réseau)"} · minimum 1 sat/vB</span>
         </div>
       )}
-      <button disabled={busy} className="btn-primary" onClick={prepare(false)}>Préparer l'envoi</button>{" "}
-      <button disabled={busy} className="btn-secondary" onClick={prepare(true)}>Rafraîchir mes coins (envoi à moi-même)</button>
+      {mode === "send"
+        ? <button disabled={busy} className="btn-primary wide" onClick={prepare(false)}>Préparer l'envoi</button>
+        : <button disabled={busy} className="btn-primary wide" onClick={prepare(true)}>Préparer le rafraîchissement</button>}
       {error && <p className="error">{error}</p>}
 
       {unsigned && !result?.txid && (
@@ -108,6 +113,6 @@ export function Send({ cfg, utxos, onSent }: { cfg: WalletConfig; utxos: WalletU
         </p>
       )}
       {result?.error && <p className="error">Refusée par le réseau : {result.error}</p>}
-    </section>
+    </div>
   );
 }

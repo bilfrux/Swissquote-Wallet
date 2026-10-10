@@ -7,6 +7,7 @@ import { Login } from "./bank/Login";
 import { Overview } from "./bank/Overview";
 import { Accounts } from "./bank/Accounts";
 import { CryptoTab } from "./wallet/CryptoTab";
+import { openCrypto } from "./wallet/Account";
 import { AttackPanel } from "./attacks/AttackPanel";
 import { Shell, type Tab } from "./ui/Shell";
 
@@ -26,7 +27,8 @@ export function App() {
   const go = (t: Tab, anchor?: string) => {
     setTab(t);
     window.scrollTo({ top: 0 });
-    if (anchor) setTimeout(() => document.getElementById(anchor)?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+    // Panneau (recevoir, envoyer…) ou sous-onglet (securite…) de la fiche Bitcoin.
+    if (anchor) setTimeout(() => openCrypto(anchor), 60);
   };
 
   if (!session) return <Login onLogin={setSession} />;

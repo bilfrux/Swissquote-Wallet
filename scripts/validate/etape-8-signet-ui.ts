@@ -92,6 +92,7 @@ try {
     const sq = (await (await fetch("http://localhost:4000/guardian/key?network=signet")).json()).accountKey;
     const cfg8 = await createWalletConfig({ network: "signet", delay: 6, client: read(".local/signet/client-new.json").accountKey, swissquote: sq, tiers: read(".local/signet/tiers.json").accountKey });
     const dest = outputAt(cfg8, 0, 1).getAddress();
+    await app.getByRole("button", { name: "Envoyer", exact: true }).click();
     await app.getByPlaceholder("tb1… / bcrt1…").fill(dest);
     await app.getByPlaceholder("0.0001").fill("0.000006");
     await app.getByLabel("Frais (sat/vB)").fill("1");
@@ -127,7 +128,8 @@ try {
     const ctx = await device();
     const nd = await login(ctx);
     await nd.getByTestId("btc-balance").waitFor({ timeout: 30000 });
-    await nd.getByRole("button", { name: /J'ai perdu mon wallet/ }).click();
+    await nd.locator(".crypto-tabs").getByRole("button", { name: "Sécurité" }).click();
+  await nd.getByRole("button", { name: /J'ai perdu mon wallet/ }).click();
     const kyc = nd.locator(".step").first().locator("input");
     await kyc.nth(0).fill("Martin");
     await kyc.nth(1).fill("1992-03-21");

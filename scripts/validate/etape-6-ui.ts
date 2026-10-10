@@ -152,6 +152,7 @@ try {
   }
 
   // --- Envoi : refus, puis confirmation dans le Wallet du client ---
+  await app.getByRole("button", { name: "Envoyer", exact: true }).click();
   await app.getByPlaceholder("tb1… / bcrt1…").fill(minerAddr);
   await app.getByPlaceholder("0.0001").fill("0.1");
   const presets = (await app.getByTestId("fee-presets").textContent({ timeout: 15000 })) ?? "";
@@ -217,6 +218,7 @@ try {
   await login(nd);
   await nd.getByRole("button", { name: "Crypto", exact: true }).click();
   await nd.getByTestId("btc-balance").waitFor({ timeout: 20000 });
+  await nd.locator(".crypto-tabs").getByRole("button", { name: "Sécurité" }).click();
   await nd.getByRole("button", { name: /J'ai perdu mon wallet/ }).click();
   const kyc = nd.locator(".step").first().locator("input");
   await kyc.nth(0).fill("Martin");
