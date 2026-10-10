@@ -1,0 +1,17 @@
+{
+  "name": "feasibility",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "fork": "anvil --fork-url ${SEPOLIA_RPC_URL:-https://ethereum-sepolia-rpc.publicnode.com} --port 8545 --silent",
+    "recovery": "tsx recovery.ts"
+  },
+  "dependencies": {
+    "abstractionkit": "0.4.3",
+    "viem": "2.57.4"
+  },
+  "devDependencies": {
+    "tsx": "^4",
+    "typescript": "^5"
+  }
+}

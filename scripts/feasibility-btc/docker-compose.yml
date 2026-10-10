@@ -1,0 +1,15 @@
+# bitcoind regtest local pour l'étape 0. Identifiants RPC de test uniquement (réseau local, aucune valeur réelle).
+services:
+  bitcoind:
+    image: bitcoin/bitcoin:29
+    command:
+      - -regtest=1
+      - -server=1
+      - -txindex=1
+      - -fallbackfee=0.0002
+      - -rpcbind=0.0.0.0
+      - -rpcallowip=0.0.0.0/0
+      - -rpcuser=regtest
+      - -rpcpassword=regtest
+    ports:
+      - "18443:18443"

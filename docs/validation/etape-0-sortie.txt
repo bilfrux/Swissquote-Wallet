@@ -1,0 +1,86 @@
+
+> recovery
+> tsx recovery.ts
+
+chainId=11155111 bloc=11885123
+module 0x949d01d424bE050D09C16025dd007CB59b3A8c66 VERSION=0.0.1 code=13606 octets
+module 0x38275826E1933303E508433dD5f289315Da2541c VERSION=0.0.1 code=13606 octets
+module 0x088f6cfD8BB1dDb1BB069CCb3fc1A98927D233f2 VERSION=0.0.1 code=13606 octets
+module 0x9BacD92F4687Db306D7ded5d4513a51EA05df25b VERSION=0.0.1 code=13606 octets
+[OK ] 1 Safe créé avec une EOA propriétaire
+       safe=0x59AE91206d92714C45aF58541D344A324622B1F6 VERSION=1.4.1 owners=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+[OK ] 2 Trois instances (3 min, 3 j, 14 j) activées sur le même Safe, seuil 2
+       0x949d01d424bE050D09C16025dd007CB59b3A8c66 enabled=true guardians=2 seuil=2 | 0x38275826E1933303E508433dD5f289315Da2541c enabled=true guardians=2 seuil=2 | 0x9BacD92F4687Db306D7ded5d4513a51EA05df25b enabled=true guardians=2 seuil=2
+[OK ] 2b Hash EIP-712 de viem identique à getRecoveryHash du module
+       viem=0x0440912315192e8874b58719aeb77946329121177c9df2504cfb7ad8c52e3e94 module=0x0440912315192e8874b58719aeb77946329121177c9df2504cfb7ad8c52e3e94
+[OK ] 3a Même adresse enregistrée deux fois dans une instance : refusé
+       via Safe : revert: Execution reverted with reason: GS013. ; appel interne : revert: Execution reverted with reason: GS: duplicate guardian.
+[OK ] 3b Même signature comptée deux fois (multiConfirm) : refusé
+       revert: Execution reverted with reason: SM: duplicate signers/invalid ordering.
+[OK ] 3c Signature Swissquote faite pour l'instance 3 min rejouée sur l'instance 14 j : refusé
+       revert: Execution reverted with reason: SM: Invalid guardian signature.
+[OK ] 4a Swissquote seule lance (confirm + execute) sur l'instance 3 min : refusé
+       revert: Execution reverted with reason: SM: confirmed signatures less than threshold.
+[OK ] 4b Après la confirmation seule de Swissquote, executeRecovery (par n'importe qui) : refusé
+       revert: Execution reverted with reason: SM: confirmed signatures less than threshold.
+[OK ] 4c Swissquote confirme sur l'instance 3 j où elle n'est pas guardian : refusé
+       revert: Execution reverted with reason: SM: sender not a guardian.
+[OK ] 4d Swissquote s'ajoute un complice comme guardian (appel direct) : refusé
+       revert: Execution reverted for an unknown reason.
+[OK ] 4e Swissquote finalise sans recovery en attente : refusé
+       revert: Execution reverted with reason: SM: no ongoing recovery.
+[OK ] 5a Swissquote + tiers lancent une recovery sur l'instance 14 j
+       executeAfter - maintenant = 1209600 s (14 j = 1209600 s)
+[OK ] 5b Finalisation à J+13 : refusée (délai appliqué on-chain)
+       revert: Execution reverted with reason: SM: recovery period still pending.
+[OK ] 5c Annulation par le propriétaire pendant le délai, puis finalisation à J+15 : refusée
+       revert: Execution reverted with reason: SM: no ongoing recovery.
+[OK ] 5d Rejeu des mêmes signatures après annulation : refusé
+       revert: Execution reverted with reason: SM: Invalid guardian signature.
+[OK ] 6a Recovery complète backup + Swissquote vers une nouvelle EOA (3 min), finalisée par un tiers quelconque
+       finalisation avant 3 min : revert: Execution reverted with reason: SM: recovery period still pending. ; owners après = 0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65
+[OK ] 6b Ancien propriétaire ne peut plus signer, le nouveau le peut
+       ancien : revert: Execution reverted with reason: GS026. ; nouveau : tx acceptée
+[OK ] 6c DANGER confirmé : la recovery 14 j lancée AVANT survit à la recovery 3 min et remplace le NOUVEAU propriétaire si on ne l'annule pas
+       owners après finalisation 14 j = 0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc
+[OK ] 6d Après annulation sur toutes les instances par le nouveau propriétaire, la 14 j ne peut plus finaliser
+       revert: Execution reverted with reason: SM: no ongoing recovery.
+[OK ] 7a Changement de guardian par le propriétaire : effectif immédiatement, aucun délai imposé par le module
+       écart = 1 s ; guardians = 0x976EA74026E726554dB657fA54763abd0C3a0aa9,0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC
+[OK ] 7b DANGER confirmé : retirer le tiers N'ANNULE PAS la recovery qu'il a lancée (v0.0.1, correctif L-03 non déployé)
+       finalisation : réussie ; owners = 0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc
+[OK ] 9 Chemin sans Swissquote : backup + tiers récupèrent sur l'instance 3 j (aucune signature Swissquote)
+       délai mesuré 3 min = 180 s, 3 j = 259200 s ; finalisation 1 min avant : revert: Execution reverted with reason: SM: recovery period still pending. ; owners après = 0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65
+[OK ] 8a Adresse du signataire passkey calculée hors chaîne (SDK) = adresse donnée par la factory
+       sdk=0x85c069491436C847be0aAC8c82a117194342601F factory=0x85c069491436C847be0aAC8c82a117194342601F ; déployé avant recovery : non
+[OK ] 8b Recovery finalisée vers le signataire passkey NON déployé : propriétaire du Safe remplacé
+       owners = 0x85c069491436C847be0aAC8c82a117194342601F
+[OK ] 8c Déploiement du signataire passkey après coup, par n'importe qui (factory permissionless)
+       code à 0x85c069491436C847be0aAC8c82a117194342601F : 255 octets
+
+RÉSUMÉ
+1   fonctionne         Safe créé avec une EOA propriétaire
+2   fonctionne         Trois instances (3 min, 3 j, 14 j) activées sur le même Safe, seuil 2
+2b  fonctionne         Hash EIP-712 de viem identique à getRecoveryHash du module
+3a  fonctionne         Même adresse enregistrée deux fois dans une instance : refusé
+3b  fonctionne         Même signature comptée deux fois (multiConfirm) : refusé
+3c  fonctionne         Signature Swissquote faite pour l'instance 3 min rejouée sur l'instance 14 j : refusé
+4a  fonctionne         Swissquote seule lance (confirm + execute) sur l'instance 3 min : refusé
+4b  fonctionne         Après la confirmation seule de Swissquote, executeRecovery (par n'importe qui) : refusé
+4c  fonctionne         Swissquote confirme sur l'instance 3 j où elle n'est pas guardian : refusé
+4d  fonctionne         Swissquote s'ajoute un complice comme guardian (appel direct) : refusé
+4e  fonctionne         Swissquote finalise sans recovery en attente : refusé
+5a  fonctionne         Swissquote + tiers lancent une recovery sur l'instance 14 j
+5b  fonctionne         Finalisation à J+13 : refusée (délai appliqué on-chain)
+5c  fonctionne         Annulation par le propriétaire pendant le délai, puis finalisation à J+15 : refusée
+5d  fonctionne         Rejeu des mêmes signatures après annulation : refusé
+6a  fonctionne         Recovery complète backup + Swissquote vers une nouvelle EOA (3 min), finalisée par un tiers quelconque
+6b  fonctionne         Ancien propriétaire ne peut plus signer, le nouveau le peut
+6c  fonctionne         DANGER confirmé : la recovery 14 j lancée AVANT survit à la recovery 3 min et remplace le NOUVEAU propriétaire si on ne l'annule pas
+6d  fonctionne         Après annulation sur toutes les instances par le nouveau propriétaire, la 14 j ne peut plus finaliser
+7a  fonctionne         Changement de guardian par le propriétaire : effectif immédiatement, aucun délai imposé par le module
+7b  fonctionne         DANGER confirmé : retirer le tiers N'ANNULE PAS la recovery qu'il a lancée (v0.0.1, correctif L-03 non déployé)
+9   fonctionne         Chemin sans Swissquote : backup + tiers récupèrent sur l'instance 3 j (aucune signature Swissquote)
+8a  fonctionne         Adresse du signataire passkey calculée hors chaîne (SDK) = adresse donnée par la factory
+8b  fonctionne         Recovery finalisée vers le signataire passkey NON déployé : propriétaire du Safe remplacé
+8c  fonctionne         Déploiement du signataire passkey après coup, par n'importe qui (factory permissionless)

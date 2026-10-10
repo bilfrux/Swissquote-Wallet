@@ -1,0 +1,23 @@
+{
+  "name": "feasibility-btc",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "regtest:up": "docker compose up -d",
+    "regtest:down": "docker compose down -v",
+    "policy": "tsx policy.ts",
+    "regtest": "tsx regtest.ts",
+    "signet": "tsx signet.ts"
+  },
+  "dependencies": {
+    "@bitcoinerlab/descriptors-scure": "^3.2.0",
+    "@bitcoinerlab/miniscript": "^2.0.0",
+    "@bitcoinerlab/miniscript-policies": "^1.1.0",
+    "@scure/bip32": "^2.4.0",
+    "@scure/bip39": "^2.4.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}
