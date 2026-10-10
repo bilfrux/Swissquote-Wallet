@@ -9,12 +9,12 @@ import { IconCash, IconChevron, IconCrypto, IconList, IconPortfolio, IconReceive
 import type { Tab } from "../ui/Shell";
 import { useIsMobile } from "../ui/useIsMobile";
 
-const PERIODS = ["1S", "1M", "6M", "1A", "Tout"] as const;
+const PERIODS = ["1W", "1M", "6M", "1Y", "All"] as const;
 type Period = (typeof PERIODS)[number];
 // Courbe SIMULÉE (déterministe) qui se termine sur la valeur actuelle : illustration de l'interface, pas des données.
 function series(total: number, period: Period) {
-  const n = { "1S": 7, "1M": 30, "6M": 26, "1A": 52, Tout: 60 }[period];
-  const amp = { "1S": 0.004, "1M": 0.012, "6M": 0.04, "1A": 0.07, Tout: 0.12 }[period];
+  const n = { "1W": 7, "1M": 30, "6M": 26, "1Y": 52, All: 60 }[period];
+  const amp = { "1W": 0.004, "1M": 0.012, "6M": 0.04, "1Y": 0.07, All: 0.12 }[period];
   return Array.from({ length: n }, (_, i) => total * (1 - amp * (1 - i / (n - 1)) + amp * 0.35 * Math.sin(i * 1.7 + n)));
 }
 
@@ -22,7 +22,7 @@ type Props = { accounts: BankAccount[] | null; btcSats: bigint | null; custodySa
 
 export function Overview({ accounts, btcSats, custodySats = 0, customerId, onTab }: Props) {
   const mobile = useIsMobile();
-  const [period, setPeriod] = useState<Period>("1S");
+  const [period, setPeriod] = useState<Period>("1W");
   const cash = (accounts ?? []).reduce((s, a) => s + a.balance, 0);
   const btcChf = btcSats === null ? 0 : (Number(btcSats) / 1e8) * BTC_CHF;
   const custodyChf = (custodySats / 1e8) * BTC_CHF;
@@ -30,8 +30,8 @@ export function Overview({ accounts, btcSats, custodySats = 0, customerId, onTab
   const points = useMemo(() => series(total || 1, period), [total, period]);
   const change = total - points[points.length - 2];
   const pct = points[points.length - 2] ? (change / points[points.length - 2]) * 100 : 0;
-  const priv = accounts?.find((a) => /privé/i.test(a.label));
-  const save = accounts?.find((a) => /épargne/i.test(a.label));
+  const priv = accounts?.find((a) => /private/i.test(a.label));
+  const save = accounts?.find((a) => /savings/i.test(a.label));
   const recent = (accounts ?? []).flatMap((a) => a.transactions.map((t) => ({ ...t, account: a.label }))).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
 
   const periodSelector = (
@@ -39,31 +39,31 @@ export function Overview({ accounts, btcSats, custodySats = 0, customerId, onTab
   );
   const changeLine = (
     <p className={change >= 0 ? "up" : "down"}>
-      {signed(change)} CHF {change >= 0 ? "▲" : "▼"} {num(Math.abs(pct))}% <span className="muted">variation du jour (simulée)</span>
+      {signed(change)} CHF {change >= 0 ? "▲" : "▼"} {num(Math.abs(pct))}% <span className="muted">daily change (simulated)</span>
     </p>
   );
 
   if (mobile)
     return (
       <div className="m-home">
-        <p className="m-total-label">Valeur totale</p>
+        <p className="m-total-label">Total value</p>
         <p className="m-total"><strong>{num(total)}</strong> CHF</p>
         <section className="card">
-          <p className="muted-strong">Portefeuille {customerId}</p>
+          <p className="muted-strong">Portfolio {customerId}</p>
           <p className="m-amount">{num(total)} <SwissFlag /></p>
           {changeLine}
           <Chart points={points} height={110} />
           {periodSelector}
           <div className="tiles">
-            <button className="tile-btn" onClick={() => onTab("banque")}><span><IconPortfolio /> Comptes</span><strong>{num(cash)}</strong><IconChevron /></button>
-            <button className="tile-btn" data-testid="home-crypto" onClick={() => onTab("crypto")}><span><IconCrypto /> Crypto</span><strong>{btcSats === null ? "Créer" : num(btcChf)}</strong><IconChevron /></button>
+            <button className="tile-btn" onClick={() => onTab("banque")}><span><IconPortfolio /> Accounts</span><strong>{num(cash)}</strong><IconChevron /></button>
+            <button className="tile-btn" data-testid="home-crypto" onClick={() => onTab("crypto")}><span><IconCrypto /> Crypto</span><strong>{btcSats === null ? "Create" : num(btcChf)}</strong><IconChevron /></button>
             <button className="tile-btn" onClick={() => onTab("banque")}><span><IconCash /> Cash</span><strong>{num(priv?.balance ?? 0)}</strong><IconChevron /></button>
-            <button className="tile-btn" onClick={() => onTab("banque")}><span><IconSavings /> Épargne</span><strong>{num(save?.balance ?? 0)}</strong><IconChevron /></button>
+            <button className="tile-btn" onClick={() => onTab("banque")}><span><IconSavings /> Savings</span><strong>{num(save?.balance ?? 0)}</strong><IconChevron /></button>
           </div>
           <div className="round-actions">
-            <button onClick={() => onTab("crypto", "recevoir")}><span className="round dark"><IconReceive /></span>Recevoir</button>
-            <button onClick={() => onTab("crypto", "envoyer")}><span className="round dark"><IconSend /></span>Envoyer</button>
-            <button onClick={() => onTab("banque")}><span className="round dark"><IconList /></span>Opérations</button>
+            <button onClick={() => onTab("crypto", "recevoir")}><span className="round dark"><IconReceive /></span>Receive</button>
+            <button onClick={() => onTab("crypto", "envoyer")}><span className="round dark"><IconSend /></span>Send</button>
+            <button onClick={() => onTab("banque")}><span className="round dark"><IconList /></span>Transactions</button>
           </div>
         </section>
       </div>
@@ -72,18 +72,18 @@ export function Overview({ accounts, btcSats, custodySats = 0, customerId, onTab
   return (
     <div className="d-page">
       <div className="d-page-head">
-        <h1>Vue d'ensemble</h1>
+        <h1>Overview</h1>
         <span className="muted small">Client {customerId} · IBAN {priv?.iban ?? "—"}</span>
       </div>
       <div className="d-cols">
         <div className="d-col-main">
           <section className="card stats">
-            <div><p className="stat-label"><IconCash /> Comptes CHF</p><p className="stat">{num(cash)} <small>CHF</small></p></div>
+            <div><p className="stat-label"><IconCash /> CHF accounts</p><p className="stat">{num(cash)} <small>CHF</small></p></div>
             <div><p className="stat-label"><IconCrypto /> Crypto</p><p className="stat">{num(btcChf)} <small>CHF</small></p></div>
-            <div><p className="stat-label"><IconPortfolio /> Valeur totale</p><p className="stat">{num(total)} <small>CHF</small></p></div>
+            <div><p className="stat-label"><IconPortfolio /> Total value</p><p className="stat">{num(total)} <small>CHF</small></p></div>
           </section>
           <section className="card rows">
-            <h2>Comptes</h2>
+            <h2>Accounts</h2>
             {(accounts ?? []).map((a) => (
               <button key={a.iban} className="row-line" onClick={() => onTab("banque")}>
                 <span>{a.label}<small className="muted mono"> {a.iban}</small></span><strong>{num(a.balance)} {a.currency}</strong><IconChevron />
@@ -91,19 +91,19 @@ export function Overview({ accounts, btcSats, custodySats = 0, customerId, onTab
             ))}
             {custodySats > 0 && (
               <button className="row-line" onClick={() => onTab("crypto", "transferer")}>
-                <span>Compte crypto Swissquote<small className="muted"> en garde chez Swissquote</small></span><strong>{btcFmt(BigInt(custodySats))} · {num(custodyChf)} CHF</strong><IconChevron />
+                <span>Swissquote crypto account<small className="muted"> held in custody by Swissquote</small></span><strong>{btcFmt(BigInt(custodySats))} · {num(custodyChf)} CHF</strong><IconChevron />
               </button>
             )}
           </section>
           <section className="card rows" data-testid="home-crypto">
             <h2>Crypto · self-custody</h2>
             <button className="row-line" onClick={() => onTab("crypto")}>
-              <span>Wallet Bitcoin <small className="muted">vous seul détenez la clé</small></span>
-              <strong>{btcSats === null ? "Créer mon wallet" : `${btcFmt(btcSats)} · ${num(btcChf)} CHF`}</strong><IconChevron />
+              <span>Bitcoin wallet <small className="muted">only you hold the key</small></span>
+              <strong>{btcSats === null ? "Create my wallet" : `${btcFmt(btcSats)} · ${num(btcChf)} CHF`}</strong><IconChevron />
             </button>
           </section>
           <section className="card rows">
-            <h2>Dernières opérations</h2>
+            <h2>Recent transactions</h2>
             <table>
               <tbody>{recent.map((t, i) => <tr key={i}><td className="muted">{t.date}</td><td>{t.label}<small className="muted"> · {t.account}</small></td><td className={`num ${t.amount < 0 ? "neg" : "pos"}`}>{signed(t.amount)} CHF</td></tr>)}</tbody>
             </table>
@@ -111,16 +111,16 @@ export function Overview({ accounts, btcSats, custodySats = 0, customerId, onTab
         </div>
         <div className="d-col-side">
           <section className="card">
-            <h2>Évolution du portefeuille</h2>
+            <h2>Portfolio performance</h2>
             <p className="d-chart-value">{num(total)} CHF</p>
             {changeLine}
             <Chart points={points} height={150} />
             {periodSelector}
           </section>
           <section className="card highlight">
-            <h2>Votre wallet Bitcoin</h2>
-            <p className="small">Vous seul détenez la clé. Si vous la perdez, Swissquote et votre tiers de confiance peuvent ensemble vous la faire retrouver, sans jamais pouvoir agir seuls.</p>
-            <button className="btn-primary" onClick={() => onTab("crypto")}>{btcSats === null ? "Créer mon wallet" : "Ouvrir mon wallet"}</button>
+            <h2>Your Bitcoin wallet</h2>
+            <p className="small">Only you hold the key. If you lose it, Swissquote and your trusted contact can together help you recover your funds, without ever being able to act alone.</p>
+            <button className="btn-primary" onClick={() => onTab("crypto")}>{btcSats === null ? "Create my wallet" : "Open my wallet"}</button>
           </section>
         </div>
       </div>

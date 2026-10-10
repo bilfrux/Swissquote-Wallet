@@ -23,7 +23,7 @@ export function notify(customerId: string, accountId: number | null, kind: strin
   if (r.changes) {
     const c = CUSTOMERS[customerId];
     const to = c ? `${c.firstName.toLowerCase()}.${c.lastName.toLowerCase()}@exemple.invalid` : customerId;
-    appendFileSync(join(DATA_DIR, "outbox.log"), `${new Date().toISOString()} | email SIMULÉ à ${to} | ${title} | ${body}\n`);
+    appendFileSync(join(DATA_DIR, "outbox.log"), `${new Date().toISOString()} | SIMULATED email to ${to} | ${title} | ${body}\n`);
   }
   return r.changes > 0;
 }
@@ -42,16 +42,16 @@ export async function runAlerts(configOf: (r: any) => Promise<WalletConfig>, net
         if (u.confirmations === 0) continue;
         const coin = `${u.txid.slice(0, 10)}…:${u.vout} (${u.value} sats)`;
         if (u.recoveryOpensIn === 0)
-          created += +notify(row.customer_id, row.id, "recovery-ouverte", "Recovery possible sur un de vos coins",
-            `Le coin ${coin} est immobile depuis ${cfg.delay} blocs : Swissquote et votre tiers peuvent désormais le déplacer ensemble. Rafraîchissez vos coins si ce n'est pas une recovery voulue.`,
+          created += +notify(row.customer_id, row.id, "recovery-ouverte", "Recovery possible on one of your coins",
+            `Coin ${coin} has not moved for ${cfg.delay} blocks: Swissquote and your trusted contact can now move it together. Refresh your coins if this is not a recovery you asked for.`,
             `${row.id}:${u.txid}:${u.vout}:open`);
         else if (u.recoveryOpensIn <= threshold)
-          created += +notify(row.customer_id, row.id, "recovery-bientot", `Recovery possible dans ${u.recoveryOpensIn} bloc(s)`,
-            `Le coin ${coin} deviendra dépensable par Swissquote + votre tiers dans ${u.recoveryOpensIn} bloc(s). Pour l'éviter, rafraîchissez vos coins (envoi à vous-même).`,
+          created += +notify(row.customer_id, row.id, "recovery-bientot", `Recovery possible in ${u.recoveryOpensIn} block(s)`,
+            `Coin ${coin} will become spendable by Swissquote + your trusted contact in ${u.recoveryOpensIn} block(s). To prevent this, refresh your coins (transfer to yourself).`,
             `${row.id}:${u.txid}:${u.vout}:soon`);
       }
     } catch (e: any) {
-      errors.push(`compte ${row.id} (${row.network}) : ${e.message}`);
+      errors.push(`account ${row.id} (${row.network}): ${e.message}`);
     }
   }
   return { created, errors };

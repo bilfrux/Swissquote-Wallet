@@ -59,7 +59,7 @@ try {
 
   // Message altéré : le wallet signe un autre texte que le défi
   const ch2 = await bank("/ownership/challenge", token, { network: "regtest", client: cfg.client.raw, change: 0, index: 0 });
-  const forged = await wallet("/api/prove", { accountKey: cfg.client.raw, change: 0, index: 0, message: ch2.body.message.replace("Défi", "Defi"), network: "regtest", pin: PIN });
+  const forged = await wallet("/api/prove", { accountKey: cfg.client.raw, change: 0, index: 0, message: ch2.body.message.replace("Challenge", "Challenge2"), network: "regtest", pin: PIN });
   const v2 = await bank("/ownership/verify", token, { challengeId: ch2.body.challengeId, signature: forged.body.signature });
   report("7-4", "Signature d'un message différent du défi : refusée", v2.body.verified === false, v2.body.proves);
 

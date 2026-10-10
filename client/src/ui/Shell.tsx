@@ -20,10 +20,10 @@ type Props = {
 };
 
 const TABS: { id: Tab; label: string; icon: () => React.ReactElement }[] = [
-  { id: "accueil", label: "Accueil", icon: IconHome },
-  { id: "banque", label: "Banque", icon: IconBank },
+  { id: "accueil", label: "Home", icon: IconHome },
+  { id: "banque", label: "Banking", icon: IconBank },
   { id: "crypto", label: "Crypto", icon: IconCrypto },
-  ...(NETWORK === "regtest" ? [{ id: "demo" as Tab, label: "Démo", icon: IconBolt }] : []),
+  ...(NETWORK === "regtest" ? [{ id: "demo" as Tab, label: "Demo", icon: IconBolt }] : []),
 ];
 
 export function Shell(p: Props) {
@@ -36,15 +36,15 @@ export function Shell(p: Props) {
           <Logo size={26} />
           <div className="m-top-actions">
             <NotificationBell round />
-            <button className="round" aria-label="Mon compte" onClick={() => setSheet(!sheet)}><IconUser /></button>
+            <button className="round" aria-label="My account" onClick={() => setSheet(!sheet)}><IconUser /></button>
           </div>
         </div>
         {sheet && (
           <div className="m-sheet">
             <p><strong>{p.user.firstName} {p.user.lastName}</strong></p>
-            <p className="muted small">Banque simulée · Bitcoin {NETWORK}</p>
+            <p className="muted small">Simulated bank · Bitcoin {NETWORK}</p>
             <AccountSecurity />
-            <button className="btn-outline-red" onClick={p.onLogout}>Déconnexion</button>
+            <button className="btn-outline-red" onClick={p.onLogout}>Log out</button>
           </div>
         )}
         <main className="m-main">{p.children}</main>
@@ -60,11 +60,11 @@ export function Shell(p: Props) {
     );
 
   const RAIL: { label: string; icon: () => React.ReactElement; go: () => void; on: boolean }[] = [
-    { label: "Portefeuille", icon: IconPortfolio, go: () => p.onTab("accueil"), on: p.tab === "accueil" },
-    { label: "Comptes", icon: IconBank, go: () => p.onTab("banque"), on: p.tab === "banque" },
+    { label: "Portfolio", icon: IconPortfolio, go: () => p.onTab("accueil"), on: p.tab === "accueil" },
+    { label: "Accounts", icon: IconBank, go: () => p.onTab("banque"), on: p.tab === "banque" },
     { label: "Crypto assets", icon: IconCrypto, go: () => p.onTab("crypto"), on: p.tab === "crypto" },
-    { label: "Sécurité", icon: IconShield, go: () => p.onTab("crypto", "securite"), on: false },
-    ...(NETWORK === "regtest" ? [{ label: "Attaques", icon: IconBolt, go: () => p.onTab("demo"), on: p.tab === "demo" }] : []),
+    { label: "Security", icon: IconShield, go: () => p.onTab("crypto", "securite"), on: false },
+    ...(NETWORK === "regtest" ? [{ label: "Attacks", icon: IconBolt, go: () => p.onTab("demo"), on: p.tab === "demo" }] : []),
   ];
   return (
     <div className="d-app">
@@ -78,10 +78,10 @@ export function Shell(p: Props) {
         <div className="d-header-right">
           <NotificationBell />
           <div className="bell-wrap">
-            <button className="account-pill" aria-label="Mon compte" onClick={() => setSheet(!sheet)}><IconUser /> {p.user.firstName} {p.user.lastName}</button>
+            <button className="account-pill" aria-label="My account" onClick={() => setSheet(!sheet)}><IconUser /> {p.user.firstName} {p.user.lastName}</button>
             {sheet && <div className="bell-panel"><p><strong>{p.user.firstName} {p.user.lastName}</strong></p><AccountSecurity /></div>}
           </div>
-          <button className="btn-outline-red" onClick={p.onLogout}>Déconnexion</button>
+          <button className="btn-outline-red" onClick={p.onLogout}>Log out</button>
         </div>
       </header>
       <div className="d-body">
@@ -93,11 +93,11 @@ export function Shell(p: Props) {
         <main className="d-main">{p.children}</main>
       </div>
       <footer className="d-status">
-        <span>Valeur totale <strong>{num(p.totals.totalChf)} CHF</strong></span>
-        <span>Comptes CHF <strong>{num(p.totals.cashChf)} CHF</strong></span>
+        <span>Total value <strong>{num(p.totals.totalChf)} CHF</strong></span>
+        <span>CHF accounts <strong>{num(p.totals.cashChf)} CHF</strong></span>
         <span>Crypto <strong>{p.totals.btc ?? "—"}</strong></span>
-        <span>Réseau Bitcoin <strong>{NETWORK}</strong></span>
-        <span className="sim">Banque simulée pour la démo</span>
+        <span>Bitcoin network <strong>{NETWORK}</strong></span>
+        <span className="sim">Simulated bank for the demo</span>
       </footer>
     </div>
   );

@@ -17,9 +17,9 @@ page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
 try {
   await page.goto(APP);
   const cases = [
-    { label: "Voler le téléphone et l'email", expect: "⛔ Refusé", chain: "Signature must be zero for failed CHECK(MULTI)SIG operation" },
-    { label: "Collusion Swissquote + tiers avant le délai", expect: "⛔ Refusé", chain: "non-BIP68-final" },
-    { label: "Swissquote disparaît", expect: "✅ Réussi", chain: "diffusée" },
+    { label: "Steal the phone and email", expect: "⛔ Rejected", chain: "Signature must be zero for failed CHECK(MULTI)SIG operation" },
+    { label: "Swissquote + trusted contact collude before the delay", expect: "⛔ Rejected", chain: "non-BIP68-final" },
+    { label: "Swissquote disappears", expect: "✅ Succeeded", chain: "broadcast" },
   ];
   for (const [i, c] of cases.entries()) {
     const block = page.locator(".attack").nth(i);
@@ -28,7 +28,7 @@ try {
     await out.first().waitFor({ timeout: 120000 });
     const text = (await out.first().textContent()) ?? "";
     report(`UI-${i + 1}`, `Bouton « ${c.label} » : ${c.expect}, conforme, message réel de la chaîne affiché`,
-      text.includes(c.expect) && text.includes("(conforme)") && text.includes(c.chain), text.replace(/\s+/g, " ").slice(0, 260));
+      text.includes(c.expect) && text.includes("(as expected)") && text.includes(c.chain), text.replace(/\s+/g, " ").slice(0, 260));
   }
   await page.locator(".attack").first().scrollIntoViewIfNeeded();
   await page.screenshot({ path: "docs/validation/captures/etape-4-panneau-attaques.png", fullPage: true });

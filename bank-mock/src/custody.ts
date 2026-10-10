@@ -34,14 +34,14 @@ export class CustodyError extends Error {
 const name = (c: string) => `${CUSTOMERS[c].firstName} ${CUSTOMERS[c].lastName} (client ${c})`;
 function ensureOpening(customerId: string, network: NetworkName) {
   db.prepare("insert or ignore into custody_ledger (customer_id, network, sats, reason, ref) values (?, ?, ?, ?, ?)")
-    .run(customerId, network, Math.round((INITIAL_BTC[customerId] ?? 0) * 1e8), "solde d'ouverture (démo)", `open:${customerId}:${network}`);
+    .run(customerId, network, Math.round((INITIAL_BTC[customerId] ?? 0) * 1e8), "opening balance (demo)", `open:${customerId}:${network}`);
 }
 export function balance(customerId: string, network: NetworkName): number {
   ensureOpening(customerId, network);
   return (db.prepare("select coalesce(sum(sats), 0) as s from custody_ledger where customer_id = ? and network = ?").get(customerId, network) as any).s;
 }
 const requireRegtest = (n: NetworkName) => {
-  if (n !== "regtest") throw new CustodyError(501, "compte crypto Swissquote : démo disponible en regtest seulement (le portefeuille omnibus signet n'est pas approvisionné)");
+  if (n !== "regtest") throw new CustodyError(501, "Swissquote crypto account: demo available on regtest only (the signet omnibus wallet is not funded)");
 };
 
 // Portefeuille omnibus (regtest) : créé et approvisionné au besoin (minage de démo).
@@ -70,20 +70,20 @@ const ownAddressMap = (ctx: Ctx) => {
 // RETRAIT : compte Swissquote -> wallet self-custody du client.
 export async function withdraw(customerId: string, network: NetworkName, address: string, amountSats: number, ctx: Ctx) {
   requireRegtest(network);
-  if (!Number.isInteger(amountSats) || amountSats < 10_000) throw new CustodyError(400, "montant invalide (minimum 10 000 sats)");
-  if (amountSats > balance(customerId, network)) throw new CustodyError(400, "avoirs insuffisants sur le compte Swissquote");
+  if (!Number.isInteger(amountSats) || amountSats < 10_000) throw new CustodyError(400, "invalid amount (minimum 10,000 sats)");
+  if (amountSats > balance(customerId, network)) throw new CustodyError(400, "insufficient funds in the Swissquote account");
   const accountId = ownAddressMap(ctx).get(address);
-  if (accountId === undefined) throw new CustodyError(403, "adresse refusée : seuls les wallets enregistrés à votre nom sont autorisés");
+  if (accountId === undefined) throw new CustodyError(403, "address rejected: only wallets registered in your name are allowed");
   // Travel Rule : propriété du wallet auto-hébergé vérifiée (preuve signée par la clé du client) AVANT l'envoi.
   const proof = db.prepare("select id, verified_at from ownership_challenges where customer_id = ? and address = ? and verified_at is not null order by verified_at desc limit 1").get(customerId, address) as any;
-  if (!proof) throw new CustodyError(412, "Travel Rule : preuve de propriété requise pour cette adresse avant tout envoi", { needProof: true, address });
+  if (!proof) throw new CustodyError(412, "Travel Rule: proof of ownership required for this address before any transfer", { needProof: true, address });
   const wallet = await omnibus();
   const txid: string = await rpc.call("sendtoaddress", [address, amountSats / 1e8], wallet);
   db.prepare("insert into custody_ledger (customer_id, network, sats, reason, ref) values (?, ?, ?, ?, ?)").run(customerId, network, -amountSats, `retrait vers le wallet (compte n°${accountId})`, `wd:${txid}`);
   const id = db.prepare(`insert into travel_rule_records (customer_id, network, direction, status, amount_sats, address, txid, originator, beneficiary, verification)
     values (?, ?, 'sortant', 'envoyé', ?, ?, ?, ?, ?, ?)`).run(customerId, network, amountSats, address, txid,
-    `${name(customerId)} · compte Swissquote`, `${name(customerId)} · wallet auto-hébergé (compte n°${accountId})`,
-    `preuve de propriété n°${proof.id.slice(0, 8)} vérifiée le ${new Date(proof.verified_at).toISOString()}`).lastInsertRowid;
+    `${name(customerId)} · Swissquote account`, `${name(customerId)} · self-hosted wallet (account #${accountId})`,
+    `proof of ownership #${proof.id.slice(0, 8)} verified on ${new Date(proof.verified_at).toISOString()}`).lastInsertRowid;
   return { txid, recordId: Number(id), balanceSats: balance(customerId, network) };
 }
 
@@ -92,7 +92,7 @@ export async function depositAddress(customerId: string, network: NetworkName) {
   requireRegtest(network);
   const existing = db.prepare("select address from deposit_addresses where customer_id = ? and network = ?").get(customerId, network) as any;
   if (existing) return existing.address as string;
-  const a: string = await rpc.call("getnewaddress", [`dépôt ${customerId}`], await omnibus());
+  const a: string = await rpc.call("getnewaddress", [`deposit ${customerId}`], await omnibus());
   db.prepare("insert into deposit_addresses (address, customer_id, network) values (?, ?, ?)").run(a, customerId, network);
   return a;
 }
@@ -112,14 +112,14 @@ export async function syncDeposits(customerId: string, network: NetworkName, ctx
     const verified = from.length > 0 && from.every((a) => own.has(a));
     const sats = Math.round(l.amount * 1e8);
     if (verified) {
-      db.prepare("insert or ignore into custody_ledger (customer_id, network, sats, reason, ref) values (?, ?, ?, ?, ?)").run(customerId, network, sats, "dépôt depuis le wallet", `dep:${l.txid}:${l.vout}`);
+      db.prepare("insert or ignore into custody_ledger (customer_id, network, sats, reason, ref) values (?, ?, ?, ?, ?)").run(customerId, network, sats, "deposit from the wallet", `dep:${l.txid}:${l.vout}`);
       credited++;
     } else held++;
     db.prepare(`insert into travel_rule_records (customer_id, network, direction, status, amount_sats, address, txid, originator, beneficiary, verification)
       values (?, ?, 'entrant', ?, ?, ?, ?, ?, ?, ?)`).run(customerId, network, verified ? "crédité" : "en attente de vérification", sats, l.address, l.txid,
-      verified ? `${name(customerId)} · wallet auto-hébergé (compte n°${own.get(from[0])})` : `inconnu (${from[0] ?? "?"})`,
-      `${name(customerId)} · compte Swissquote`,
-      verified ? "provenance vérifiée : toutes les entrées viennent d'un wallet enregistré du client" : "provenance NON vérifiée : fonds non crédités");
+      verified ? `${name(customerId)} · self-hosted wallet (account #${own.get(from[0])})` : `unknown (${from[0] ?? "?"})`,
+      `${name(customerId)} · Swissquote account`,
+      verified ? "source verified: all inputs come from a wallet registered to the client" : "source NOT verified: funds not credited");
   }
   return { credited, held };
 }

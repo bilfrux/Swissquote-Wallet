@@ -9,22 +9,22 @@ export function PsbtSummary({ summary, delay, labels = {} }: { summary: Summary;
   return (
     <div className="summary">
       <p>
-        <strong>Chemin utilisé :</strong>{" "}
+        <strong>Spending path:</strong>{" "}
         {summary.path === "client"
-          ? "clé du client seule (aucun délai)"
-          : `recovery Swissquote + tiers (nSequence = ${delay} : valide seulement si les coins n'ont pas bougé depuis ${delay} blocs)`}
+          ? "client key alone (no delay)"
+          : `recovery Swissquote + trusted contact (nSequence = ${delay}: valid only if the coins have not moved for ${delay} blocks)`}
       </p>
       <p>
-        <strong>Dépense :</strong> {summary.inputs.length} coin(s), {btcFmt(total)}
+        <strong>Spending:</strong> {summary.inputs.length} coin(s), {btcFmt(total)}
       </p>
       <table>
         <thead>
-          <tr><th>Sortie</th><th>Montant</th><th>Destination</th></tr>
+          <tr><th>Output</th><th>Amount</th><th>Destination</th></tr>
         </thead>
         <tbody>
           {summary.outputs.map((o, i) => (
             <tr key={i} className={o.own ? "own" : "external"}>
-              <td>{o.own ? (o.own.change ? "change (ce compte)" : "ce compte") : labels[o.address] ?? "externe"}</td>
+              <td>{o.own ? (o.own.change ? "change (this account)" : "this account") : labels[o.address] ?? "external"}</td>
               <td>{btcFmt(o.value)}</td>
               <td className="mono">{o.address}</td>
             </tr>
@@ -32,12 +32,12 @@ export function PsbtSummary({ summary, delay, labels = {} }: { summary: Summary;
         </tbody>
       </table>
       <p>
-        <strong>Frais :</strong> {btcFmt(summary.fee)}
+        <strong>Fee:</strong> {btcFmt(summary.fee)}
         {summary.vsize ? ` (${summary.vsize} vB)` : ""}
       </p>
-      {external.length === 0 && <p className="note">Envoi à soi-même : remet à zéro le délai de recovery des coins dépensés.</p>}
+      {external.length === 0 && <p className="note">Self-transfer: resets the recovery delay of the spent coins.</p>}
       <p>
-        <strong>Signatures présentes :</strong> {summary.inputs.map((i) => i.signatures).join(", ")}
+        <strong>Signatures present:</strong> {summary.inputs.map((i) => i.signatures).join(", ")}
       </p>
     </div>
   );

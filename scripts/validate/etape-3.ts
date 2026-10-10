@@ -49,11 +49,11 @@ try {
     const vLast = await nodeVerdict(tx.hex);
     await mine(1); // plus récent : D
     const vOk = await nodeVerdict(tx.hex);
-    const txid = vOk === "accepté" ? await rpc.broadcast(tx.hex) : "";
+    const txid = vOk === "accepted" ? await rpc.broadcast(tx.hex) : "";
     await mine(1);
     const [left, got] = [await scan(A, rpc), await scan(B, rpc)];
     report("1", "Recovery Swissquote + tiers : refusée par le consensus avant D, acceptée à D pour le coin le plus récent ; fonds sur le nouveau compte",
-      tx.sigs.every((n) => n === 2) && v0 === "non-BIP68-final" && vMid === "non-BIP68-final" && vLast === "non-BIP68-final" && vOk === "accepté" && left.length === 0 && got.length === 1,
+      tx.sigs.every((n) => n === 2) && v0 === "non-BIP68-final" && vMid === "non-BIP68-final" && vLast === "non-BIP68-final" && vOk === "accepted" && left.length === 0 && got.length === 1,
       `confirmations des coins au départ=${coins.map((u) => u.confirmations).join(",")} ; à 1 conf : ${v0} ; à ${old.join("/")} conf : ${vMid} ; ` +
       `plus récent à ${D - 1} : ${vLast} ; à ${D} : ${vOk} ; txid=${txid} ; ancien compte : ${left.length} coin, nouveau : ${got.map((u) => u.value).join(",")} sats`);
   }
@@ -92,7 +92,7 @@ try {
     bank.stop();
     const spend = await buildSpend({ cfg: A, backend: rpc, utxos: await scan(A, rpc), path: "client", feeRate: 2, to: minerAddr });
     const v = await nodeVerdict(clientSign(A, spend.psbt, seed).hex);
-    report("3", "Client seul, 1 confirmation, Swissquote arrêtée : dépense acceptée", v === "accepté", `verdict du nœud : ${v}`);
+    report("3", "Client seul, 1 confirmation, Swissquote arrêtée : dépense acceptée", v === "accepted", `verdict du nœud : ${v}`);
   }
 } finally {
   bank.stop();

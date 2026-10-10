@@ -53,58 +53,58 @@ export function Recovery({ onDone, onCancel }: { onDone: (a: BtcAccount) => void
   useEffect(() => { refreshCoins(); }, [oldCfg]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const waitBlocks = utxos?.length ? Math.max(...utxos.map((u) => u.recoveryOpensIn)) : null;
-  const labels = newCfg ? { [outputAt(newCfg, 0, 0).getAddress()]: "votre nouveau compte" } : {};
+  const labels = newCfg ? { [outputAt(newCfg, 0, 0).getAddress()]: "your new account" } : {};
   // Ajoute la signature du tiers (reçue par le relais Swissquote ou collée à la main) et vérifie qu'elle complète la recovery.
   const addTiers = (signed: string) => {
     const combined = combinePsbts([s.sqPsbt!, signed]);
     const sum = simulate(oldCfg!, combined);
-    if (sum.path !== "recovery" || sum.inputs.some((i) => i.signatures < 2)) throw new Error("il manque une signature (Swissquote + tiers requis sur chaque coin)");
+    if (sum.path !== "recovery" || sum.inputs.some((i) => i.signatures < 2)) throw new Error("a signature is missing (Swissquote + trusted contact required on every coin)");
     save({ combined });
   };
   const combinedSummary: Summary | null = oldCfg && s.combined ? simulate(oldCfg, s.combined) : null;
 
   return (
     <section>
-      <h2>Récupérer mon compte</h2>
+      <h2>Recover my account</h2>
       <p className="note">
-        Vous avez perdu la clé de votre wallet. Swissquote (après vérification d'identité) et votre tiers de confiance peuvent
-        ensemble déplacer vos coins vers un nouveau compte, mais seulement pour des coins restés immobiles {s.old?.delay ?? "D"} blocs.
-        Cette règle est appliquée par le réseau Bitcoin, pas par Swissquote.
+        You have lost your wallet key. Swissquote (after identity verification) and your trusted contact can
+        together move your coins to a new account, but only for coins that have not moved for {s.old?.delay ?? "D"} blocks.
+        This rule is enforced by the Bitcoin network, not by Swissquote.
       </p>
       {error && <p className="error">{error}</p>}
 
       <div className="step">
-        <h3>1. Vérification d'identité (Swissquote)</h3>
-        {token ? <p className="success">Identité vérifiée.</p> : (
+        <h3>1. Identity verification (Swissquote)</h3>
+        {token ? <p className="success">Identity verified.</p> : (
           <>
             <div className="row">
-              <label><span>Nom</span><input value={kyc.lastName} onChange={(e) => setKyc({ ...kyc, lastName: e.target.value })} /></label>
-              <label><span>Date de naissance</span><input placeholder="AAAA-MM-JJ" value={kyc.birthDate} onChange={(e) => setKyc({ ...kyc, birthDate: e.target.value })} /></label>
-              <label><span>Code reçu par SMS (mock)</span><input value={kyc.otp} onChange={(e) => setKyc({ ...kyc, otp: e.target.value })} /></label>
+              <label><span>Last name</span><input value={kyc.lastName} onChange={(e) => setKyc({ ...kyc, lastName: e.target.value })} /></label>
+              <label><span>Date of birth</span><input placeholder="YYYY-MM-DD" value={kyc.birthDate} onChange={(e) => setKyc({ ...kyc, birthDate: e.target.value })} /></label>
+              <label><span>Code received by SMS (mock)</span><input value={kyc.otp} onChange={(e) => setKyc({ ...kyc, otp: e.target.value })} /></label>
             </div>
-            <button onClick={guard(async () => { const t = (await verifyIdentity(kyc)).token; setToken(t); setAccounts(await listAccounts(t)); })}>Vérifier mon identité</button>
+            <button onClick={guard(async () => { const t = (await verifyIdentity(kyc)).token; setToken(t); setAccounts(await listAccounts(t)); })}>Verify my identity</button>
           </>
         )}
       </div>
 
       {(accounts || s.old) && (
         <div className="step">
-          <h3>2. Compte à récupérer</h3>
+          <h3>2. Account to recover</h3>
           {s.old ? (
-            <p>Compte n°{s.old.id} · clé perdue <span className="mono">{s.old.client.slice(0, 22)}…</span></p>
-          ) : accounts!.length === 0 ? <p>Aucun compte enregistré.</p> : (
+            <p>Account #{s.old.id} · lost key <span className="mono">{s.old.client.slice(0, 22)}…</span></p>
+          ) : accounts!.length === 0 ? <p>No registered account.</p> : (
             accounts!.map((a) => (
               <p key={a.id}>
-                <button className="small" onClick={() => save({ old: a })}>Choisir</button>{" "}
-                Compte n°{a.id}, créé le {a.createdAt}, clé <span className="mono">{a.client.slice(0, 22)}…</span>
+                <button className="small" onClick={() => save({ old: a })}>Select</button>{" "}
+                Account #{a.id}, created on {a.createdAt}, key <span className="mono">{a.client.slice(0, 22)}…</span>
               </p>
             ))
           )}
           {utxos && (
             <p>
               {utxos.length} coin(s), {btcFmt(utxos.reduce((t, u) => t + u.value, 0n))}
-              {waitBlocks !== null && (waitBlocks === 0 ? " · délai écoulé pour tous les coins" : ` · délai écoulé dans ${waitBlocks} bloc(s)`)}{" "}
-              <button className="small" onClick={refreshCoins}>Actualiser</button>
+              {waitBlocks !== null && (waitBlocks === 0 ? " · delay elapsed for all coins" : ` · delay elapsed in ${waitBlocks} block(s)`)}{" "}
+              <button className="small" onClick={refreshCoins}>Reload</button>
             </p>
           )}
         </div>
@@ -112,42 +112,42 @@ export function Recovery({ onDone, onCancel }: { onDone: (a: BtcAccount) => void
 
       {s.old && (
         <div className="step">
-          <h3>3. Votre nouvelle clé</h3>
+          <h3>3. Your new key</h3>
           {!s.newClient ? (
             <>
-              <p className="note">Créez un nouveau wallet sur votre nouvel appareil. Sa phrase secrète sera générée dans le Wallet du client ; Swissquote ne recevra que sa clé publique.</p>
+              <p className="note">Create a new wallet on your new device. Its secret phrase will be generated in the Client Wallet; Swissquote will only receive its public key.</p>
               <button onClick={guard(async () => {
-                const r = await walletRequest<{ accountKey: string; walletId: string }>("create", { label: "Wallet Bitcoin Swissquote (après recovery)" });
+                const r = await walletRequest<{ accountKey: string; walletId: string }>("create", { label: "Swissquote Bitcoin wallet (after recovery)" });
                 await createNewAccount(r.accountKey, r.walletId);
-              })}>Créer un nouveau wallet avec le Wallet du client</button>
+              })}>Create a new wallet with the Client Wallet</button>
               <details>
-                <summary>J'utilise un autre wallet compatible (Bitcoin Core, Liana…)</summary>
-                <textarea rows={2} className="mono" placeholder="[empreinte/48'/1'/0'/2']tpub…" value={newClientText} onChange={(e) => setNewClientText(e.target.value)} />
-                <button className="secondary" onClick={guard(() => createNewAccount(newClientText.trim()))}>Créer le nouveau compte avec cette clé</button>
+                <summary>I use another compatible wallet (Bitcoin Core, Liana…)</summary>
+                <textarea rows={2} className="mono" placeholder="[fingerprint/48'/1'/0'/2']tpub…" value={newClientText} onChange={(e) => setNewClientText(e.target.value)} />
+                <button className="secondary" onClick={guard(() => createNewAccount(newClientText.trim()))}>Create the new account with this key</button>
               </details>
             </>
-          ) : <p className="success">Nouveau wallet créé (clé <span className="mono">{s.newClient.slice(0, 22)}…</span>).</p>}
-          {newCfg && <p>Nouvelle adresse : <span className="mono">{outputAt(newCfg, 0, 0).getAddress()}</span></p>}
+          ) : <p className="success">New wallet created (key <span className="mono">{s.newClient.slice(0, 22)}…</span>).</p>}
+          {newCfg && <p>New address: <span className="mono">{outputAt(newCfg, 0, 0).getAddress()}</span></p>}
         </div>
       )}
 
       {oldCfg && newCfg && utxos && (
         <div className="step">
-          <h3>4. Demande de recovery et signature de Swissquote</h3>
+          <h3>4. Recovery request and Swissquote signature</h3>
           {!s.psbt ? (
             <button disabled={!utxos.length} onClick={guard(async () => {
               const { psbt } = await buildSpend({ cfg: oldCfg, backend: chain, utxos, path: "recovery", feeRate: 2, to: outputAt(newCfg, 0, 0).getAddress() });
               save({ psbt });
-            })}>Préparer la demande</button>
+            })}>Prepare the request</button>
           ) : (
             <>
               <PsbtSummary summary={simulate(oldCfg, s.sqPsbt ?? s.psbt)} delay={oldCfg.delay} labels={labels} />
               {!s.sqPsbt && (
                 <button disabled={!token} onClick={guard(async () => save({ sqPsbt: (await guardianSign(token!, s.psbt!)).psbt }))}>
-                  Demander la signature de Swissquote
+                  Request Swissquote's signature
                 </button>
               )}
-              {!token && !s.sqPsbt && <p className="note">Vérifiez d'abord votre identité (étape 1).</p>}
+              {!token && !s.sqPsbt && <p className="note">Verify your identity first (step 1).</p>}
             </>
           )}
         </div>
@@ -155,28 +155,28 @@ export function Recovery({ onDone, onCancel }: { onDone: (a: BtcAccount) => void
 
       {s.sqPsbt && oldCfg && (
         <div className="step">
-          <h3>5. Signature de votre tiers de confiance</h3>
-          <p className="note">Envoyez ce PSBT à {s.old?.tiersName || "votre tiers"}. Il le vérifie et le signe dans sa console guardian, puis vous le renvoie.</p>
+          <h3>5. Your trusted contact's signature</h3>
+          <p className="note">Send this PSBT to {s.old?.tiersName || "your trusted contact"}. They check and sign it in their guardian console, then send it back to you.</p>
           {!s.relayId ? (
-            <button onClick={guard(async () => save({ relayId: await relayCreate(s.sqPsbt!) }))}>Envoyer la demande à {s.old?.tiersName || "mon tiers"}</button>
+            <button onClick={guard(async () => save({ relayId: await relayCreate(s.sqPsbt!) }))}>Send the request to {s.old?.tiersName || "my trusted contact"}</button>
           ) : (
             <>
-              <p className="note">Lien à transmettre à votre tiers (il ouvre sa console avec la demande déjà chargée) :</p>
+              <p className="note">Link to send to your trusted contact (it opens their console with the request already loaded):</p>
               <p className="mono small" data-testid="relay-link">{`${CONSOLE_URL}/?req=${s.relayId}`}</p>
               {!s.combined && <button onClick={guard(async () => {
                 const r = await relayGet(s.relayId!);
-                if (!r.signed) throw new Error("pas encore signé par votre tiers");
+                if (!r.signed) throw new Error("not yet signed by your trusted contact");
                 addTiers(r.signed);
-              })}>Récupérer la signature du tiers</button>}
+              })}>Fetch the trusted contact's signature</button>}
             </>
           )}
-          <details><summary className="small">Sans Swissquote : échange manuel du PSBT</summary>
+          <details><summary className="small">Without Swissquote: manual PSBT exchange</summary>
           <textarea readOnly rows={3} className="mono" value={s.sqPsbt} />
-          <button className="small" onClick={() => navigator.clipboard.writeText(s.sqPsbt!)}>Copier pour le tiers</button>
+          <button className="small" onClick={() => navigator.clipboard.writeText(s.sqPsbt!)}>Copy for the trusted contact</button>
           {!s.combined && (
             <>
-              <textarea rows={3} className="mono" placeholder="PSBT signé par le tiers (cHNidP8…)" value={tiersText} onChange={(e) => setTiersText(e.target.value)} />
-              <button onClick={guard(() => addTiers(tiersText))}>Ajouter la signature du tiers</button>
+              <textarea rows={3} className="mono" placeholder="PSBT signed by the trusted contact (cHNidP8…)" value={tiersText} onChange={(e) => setTiersText(e.target.value)} />
+              <button onClick={guard(() => addTiers(tiersText))}>Add the trusted contact's signature</button>
             </>
           )}
           </details>
@@ -185,13 +185,13 @@ export function Recovery({ onDone, onCancel }: { onDone: (a: BtcAccount) => void
 
       {combinedSummary && oldCfg && newCfg && (
         <div className="step">
-          <h3>6. Diffusion</h3>
+          <h3>6. Broadcast</h3>
           <PsbtSummary summary={combinedSummary} delay={oldCfg.delay} labels={labels} />
           {s.txid ? (
             <>
               <p className="success">
-                Recovery diffusée : <span className="mono">{s.txid}</span>
-                {txLink(s.txid) && <> · <a href={txLink(s.txid)!} target="_blank" rel="noreferrer">explorateur</a></>}
+                Recovery broadcast: <span className="mono">{s.txid}</span>
+                {txLink(s.txid) && <> · <a href={txLink(s.txid)!} target="_blank" rel="noreferrer">explorer</a></>}
               </p>
               <button onClick={guard(async () => {
                 const o = s.old!;
@@ -200,7 +200,7 @@ export function Recovery({ onDone, onCancel }: { onDone: (a: BtcAccount) => void
                 if (s.newWalletId) await walletRequest("policy", { walletId: s.newWalletId, policy: { network: NETWORK, delay: o.delay, swissquote: o.swissquote, tiers: o.tiers, tiersName: o.tiersName } });
                 localStorage.removeItem(KEY);
                 onDone(account);
-              })}>Ouvrir mon nouveau compte</button>
+              })}>Open my new account</button>
             </>
           ) : (
             <button onClick={guard(async () => {
@@ -209,19 +209,19 @@ export function Recovery({ onDone, onCancel }: { onDone: (a: BtcAccount) => void
               try { save({ txid: await chain.broadcast(hex) }); } catch (e: any) {
                 const m = String(e.message);
                 setResult(m.includes("non-BIP68-final")
-                  ? `Refusée par le réseau Bitcoin : « ${m} ». Le délai de ${oldCfg.delay} blocs n'est pas écoulé${waitBlocks ? ` (encore ${waitBlocks} bloc(s))` : ""}. Réessayez plus tard.`
-                  : `Refusée par le réseau : ${m}`);
+                  ? `Rejected by the Bitcoin network: “${m}”. The ${oldCfg.delay}-block delay has not elapsed${waitBlocks ? ` (${waitBlocks} block(s) to go)` : ""}. Try again later.`
+                  : `Rejected by the network: ${m}`);
                 refreshCoins();
               }
-            })}>Diffuser la recovery</button>
+            })}>Broadcast the recovery</button>
           )}
           {result && <p className="error">{result}</p>}
         </div>
       )}
 
       <p>
-        <button className="link" onClick={onCancel}>Retour</button>{" · "}
-        <button className="link" onClick={() => { localStorage.removeItem(KEY); setS({}); setUtxos(null); setTiersText(""); setResult(null); }}>Recommencer la recovery</button>
+        <button className="link" onClick={onCancel}>Back</button>{" · "}
+        <button className="link" onClick={() => { localStorage.removeItem(KEY); setS({}); setUtxos(null); setTiersText(""); setResult(null); }}>Restart the recovery</button>
       </p>
     </section>
   );

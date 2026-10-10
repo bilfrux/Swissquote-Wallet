@@ -22,7 +22,7 @@ export function walletRequest<T>(action: "create" | "sign" | "policy" | "prove",
     };
     window.addEventListener("message", onMsg);
     win = window.open(WALLET_URL, "sq-client-wallet", "popup,width=560,height=860");
-    if (!win) return finish(() => reject(new Error("fenêtre du wallet bloquée par le navigateur")));
-    const watch = setInterval(() => { if (win!.closed) finish(() => reject(new Error("fenêtre du wallet fermée sans réponse"))); }, 500);
+    if (!win) return finish(() => reject(new Error("wallet window blocked by the browser")));
+    const watch = setInterval(() => { if (win!.closed) finish(() => reject(new Error("wallet window closed without a response"))); }, 500);
   });
 }

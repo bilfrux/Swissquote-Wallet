@@ -9,7 +9,7 @@ export const newMnemonic = () => generateMnemonic(wordlist, 256);
 
 export function masterFromMnemonic(mnemonic: string, network: NetworkName): HDKey {
   const m = mnemonic.trim().split(/\s+/).join(" ");
-  if (!validateMnemonic(m, wordlist)) throw new Error("phrase BIP39 invalide");
+  if (!validateMnemonic(m, wordlist)) throw new Error("invalid BIP39 phrase");
   return HDKey.fromMasterSeed(mnemonicToSeedSync(m), btcNetwork(network).bip32);
 }
 

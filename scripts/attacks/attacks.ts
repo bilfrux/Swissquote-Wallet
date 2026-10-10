@@ -14,8 +14,8 @@ export const D = 6;
 export type AttackResult = {
   id: string;
   title: string;
-  expected: "refus" | "succès";
-  outcome: "refus" | "succès";
+  expected: "rejected" | "success";
+  outcome: "rejected" | "success";
   ok: boolean; // le résultat observé est celui attendu
   chainMessage: string; // message réel du nœud Bitcoin (ou de bank-mock)
   steps: string[];
@@ -53,23 +53,23 @@ export async function invariant1(): Promise<AttackResult> {
   const { cfg, seeds, addr: attacker, mine } = await demoAccount();
   await mine(D + 4); // délai largement écoulé
   const utxos = await scan(cfg, rpc);
-  const steps: string[] = [`compte de démo financé, ${utxos[0].confirmations} confirmations (D = ${D})`];
+  const steps: string[] = [`demo account funded, ${utxos[0].confirmations} confirmations (D = ${D})`];
   // (a) chemin recovery signé par Swissquote seule
   const rec = (await buildSpend({ cfg, backend: rpc, utxos, path: "recovery", feeRate: 2, to: attacker })).psbt;
   const sqRec = signPsbtWithMnemonic(rec, seeds.swissquote, "regtest").psbt;
   let lib = "";
-  try { finalizePsbt(cfg, sqRec); lib = "finalisée (!)"; } catch (e: any) { lib = String(e.message).split("\n")[0].slice(0, 90); }
-  steps.push(`bibliothèque : finalisation impossible avec la seule signature Swissquote (${lib})`);
+  try { finalizePsbt(cfg, sqRec); lib = "finalized (!)"; } catch (e: any) { lib = String(e.message).split("\n")[0].slice(0, 90); }
+  steps.push(`library: cannot finalize with the Swissquote signature alone (${lib})`);
   const sigS = sigOf(sqRec, pubAt(cfg, "swissquote"))!;
   const vRec = await nodeVerdict(withWitness(cfg, sqRec, [new Uint8Array(), sigS]));
-  steps.push(`témoin [∅ à la place du tiers, signature Swissquote] sur le chemin recovery : ${vRec}`);
+  steps.push(`witness [∅ in place of the trusted contact, Swissquote signature] on the recovery path: ${vRec}`);
   // (b) signature Swissquote présentée dans la branche « client »
   const cli = (await buildSpend({ cfg, backend: rpc, utxos, path: "client", feeRate: 2, to: attacker })).psbt;
   const sqCli = signPsbtWithMnemonic(cli, seeds.swissquote, "regtest").psbt;
   const vCli = await nodeVerdict(withWitness(cfg, sqCli, [sigOf(sqCli, pubAt(cfg, "swissquote"))!, new Uint8Array()]));
-  steps.push(`témoin [signature Swissquote à la place du client, ∅] sur le chemin client : ${vCli}`);
-  const refused = vRec !== "accepté" && vCli !== "accepté";
-  return { id: "invariant-1", title: "Swissquote seule tente de dépenser (après D, par les deux chemins)", expected: "refus", outcome: refused ? "refus" : "succès", ok: refused, chainMessage: `${vRec} | ${vCli}`, steps };
+  steps.push(`witness [Swissquote signature in place of the client, ∅] on the client path: ${vCli}`);
+  const refused = vRec !== "accepted" && vCli !== "accepted";
+  return { id: "invariant-1", title: "Swissquote alone tries to spend (after D, through both paths)", expected: "rejected", outcome: refused ? "rejected" : "success", ok: refused, chainMessage: `${vRec} | ${vCli}`, steps };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -77,12 +77,12 @@ export async function invariant1(): Promise<AttackResult> {
 export async function attackNoGuardianKeys(): Promise<AttackResult> {
   const { cfg, addr: attacker, mine } = await demoAccount();
   await mine(D + 4);
-  const steps: string[] = ["l'appli du téléphone volé ne contient aucune clé privée (clés publiques seulement)"];
+  const steps: string[] = ["the stolen phone's app contains no private key (public keys only)"];
   // Couche 1 : re-KYC Swissquote (mocké). L'attaquant connaît l'identifiant client et l'email, pas le dossier d'identité.
   const bank = await startBankMock(4103, ".local/bm-attack-1");
   const kyc = await bank.api("/identity/verify", { customerId: "CH-0001", lastName: "Muster", birthDate: "1970-01-01", otp: "000000" });
   bank.stop();
-  steps.push(`re-KYC Swissquote (mocké) : ${kyc.status} ${kyc.json.error ?? "accepté (!)"}`);
+  steps.push(`Swissquote re-KYC (mocked): ${kyc.status} ${kyc.json.error ?? "accepted (!)"}`);
   // Couche 2 (la vraie défense) : sans les clés, l'attaquant signe avec SES clés à la place de Swissquote et du tiers.
   const utxos = await scan(cfg, rpc);
   const psbt = (await buildSpend({ cfg, backend: rpc, utxos, path: "recovery", feeRate: 2, to: attacker })).psbt;
@@ -95,9 +95,9 @@ export async function attackNoGuardianKeys(): Promise<AttackResult> {
     return new Uint8Array([...der, btc.SigHash.ALL]);
   };
   const v = await nodeVerdict(withWitness(cfg, psbt, [forge(), forge()]));
-  steps.push(`après D, témoin avec deux signatures de l'attaquant à la place de Swissquote et du tiers : ${v}`);
-  const refused = kyc.status === 403 && v !== "accepté";
-  return { id: "attaque-1", title: "Attaquant avec téléphone et email, sans les clés des guardians", expected: "refus", outcome: refused ? "refus" : "succès", ok: refused, chainMessage: v, steps };
+  steps.push(`after D, witness with two attacker signatures in place of Swissquote and the trusted contact: ${v}`);
+  const refused = kyc.status === 403 && v !== "accepted";
+  return { id: "attaque-1", title: "Attacker with phone and email, without the guardians' keys", expected: "rejected", outcome: refused ? "rejected" : "success", ok: refused, chainMessage: v, steps };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -108,17 +108,17 @@ export async function attackCollusionBeforeD(): Promise<AttackResult> {
   const psbt = (await buildSpend({ cfg, backend: rpc, utxos, path: "recovery", feeRate: 2, to: attacker })).psbt;
   const both = combinePsbts([signPsbtWithMnemonic(psbt, seeds.swissquote, "regtest").psbt, signPsbtWithMnemonic(psbt, seeds.tiers, "regtest").psbt]);
   const { hex } = finalizePsbt(cfg, both);
-  const steps = [`Swissquote et tiers complices signent tous les deux (bank-mock contourné) une dépense vers l'attaquant`];
+  const steps = [`Swissquote and trusted contact, colluding, both sign (bank-mock bypassed) a spend to the attacker`];
   const v1 = await nodeVerdict(hex);
-  steps.push(`à ${utxos[0].confirmations} confirmation : ${v1}`);
+  steps.push(`at ${utxos[0].confirmations} confirmation: ${v1}`);
   await mine(D - 2);
   const v5 = await nodeVerdict(hex);
-  steps.push(`à ${D - 1} confirmations : ${v5}`);
+  steps.push(`at ${D - 1} confirmations: ${v5}`);
   await mine(1);
   const v6 = await nodeVerdict(hex);
-  steps.push(`(zone grise assumée, non diffusée) à ${D} confirmations sans rafraîchissement du client : ${v6}`);
+  steps.push(`(acknowledged grey zone, not broadcast) at ${D} confirmations with no client refresh: ${v6}`);
   const refused = v1 === "non-BIP68-final" && v5 === "non-BIP68-final";
-  return { id: "attaque-2", title: "Collusion Swissquote + tiers avant D", expected: "refus", outcome: refused ? "refus" : "succès", ok: refused, chainMessage: v1, steps };
+  return { id: "attaque-2", title: "Swissquote + trusted contact collusion before D", expected: "rejected", outcome: refused ? "rejected" : "success", ok: refused, chainMessage: v1, steps };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -130,15 +130,15 @@ export async function attackSwissquoteDown(): Promise<AttackResult> {
   bank.stop();
   await new Promise((r) => setTimeout(r, 800));
   let reach = "";
-  try { await fetch(`${bank.url}/health`); reach = "joignable (!)"; } catch (e: any) { reach = `injoignable (${e.cause?.code ?? e.message})`; }
-  const steps = [`compte enregistré chez Swissquote (${reg.status}), puis bank-mock arrêté : ${reach}`];
+  try { await fetch(`${bank.url}/health`); reach = "reachable (!)"; } catch (e: any) { reach = `unreachable (${e.cause?.code ?? e.message})`; }
+  const steps = [`account registered with Swissquote (${reg.status}), then bank-mock stopped: ${reach}`];
   const psbt = (await buildSpend({ cfg, backend: rpc, utxos: await scan(cfg, rpc), path: "client", feeRate: 2, to: dest, amount: 2_000_000n })).psbt;
   const { hex } = clientSign(cfg, psbt, seeds.client, ".local/attack-3");
   let msg = "";
-  try { msg = `diffusée ${await rpc.broadcast(hex)}`; await mine(1); } catch (e: any) { msg = `refusée : ${e.message}`; }
-  steps.push(`le client signe avec son wallet externe (tools/client-signer) et diffuse : ${msg}`);
-  const ok = reach.startsWith("injoignable") && msg.startsWith("diffusée");
-  return { id: "attaque-3", title: "Swissquote arrêtée : le client dépense seul", expected: "succès", outcome: msg.startsWith("diffusée") ? "succès" : "refus", ok, chainMessage: msg, steps };
+  try { msg = `broadcast ${await rpc.broadcast(hex)}`; await mine(1); } catch (e: any) { msg = `rejected: ${e.message}`; }
+  steps.push(`the client signs with their external wallet (tools/client-signer) and broadcasts: ${msg}`);
+  const ok = reach.startsWith("unreachable") && msg.startsWith("broadcast");
+  return { id: "attaque-3", title: "Swissquote stopped: the client spends alone", expected: "success", outcome: msg.startsWith("broadcast") ? "success" : "rejected", ok, chainMessage: msg, steps };
 }
 
 export const ATTACKS: Record<string, () => Promise<AttackResult>> = {

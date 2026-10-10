@@ -43,7 +43,7 @@ export function Console() {
   useEffect(() => {
     if (!REQ) return;
     fetch(`${BANK_URL}/relay?id=${REQ}`).then(async (r) => { const j = await r.json(); if (!r.ok) throw new Error(j.error); setPsbt(j.psbt); })
-      .catch((e) => setError(`demande introuvable : ${e.message}`));
+      .catch((e) => setError(`request not found: ${e.message}`));
   }, []);
 
   // Lit la phrase, l'utilise, l'efface du champ, quoi qu'il arrive.
@@ -53,7 +53,7 @@ export function Console() {
     el.value = "";
     setError(null);
     try {
-      if (!phrase.trim()) throw new Error("phrase requise");
+      if (!phrase.trim()) throw new Error("phrase required");
       return f(phrase);
     } catch (e: any) {
       setError(e.message);
@@ -62,89 +62,89 @@ export function Console() {
 
   let decoded: ReturnType<typeof decode> | null = null;
   let decodeError: string | null = null;
-  if (psbt.trim()) try { decoded = decode(psbt); } catch (e: any) { decodeError = `PSBT illisible : ${e.message}`; }
+  if (psbt.trim()) try { decoded = decode(psbt); } catch (e: any) { decodeError = `unreadable PSBT: ${e.message}`; }
   const recovery = decoded?.inputs.every((i) => i.delay !== null);
 
   return (
     <main>
       <header>
-        <h1>Console guardian · tiers de confiance</h1>
-        <p className="badge">Indépendante de Swissquote et de l'app cliente · réseau {NETWORK} · aucune donnée conservée</p>
+        <h1>Guardian console · trusted contact</h1>
+        <p className="badge">Independent of Swissquote and the client app · {NETWORK} network · no data stored</p>
       </header>
 
       <section>
-        <h2>Devenir tiers de confiance</h2>
-        <p className="note">Créez votre clé de guardian. La phrase s'affiche une seule fois : notez-la, elle vous sera demandée pour signer une recovery.</p>
+        <h2>Become a trusted contact</h2>
+        <p className="note">Create your guardian key. The phrase is shown only once: write it down, it will be required to sign a recovery.</p>
         {!identity ? (
           <button className="secondary small" onClick={() => { const m = newMnemonic(); setIdentity({ words: m.split(" "), key: accountKey(masterFromMnemonic(m, NETWORK)) }); setPubKey(null); }}>
-            Créer mon identité de tiers
+            Create my trusted-contact identity
           </button>
         ) : (
           <>
             {identity.words.length > 0 && (
               <>
                 <ol className="mono identity-words">{identity.words.map((w, i) => <li key={i}>{w}</li>)}</ol>
-                <button className="small" onClick={() => setIdentity({ ...identity, words: [] })}>J'ai noté ma phrase : la masquer définitivement</button>
+                <button className="small" onClick={() => setIdentity({ ...identity, words: [] })}>I have written down my phrase: hide it permanently</button>
               </>
             )}
-            <p><strong>Clé publique à transmettre au client :</strong></p>
+            <p><strong>Public key to send to the client:</strong></p>
             <p className="mono address identity-key">{identity.key}</p>
           </>
         )}
       </section>
 
       <section>
-        <h2>Votre phrase de guardian</h2>
-        <p className="note">Saisie à chaque utilisation, effacée immédiatement après. Rien n'est enregistré.</p>
-        <textarea ref={phraseRef} rows={2} className="mono" autoComplete="off" spellCheck={false} placeholder="mot1 mot2 … mot24" />
+        <h2>Your guardian phrase</h2>
+        <p className="note">Entered for each use, erased immediately afterwards. Nothing is stored.</p>
+        <textarea ref={phraseRef} rows={2} className="mono" autoComplete="off" spellCheck={false} placeholder="word1 word2 … word24" />
         <button className="secondary small" onClick={() => withPhrase((p) => setPubKey(accountKey(masterFromMnemonic(p, NETWORK))))}>
-          Afficher ma clé publique (à transmettre au client)
+          Show my public key (to send to the client)
         </button>
         {pubKey && <p className="mono address">{pubKey}</p>}
       </section>
 
       <section>
-        <h2>Signer une demande de recovery</h2>
-        <textarea rows={4} className="mono" value={psbt} onChange={(e) => { setPsbt(e.target.value); setSigned(null); }} placeholder="PSBT reçu du client (cHNidP8…)" />
+        <h2>Sign a recovery request</h2>
+        <textarea rows={4} className="mono" value={psbt} onChange={(e) => { setPsbt(e.target.value); setSigned(null); }} placeholder="PSBT received from the client (cHNidP8…)" />
         {decodeError && <p className="error">{decodeError}</p>}
         {decoded && (
           <div className="summary">
             <p>
-              <strong>Type :</strong>{" "}
+              <strong>Type:</strong>{" "}
               {recovery
-                ? `recovery (valable seulement si les coins n'ont pas bougé depuis ${decoded.inputs[0].delay} blocs)`
-                : "PAS une recovery : dépense courante du client. Un guardian n'a pas à la signer."}
+                ? `recovery (valid only if the coins have not moved for ${decoded.inputs[0].delay} blocks)`
+                : "NOT a recovery: ordinary client spending. A guardian must not sign it."}
             </p>
-            <p><strong>Coins dépensés :</strong> {decoded.inputs.length}, {fmt(decoded.inputs.reduce((s, i) => s + i.value, 0n))} · signatures déjà présentes : {decoded.inputs.map((i) => i.sigs).join(", ")}</p>
+            <p><strong>Coins spent:</strong> {decoded.inputs.length}, {fmt(decoded.inputs.reduce((s, i) => s + i.value, 0n))} · signatures already present: {decoded.inputs.map((i) => i.sigs).join(", ")}</p>
             <table>
-              <thead><tr><th>Montant</th><th>Destination (doit être une NOUVELLE adresse du client)</th></tr></thead>
+              <thead><tr><th>Amount</th><th>Destination (must be a NEW address of the client)</th></tr></thead>
               <tbody>{decoded.outputs.map((o, i) => <tr key={i}><td>{fmt(o.value)}</td><td className="mono">{o.address}</td></tr>)}</tbody>
             </table>
-            <p><strong>Frais :</strong> {fmt(decoded.fee)}</p>
+            <p><strong>Fee:</strong> {fmt(decoded.fee)}</p>
           </div>
         )}
-        <p className="note">Vérifiez avec le client, par un autre canal, que l'adresse de destination est bien la sienne.</p>
+        <p className="note">Check with the client, through another channel, that the destination address is really theirs.</p>
         <button
           disabled={!decoded || !recovery}
           onClick={() => withPhrase((p) => {
             const r = signPsbtWithMnemonic(psbt, p, NETWORK);
-            if (r.added === 0) throw new Error("cette phrase ne correspond à aucune clé de guardian dans ce PSBT");
+            if (r.added === 0) throw new Error("this phrase matches no guardian key in this PSBT");
             setSigned(r);
           })}
         >
-          Signer en tant que tiers
+          Sign as trusted contact
         </button>
         {error && <p className="error">{error}</p>}
         {signed && (
           <div className="step">
-            <p className="success">{signed.added} signature(s) ajoutée(s). Renvoyez ce PSBT au client.</p>
+            <p className="success">{signed.added} signature(s) added. Send this PSBT back to the client.</p>
             <textarea readOnly rows={4} className="mono" value={signed.psbt} />
-            <button className="small" onClick={() => navigator.clipboard.writeText(signed.psbt)}>Copier le PSBT signé</button>
-            {REQ && (sent ? <p className="success" data-testid="relay-sent">Signature renvoyée au client via Swissquote.</p> : (
+            <button className="small" onClick={() => navigator.clipboard.writeText(signed.psbt)}>Copy the signed PSBT</button>
+            {REQ && (sent ? <p className="success" data-testid="relay-sent">Signature sent back to the client via Swissquote.</p> : (
               <button onClick={async () => {
                 const r = await fetch(`${BANK_URL}/relay/signed`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: REQ, psbt: signed.psbt }) });
                 if (r.ok) setSent(true); else setError((await r.json()).error);
-              }}>Renvoyer au client via Swissquote</button>
+              }}>Send back to the client via Swissquote</button>
             ))}
           </div>
         )}

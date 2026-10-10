@@ -1,0 +1,59 @@
+[OK ] 6-1 Console : identité de tiers créée, phrase affichée une fois puis masquée, clé publique fournie
+       24 mots, puis 0 affiché(s) ; clé [dd801f90/48'/1'/0'/2']tpubDFe…
+[OK ] 6-2 Connexion e-banking simulée (mauvais mot de passe refusé), aperçu avec comptes CHF et tuile « Créer mon wallet »
+       incorrect client ID or password ; aperçu affiché
+[OK ] 6-17 Passkey : activée depuis « Mon compte », puis connexion sans mot de passe par passkey (WebAuthn, vérification de l'utilisateur)
+       connexion par passkey réussie
+[OK ] 6-3 Wallet du client : 24 mots générés et affichés une fois ; la banque reçoit la clé publique, la politique est enregistrée dans le wallet
+       wallet 1cdefe3a, politique : délai 6, tiers Marie Dupont ; mots=24, phrase chiffrée par PIN = phrase affichée : true, wallets stockés=1
+[OK ] 6-4 La phrase du client n'est ni dans l'appli (stockage, page), ni dans la base de Swissquote ; seule la clé publique y est
+       phrase dans l'appli : false ; 4 premiers mots dans l'appli : false ; phrase chez Swissquote : false ; clé publique chez Swissquote : true
+[OK ] 6-5 Réception : 0,5 BTC visibles dans l'onglet Crypto
+       bcrt1q5uxhywfw2hv0ae7jhmwqe9h988cx6742rhstfen733gy8l6kvd4sdfkzkl
+[OK ] 6-13 Preuve de propriété depuis l'interface : défi affiché en entier dans le wallet, signé après confirmation, vérifié par Swissquote
+       Ownership verified. The client holds the private key of their client key at index 0 (BIP-322 signature verified for bcrt1qypakv6klpk3fk0rnvxw4n3qmqaurwlw82p5lsr). According to the registered policy, this key alone is eno
+[OK ] 6-6 Envoi : refus dans le wallet remonté à l'appli ; écran de confirmation (chemin, sorties, montants, frais) ; signé, diffusé, confirmé
+       refus : « refused by the client » ; écran : Confirm the transferRequest from http://localhost:5191 · wallet “Wallet Bitcoin Swissquote”You are sending0.10000000 BTCto bcrt1qgww2hl9gwce92rn3msjal0f8jm9m6r0j23ng5e+ fee 0.00000362 BTCSpending path… ; confirmations=1
+[OK ] 6-16 Frais : préréglages Économique / Normal / Rapide affichés ; historique : « Reçu » +0,5 BTC et « Envoyé » −0,1 BTC
+       frais : Economy2.1 sat/vB~1 dayNormal2.1 sat/vB~30 minFast2.1 sat/vB~10 minNetwork estimate · minimum 1 sat/vB ; historique : Sentpending · fee 362 sats-0.10000000 BTCReceived10 Oct 2026, 22:39+0.50000000 BTC
+[OK ] 6-7 Depuis l'origine de la banque, l'API du wallet est inaccessible : lecture bloquée (CORS) et POST refusé avant exécution (403)
+       navigateur : lecture bloquée ; POST avec Origin http://localhost:5191 : 403 origin rejected: http://localhost:5191
+[OK ] 6-8 Accueil : la ligne / tuile Crypto affiche le solde du wallet (contre-valeur CHF)
+       Crypto · self-custodyBitcoin wallet only you hold the key0.39999638 BTC · 33'999.69 CHF
+[OK ] 6-18 Montant élevé (0,25 BTC) : avertissement, ré-authentification par passkey auprès de Swissquote, puis 6 derniers caractères de l'adresse + PIN dans le wallet ; diffusé
+       High-value amount confirmed by passkey. ; Transaction broadcast: 4282729149dae4d7eea75b1d94ec13c75598ecfd006e42cb4a3ef69d54a17337
+[OK ] 6-15 Alerte : dès que Swissquote signe la recovery, l'ancien appareil du client voit « Swissquote a signé une demande de recovery » dans la cloche
+       non lues : 2 ; Alerts by simulated email and in the appSwissquote signed a recovery requestSwissquote signed a recovery request from your account #1 to your account #2, after 
+[OK ] 6-20 Recovery sans copier-coller (A3) : demande envoyée au tiers par un lien relayé par Swissquote, PSBT chargé dans sa console, signature renvoyée et récupérée par le client
+       lien http://localhost:5192/?req=64660525764b560e5d008e858bf6bb79 ; PSBT chargé chez le tiers identique à celui signé par Swissquote : true
+[OK ] 6-9 Recovery (nouvel appareil, wallet perdu) : re-KYC, nouveau Wallet du client, Swissquote + tiers ; refus réel avant D, succès à D, nouveau wallet actif
+       ancien wallet effacé du Wallet du client : true ; avant D : Rejected by the Bitcoin network: “non-BIP68-final”. The 6-block delay has not elapsed (5 b ; nouveau solde visible
+[OK ] 6-12 Le Wallet du client refuse de signer un PSBT de recovery, même appelé directement
+       400 this PSBT uses the recovery path (Swissquote + trusted contact): your wallet must not sign it
+[OK ] 6-19 Retrait compte Swissquote → wallet : preuve de propriété demandée automatiquement au Wallet du client (Travel Rule), envoi on-chain, enregistrement Travel Rule affiché
+       compte Swissquote avant : 0.80000000 BTC ; Transfer sent: 0bada089e9bda9f633bc92db29571a52148c0cb1365ac33355c4b7b0f569a25f ; Withdrawal to wallet · 0.10000000 BTC · sentLéa Martin (client CH-0003) · Swissquote account → Léa Martin (client CH-0003) · self-hosted wallet (account #2)proo
+[OK ] 6-10 Onglet « Démo » (regtest) avec les trois scénarios d'attaque
+       3 boutons
+[OK ] 6-11 Aucune erreur dans les consoles des navigateurs (hors refus volontaires : mauvais mot de passe en 6-2, appel interdit en 6-7)
+       aucune
+
+RÉSUMÉ
+6-1 fonctionne         Console : identité de tiers créée, phrase affichée une fois puis masquée, clé publique fournie
+6-2 fonctionne         Connexion e-banking simulée (mauvais mot de passe refusé), aperçu avec comptes CHF et tuile « Créer mon wallet »
+6-17 fonctionne         Passkey : activée depuis « Mon compte », puis connexion sans mot de passe par passkey (WebAuthn, vérification de l'utilisateur)
+6-3 fonctionne         Wallet du client : 24 mots générés et affichés une fois ; la banque reçoit la clé publique, la politique est enregistrée dans le wallet
+6-4 fonctionne         La phrase du client n'est ni dans l'appli (stockage, page), ni dans la base de Swissquote ; seule la clé publique y est
+6-5 fonctionne         Réception : 0,5 BTC visibles dans l'onglet Crypto
+6-13 fonctionne         Preuve de propriété depuis l'interface : défi affiché en entier dans le wallet, signé après confirmation, vérifié par Swissquote
+6-6 fonctionne         Envoi : refus dans le wallet remonté à l'appli ; écran de confirmation (chemin, sorties, montants, frais) ; signé, diffusé, confirmé
+6-16 fonctionne         Frais : préréglages Économique / Normal / Rapide affichés ; historique : « Reçu » +0,5 BTC et « Envoyé » −0,1 BTC
+6-7 fonctionne         Depuis l'origine de la banque, l'API du wallet est inaccessible : lecture bloquée (CORS) et POST refusé avant exécution (403)
+6-8 fonctionne         Accueil : la ligne / tuile Crypto affiche le solde du wallet (contre-valeur CHF)
+6-18 fonctionne         Montant élevé (0,25 BTC) : avertissement, ré-authentification par passkey auprès de Swissquote, puis 6 derniers caractères de l'adresse + PIN dans le wallet ; diffusé
+6-15 fonctionne         Alerte : dès que Swissquote signe la recovery, l'ancien appareil du client voit « Swissquote a signé une demande de recovery » dans la cloche
+6-20 fonctionne         Recovery sans copier-coller (A3) : demande envoyée au tiers par un lien relayé par Swissquote, PSBT chargé dans sa console, signature renvoyée et récupérée par le client
+6-9 fonctionne         Recovery (nouvel appareil, wallet perdu) : re-KYC, nouveau Wallet du client, Swissquote + tiers ; refus réel avant D, succès à D, nouveau wallet actif
+6-12 fonctionne         Le Wallet du client refuse de signer un PSBT de recovery, même appelé directement
+6-19 fonctionne         Retrait compte Swissquote → wallet : preuve de propriété demandée automatiquement au Wallet du client (Travel Rule), envoi on-chain, enregistrement Travel Rule affiché
+6-10 fonctionne         Onglet « Démo » (regtest) avec les trois scénarios d'attaque
+6-11 fonctionne         Aucune erreur dans les consoles des navigateurs (hors refus volontaires : mauvais mot de passe en 6-2, appel interdit en 6-7)

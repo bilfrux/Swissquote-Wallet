@@ -11,8 +11,8 @@ import { makeReport, miner, rpc } from "./lib.ts";
 
 const PIN = "482916";
 // Choix du PIN à la création (deux champs), puis saisie sur les écrans de signature et de preuve.
-const choosePin = async (w: Page) => { await w.getByLabel("Nouveau code PIN (6 à 12 chiffres)").fill(PIN); await w.getByLabel("Confirmer le code PIN").fill(PIN); };
-const typePin = (w: Page) => w.getByLabel("Code PIN du wallet").fill(PIN);
+const choosePin = async (w: Page) => { await w.getByLabel("New PIN (6 to 12 digits)").fill(PIN); await w.getByLabel("Confirm the PIN").fill(PIN); };
+const typePin = (w: Page) => w.getByLabel("Wallet PIN").fill(PIN);
 
 const APP = "http://localhost:5191";
 const BANK = "http://localhost:4110";
@@ -68,9 +68,9 @@ const login = async (p: Page) => {
   await p.goto(APP);
   await p.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
   await p.reload();
-  await p.getByLabel("Identifiant client").fill("CH-0003");
-  await p.getByLabel("Mot de passe").fill("demo0003");
-  await p.getByRole("button", { name: "Se connecter", exact: true }).click();
+  await p.getByLabel("Client ID").fill("CH-0003");
+  await p.getByLabel("Password").fill("demo0003");
+  await p.getByRole("button", { name: "Log in", exact: true }).click();
 };
 
 try {
@@ -78,10 +78,10 @@ try {
   const tiersCtx = await device();
   const tiers = await tiersCtx.newPage();
   await tiers.goto(CONSOLE);
-  await tiers.getByRole("button", { name: "Créer mon identité de tiers" }).click();
+  await tiers.getByRole("button", { name: "Create my trusted-contact identity" }).click();
   const tiersWords = (await tiers.locator(".identity-words li").allTextContents()).map((w) => w.trim());
   const tiersKey = (await tiers.locator(".identity-key").textContent())!.trim();
-  await tiers.getByRole("button", { name: /J'ai noté ma phrase/ }).click();
+  await tiers.getByRole("button", { name: /I have written down my phrase/ }).click();
   const stillShown = await tiers.locator(".identity-words li").count();
   report("6-1", "Console : identité de tiers créée, phrase affichée une fois puis masquée, clé publique fournie", tiersWords.length === 24 && stillShown === 0 && tiersKey.includes("tpub"),
     `${tiersWords.length} mots, puis ${stillShown} affiché(s) ; clé ${tiersKey.slice(0, 30)}…`);
@@ -93,44 +93,44 @@ try {
   await app.goto(APP);
   await app.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
   await app.reload();
-  await app.getByLabel("Identifiant client").fill("CH-0003");
-  await app.getByLabel("Mot de passe").fill("faux");
+  await app.getByLabel("Client ID").fill("CH-0003");
+  await app.getByLabel("Password").fill("faux");
   const errorsBeforeLogin = errors.length;
-  await app.getByRole("button", { name: "Se connecter", exact: true }).click();
+  await app.getByRole("button", { name: "Log in", exact: true }).click();
   const badLogin = await app.locator(".error").textContent();
   errors.splice(errorsBeforeLogin); // le 403 du mauvais mot de passe, volontaire, est attendu
   await shot(app, "1-connexion");
-  await app.getByLabel("Mot de passe").fill("demo0003");
-  await app.getByRole("button", { name: "Se connecter", exact: true }).click();
-  await app.getByText(MOBILE ? "Épargne" : "Compte privé").first().waitFor();
+  await app.getByLabel("Password").fill("demo0003");
+  await app.getByRole("button", { name: "Log in", exact: true }).click();
+  await app.getByText(MOBILE ? "Savings" : "Private account").first().waitFor();
   await app.getByText(/8[’']420\.15/).first().waitFor(); // comptes CHF chargés
   const overview = await app.locator("main").textContent();
   report("6-2", "Connexion e-banking simulée (mauvais mot de passe refusé), aperçu avec comptes CHF et tuile « Créer mon wallet »",
-    !!badLogin?.includes("incorrect") && (MOBILE ? !!overview?.includes("Valeur totale") && !!overview?.includes("Cash") && !!overview?.includes("Créer") : !!overview?.includes("Compte privé") && !!overview?.includes("Créer mon wallet")), `${badLogin} ; aperçu affiché`);
+    !!badLogin?.includes("incorrect") && (MOBILE ? !!overview?.includes("Total value") && !!overview?.includes("Cash") && !!overview?.includes("Create") : !!overview?.includes("Private account") && !!overview?.includes("Create my wallet")), `${badLogin} ; aperçu affiché`);
   await shot(app, "2-apercu");
 
   // --- Passkey : activation depuis « Mon compte », déconnexion, reconnexion par passkey ---
-  await app.getByRole("button", { name: "Mon compte" }).click();
-  await app.getByRole("button", { name: "Activer une passkey" }).click();
-  await app.getByText("Passkey activée.").waitFor({ timeout: 15000 });
-  await app.getByRole("button", { name: "Déconnexion" }).click();
-  await app.getByLabel("Identifiant client").fill("CH-0003");
-  await app.getByRole("button", { name: "Se connecter avec une passkey" }).click();
-  await app.getByText(MOBILE ? "Épargne" : "Compte privé").first().waitFor({ timeout: 15000 });
+  await app.getByRole("button", { name: "My account" }).click();
+  await app.getByRole("button", { name: "Enable a passkey" }).click();
+  await app.getByText("Passkey enabled.").waitFor({ timeout: 15000 });
+  await app.getByRole("button", { name: "Log out" }).click();
+  await app.getByLabel("Client ID").fill("CH-0003");
+  await app.getByRole("button", { name: "Log in with a passkey" }).click();
+  await app.getByText(MOBILE ? "Savings" : "Private account").first().waitFor({ timeout: 15000 });
   report("6-17", "Passkey : activée depuis « Mon compte », puis connexion sans mot de passe par passkey (WebAuthn, vérification de l'utilisateur)", true, "connexion par passkey réussie");
 
   // --- Wallet crypto : création via le Wallet du client ---
   await app.getByRole("button", { name: "Crypto", exact: true }).click();
   await app.getByPlaceholder("Marie Dupont").fill("Marie Dupont");
-  await app.getByLabel("Clé publique du tiers").fill(tiersKey);
-  const wallet = await popupOf(ctxA, () => app.getByRole("button", { name: "Créer mon wallet avec le Wallet du client" }).click());
+  await app.getByLabel("Trusted contact's public key").fill(tiersKey);
+  const wallet = await popupOf(ctxA, () => app.getByRole("button", { name: "Create my wallet with the Client Wallet" }).click());
   await choosePin(wallet);
-  await wallet.getByRole("button", { name: "Générer ma phrase secrète" }).click();
+  await wallet.getByRole("button", { name: "Generate my secret phrase" }).click();
   await wallet.locator(".words li").nth(23).waitFor();
   const clientWords = (await wallet.locator(".words li").allTextContents()).map((w) => w.trim());
   await shot(wallet, "3-wallet-phrase");
-  await wallet.getByLabel("J'ai noté ma phrase en lieu sûr").check();
-  await wallet.getByRole("button", { name: "Transmettre ma clé publique à Swissquote" }).click();
+  await wallet.getByLabel("I have written my phrase down in a safe place").check();
+  await wallet.getByRole("button", { name: "Send my public key to Swissquote" }).click();
   await app.getByTestId("btc-balance").waitFor({ timeout: 20000 });
   const stored = JSON.parse(readFileSync(WALLET_FILE, "utf8")) as any[];
   const mine_ = stored[stored.length - 1];
@@ -150,21 +150,21 @@ try {
   const address = (await app.locator(".address").textContent())!.trim();
   await pay(address, 0.5);
   await mine(1);
-  await app.getByRole("button", { name: "Actualiser" }).click();
+  await app.getByRole("button", { name: "Reload" }).click();
   await app.getByText("0.50000000 BTC").first().waitFor({ timeout: 15000 });
   await shot(app, "4-wallet");
   report("6-5", "Réception : 0,5 BTC visibles dans l'onglet Crypto", true, address);
 
   // --- Preuve de propriété : défi Swissquote, signature dans le Wallet du client, vérification ---
-  await app.getByRole("button", { name: "Prouver à Swissquote que je contrôle cette adresse" }).click();
-  await wallet.getByRole("heading", { name: "Prouver la propriété d'une adresse" }).waitFor({ timeout: 15000 });
+  await app.getByRole("button", { name: "Prove to Swissquote that I control this address" }).click();
+  await wallet.getByRole("heading", { name: "Prove ownership of an address" }).waitFor({ timeout: 15000 });
   const challengeShown = (await wallet.locator(".message").textContent()) ?? "";
   await shot(wallet, "4b-wallet-preuve");
   await typePin(wallet);
-  await wallet.getByRole("button", { name: "Signer la preuve" }).click();
+  await wallet.getByRole("button", { name: "Sign the proof" }).click();
   const proofText = (await app.getByTestId("ownership-result").textContent({ timeout: 15000 })) ?? "";
   report("6-13", "Preuve de propriété depuis l'interface : défi affiché en entier dans le wallet, signé après confirmation, vérifié par Swissquote",
-    challengeShown.includes("Swissquote · preuve de propriété") && challengeShown.includes(address) && proofText.startsWith("Propriété vérifiée") && proofText.includes(address),
+    challengeShown.includes("Swissquote · proof of ownership") && challengeShown.includes(address) && proofText.startsWith("Ownership verified") && proofText.includes(address),
     proofText.slice(0, 220));
 
   if (MOBILE) {
@@ -173,38 +173,38 @@ try {
   }
 
   // --- Envoi : refus, puis confirmation dans le Wallet du client ---
-  await app.getByRole("button", { name: "Envoyer", exact: true }).click();
+  await app.getByRole("button", { name: "Send", exact: true }).click();
   await app.getByPlaceholder("tb1… / bcrt1…").fill(minerAddr);
   await app.getByPlaceholder("0.0001").fill("0.1");
   const presets = (await app.getByTestId("fee-presets").textContent({ timeout: 15000 })) ?? "";
-  await app.getByRole("button", { name: "Préparer l'envoi" }).click();
-  await app.getByRole("button", { name: "Signer avec mon Wallet du client" }).click();
-  await wallet.getByRole("heading", { name: "Confirmer l'envoi" }).waitFor({ timeout: 15000 });
-  await wallet.getByRole("button", { name: "Refuser" }).click();
+  await app.getByRole("button", { name: "Prepare the transfer" }).click();
+  await app.getByRole("button", { name: "Sign with my Client Wallet" }).click();
+  await wallet.getByRole("heading", { name: "Confirm the transfer" }).waitFor({ timeout: 15000 });
+  await wallet.getByRole("button", { name: "Refuse" }).click();
   const refused = await app.locator(".error").last().textContent({ timeout: 10000 });
-  await app.getByRole("button", { name: "Signer avec mon Wallet du client" }).click();
-  await wallet.getByRole("heading", { name: "Confirmer l'envoi" }).waitFor({ timeout: 15000 });
+  await app.getByRole("button", { name: "Sign with my Client Wallet" }).click();
+  await wallet.getByRole("heading", { name: "Confirm the transfer" }).waitFor({ timeout: 15000 });
   const confirm = (await wallet.locator("section").first().textContent()) ?? "";
   await shot(wallet, "5-wallet-confirmation");
   await typePin(wallet);
-  await wallet.getByRole("button", { name: "Confirmer et signer" }).click();
-  await app.getByRole("button", { name: "Diffuser sur le réseau Bitcoin" }).click();
-  const sent = await app.locator(".success", { hasText: "Transaction diffusée" }).textContent({ timeout: 15000 });
+  await wallet.getByRole("button", { name: "Confirm and sign" }).click();
+  await app.getByRole("button", { name: "Broadcast on the Bitcoin network" }).click();
+  const sent = await app.locator(".success", { hasText: "Transaction broadcast" }).textContent({ timeout: 15000 });
   const txid = sent?.match(/[0-9a-f]{64}/)?.[0];
   await mine(1);
   const tx = txid ? await rpc.call("getrawtransaction", [txid, true]) : null;
   report("6-6", "Envoi : refus dans le wallet remonté à l'appli ; écran de confirmation (chemin, sorties, montants, frais) ; signé, diffusé, confirmé",
-    !!refused?.includes("refusé par le client") && confirm.includes("votre clé seule") && confirm.includes(minerAddr) && confirm.includes("0.10000000 BTC") && confirm.includes("change (votre compte)") && confirm.includes("Frais") && tx?.confirmations === 1,
+    !!refused?.includes("refused by the client") && confirm.includes("your key alone") && confirm.includes(minerAddr) && confirm.includes("0.10000000 BTC") && confirm.includes("change (this account)") && confirm.includes("Fee") && tx?.confirmations === 1,
     `refus : « ${refused?.trim()} » ; écran : ${confirm.replace(/\s+/g, " ").slice(0, 200)}… ; confirmations=${tx?.confirmations}`);
   await shot(app, "6-envoi");
 
   // --- Historique et frais ---
-  await app.getByRole("button", { name: "Actualiser" }).first().click();
+  await app.getByRole("button", { name: "Reload" }).first().click();
   const hist = app.getByTestId("history");
-  await hist.getByText("Envoyé").waitFor({ timeout: 20000 });
+  await hist.getByText("Sent").waitFor({ timeout: 20000 });
   const histText = (await hist.textContent()) ?? "";
   report("6-16", "Frais : préréglages Économique / Normal / Rapide affichés ; historique : « Reçu » +0,5 BTC et « Envoyé » −0,1 BTC",
-    presets.includes("Économique") && presets.includes("Normal") && presets.includes("Rapide") && histText.includes("Reçu") && histText.includes("+0.50000000 BTC") && histText.includes("Envoyé") && histText.includes("-0.10000000 BTC"),
+    presets.includes("Economy") && presets.includes("Normal") && presets.includes("Fast") && histText.includes("Received") && histText.includes("+0.50000000 BTC") && histText.includes("Sent") && histText.includes("-0.10000000 BTC"),
     `frais : ${presets.replace(/\s+/g, " ").slice(0, 120)} ; historique : ${histText.replace(/\s+/g, " ").slice(0, 200)}`);
 
   // --- La banque ne peut pas appeler l'API du wallet (signature sans confirmation impossible) ---
@@ -219,39 +219,39 @@ try {
     fromBank === "lecture bloquée" && direct.status === 403, `navigateur : ${fromBank} ; POST avec Origin ${APP} : ${direct.status} ${(await direct.json()).error}`);
 
   // --- Aperçu : la tuile Bitcoin reflète le wallet (après confirmation de l'envoi) ---
-  await app.getByRole("button", { name: "Actualiser" }).click();
+  await app.getByRole("button", { name: "Reload" }).click();
   await app.getByText(/0\.399/).first().waitFor({ timeout: 15000 });
-  await app.getByRole("button", { name: "Accueil", exact: true }).click();
+  await app.getByRole("button", { name: "Home", exact: true }).click();
   const tile = await app.getByTestId("home-crypto").textContent();
   report("6-8", "Accueil : la ligne / tuile Crypto affiche le solde du wallet (contre-valeur CHF)", MOBILE ? /33[’']99\d\.\d\d/.test(tile ?? "") : !!tile?.includes("0.39") && !!tile?.includes("CHF"), tile?.replace(/\s+/g, " ") ?? "");
 
   // --- Montant élevé : ré-authentification par passkey (Swissquote) + confirmation renforcée dans le wallet ---
   await app.getByRole("button", { name: "Crypto", exact: true }).click();
-  await app.getByRole("button", { name: "Envoyer", exact: true }).click();
+  await app.getByRole("button", { name: "Send", exact: true }).click();
   await app.getByPlaceholder("tb1… / bcrt1…").fill(minerAddr);
   await app.getByPlaceholder("0.0001").fill("0.25");
-  await app.getByRole("button", { name: "Préparer l'envoi" }).click();
-  const highWarn = (await app.locator(".warning", { hasText: "Montant élevé" }).textContent({ timeout: 15000 })) ?? "";
-  await app.getByRole("button", { name: "Signer avec mon Wallet du client" }).click();
-  await wallet.getByText("Montant élevé").first().waitFor({ timeout: 20000 });
+  await app.getByRole("button", { name: "Prepare the transfer" }).click();
+  const highWarn = (await app.locator(".warning", { hasText: "High-value amount" }).textContent({ timeout: 15000 })) ?? "";
+  await app.getByRole("button", { name: "Sign with my Client Wallet" }).click();
+  await wallet.getByText("High-value amount").first().waitFor({ timeout: 20000 });
   await shot(wallet, "5b-montant-eleve");
   const highNote = (await app.getByTestId("stepup-note").textContent({ timeout: 15000 })) ?? "";
-  await wallet.getByLabel("6 derniers caractères de l'adresse").fill(minerAddr.slice(-6));
+  await wallet.getByLabel("Last 6 characters of the address").fill(minerAddr.slice(-6));
   await typePin(wallet);
-  await wallet.getByRole("button", { name: "Confirmer et signer" }).click();
-  await app.getByRole("button", { name: "Diffuser sur le réseau Bitcoin" }).click();
-  const bigSent = (await app.locator(".success", { hasText: "Transaction diffusée" }).last().textContent({ timeout: 20000 })) ?? "";
+  await wallet.getByRole("button", { name: "Confirm and sign" }).click();
+  await app.getByRole("button", { name: "Broadcast on the Bitcoin network" }).click();
+  const bigSent = (await app.locator(".success", { hasText: "Transaction broadcast" }).last().textContent({ timeout: 20000 })) ?? "";
   await mine(1);
   report("6-18", "Montant élevé (0,25 BTC) : avertissement, ré-authentification par passkey auprès de Swissquote, puis 6 derniers caractères de l'adresse + PIN dans le wallet ; diffusé",
-    highWarn.includes("Montant élevé") && highNote.includes("confirmé par passkey") && /[0-9a-f]{64}/.test(bigSent), `${highNote} ; ${bigSent.trim().slice(0, 90)}`);
+    highWarn.includes("High-value amount") && highNote.includes("confirmed by passkey") && /[0-9a-f]{64}/.test(bigSent), `${highNote} ; ${bigSent.trim().slice(0, 90)}`);
 
   // --- Perte du wallet, puis recovery depuis un NOUVEL appareil ---
   const lost = await ctxA.newPage();
   await lost.goto(WALLET);
   const card = lost.locator(".card", { hasText: mine_.id });
-  await card.getByRole("button", { name: "Simuler la perte de cet appareil" }).click();
-  await card.getByRole("button", { name: "Effacer définitivement" }).click();
-  await lost.getByText("Aucun wallet sur cet appareil.").waitFor({ timeout: 10000 });
+  await card.getByRole("button", { name: "Simulate losing this device" }).click();
+  await card.getByRole("button", { name: "Erase permanently" }).click();
+  await lost.getByText("No wallet on this device.").waitFor({ timeout: 10000 });
   const afterLoss = (JSON.parse(readFileSync(WALLET_FILE, "utf8")) as any[]).some((w) => w.id === mine_.id);
 
   const ctxB = await device();
@@ -259,55 +259,55 @@ try {
   await login(nd);
   await nd.getByRole("button", { name: "Crypto", exact: true }).click();
   await nd.getByTestId("btc-balance").waitFor({ timeout: 20000 });
-  await nd.locator(".crypto-tabs").getByRole("button", { name: "Sécurité" }).click();
-  await nd.getByRole("button", { name: /J'ai perdu mon wallet/ }).click();
+  await nd.locator(".crypto-tabs").getByRole("button", { name: "Security" }).click();
+  await nd.getByRole("button", { name: /I lost my wallet/ }).click();
   const kyc = nd.locator(".step").first().locator("input");
   await kyc.nth(0).fill("Martin");
   await kyc.nth(1).fill("1992-03-21");
   await kyc.nth(2).fill("246810");
-  await nd.getByRole("button", { name: "Vérifier mon identité" }).click();
-  await nd.locator("p", { hasText: mine_.accountKey.slice(0, 22) }).getByRole("button", { name: "Choisir" }).click();
-  const newWallet = await popupOf(ctxB, () => nd.getByRole("button", { name: "Créer un nouveau wallet avec le Wallet du client" }).click());
+  await nd.getByRole("button", { name: "Verify my identity" }).click();
+  await nd.locator("p", { hasText: mine_.accountKey.slice(0, 22) }).getByRole("button", { name: "Select" }).click();
+  const newWallet = await popupOf(ctxB, () => nd.getByRole("button", { name: "Create a new wallet with the Client Wallet" }).click());
   await choosePin(newWallet);
-  await newWallet.getByRole("button", { name: "Générer ma phrase secrète" }).click();
-  await newWallet.getByLabel("J'ai noté ma phrase en lieu sûr").check();
-  await newWallet.getByRole("button", { name: "Transmettre ma clé publique à Swissquote" }).click();
-  await nd.getByRole("button", { name: "Préparer la demande" }).click({ timeout: 20000 });
-  await nd.getByRole("button", { name: "Demander la signature de Swissquote" }).click();
+  await newWallet.getByRole("button", { name: "Generate my secret phrase" }).click();
+  await newWallet.getByLabel("I have written my phrase down in a safe place").check();
+  await newWallet.getByRole("button", { name: "Send my public key to Swissquote" }).click();
+  await nd.getByRole("button", { name: "Prepare the request" }).click({ timeout: 20000 });
+  await nd.getByRole("button", { name: "Request Swissquote's signature" }).click();
   const sqPsbt = await nd.locator(".step textarea[readonly]").inputValue({ timeout: 15000 });
 
   // L'ANCIEN appareil du client est alerté : la cloche signale la signature de Swissquote.
   await app.reload();
   await app.getByTestId("bell-count").waitFor({ timeout: 20000 });
   const bellCount = await app.getByTestId("bell-count").textContent();
-  await app.getByRole("button", { name: /^Alertes/ }).click();
+  await app.getByRole("button", { name: /^Alerts/ }).click();
   const bellText = (await app.getByTestId("bell-panel").textContent()) ?? "";
   await shot(app, "7b-alerte");
   report("6-15", "Alerte : dès que Swissquote signe la recovery, l'ancien appareil du client voit « Swissquote a signé une demande de recovery » dans la cloche",
-    Number(bellCount) >= 1 && bellText.includes("Swissquote a signé une demande de recovery"), `non lues : ${bellCount} ; ${bellText.replace(/\s+/g, " ").slice(0, 160)}`);
+    Number(bellCount) >= 1 && bellText.includes("Swissquote signed a recovery request"), `non lues : ${bellCount} ; ${bellText.replace(/\s+/g, " ").slice(0, 160)}`);
   // A3 : la demande part au tiers par le relais Swissquote (lien), sans copier-coller de PSBT.
-  await nd.getByRole("button", { name: /^Envoyer la demande à/ }).click();
+  await nd.getByRole("button", { name: /^Send the request to/ }).click();
   const link = (await nd.getByTestId("relay-link").textContent({ timeout: 10000 }))!;
   await tiers.goto(link);
-  await tiers.waitForFunction(() => !!(document.querySelector("textarea[placeholder^='PSBT reçu']") as HTMLTextAreaElement | null)?.value, null, { timeout: 10000 });
-  const loaded = await tiers.getByPlaceholder(/PSBT reçu du client/).inputValue();
-  await tiers.getByPlaceholder("mot1 mot2 … mot24").fill(tiersWords.join(" "));
-  await tiers.getByRole("button", { name: "Signer en tant que tiers" }).click();
-  await tiers.getByRole("button", { name: "Renvoyer au client via Swissquote" }).click();
+  await tiers.waitForFunction(() => !!(document.querySelector("textarea[placeholder^='PSBT received']") as HTMLTextAreaElement | null)?.value, null, { timeout: 10000 });
+  const loaded = await tiers.getByPlaceholder(/PSBT received from the client/).inputValue();
+  await tiers.getByPlaceholder("word1 word2 … word24").fill(tiersWords.join(" "));
+  await tiers.getByRole("button", { name: "Sign as trusted contact" }).click();
+  await tiers.getByRole("button", { name: "Send back to the client via Swissquote" }).click();
   await tiers.getByTestId("relay-sent").waitFor({ timeout: 10000 });
-  await nd.getByRole("button", { name: "Récupérer la signature du tiers" }).click();
-  await nd.getByRole("button", { name: "Diffuser la recovery" }).waitFor({ timeout: 10000 });
+  await nd.getByRole("button", { name: "Fetch the trusted contact's signature" }).click();
+  await nd.getByRole("button", { name: "Broadcast the recovery" }).waitFor({ timeout: 10000 });
   report("6-20", "Recovery sans copier-coller (A3) : demande envoyée au tiers par un lien relayé par Swissquote, PSBT chargé dans sa console, signature renvoyée et récupérée par le client",
     loaded === sqPsbt && link.startsWith(`${CONSOLE}/?req=`), `lien ${link} ; PSBT chargé chez le tiers identique à celui signé par Swissquote : ${loaded === sqPsbt}`);
-  await nd.getByRole("button", { name: "Diffuser la recovery" }).click();
+  await nd.getByRole("button", { name: "Broadcast the recovery" }).click();
   const early = await nd.locator(".step .error").last().textContent({ timeout: 15000 });
   await shot(nd, "7-recovery-refus");
   await mine(D);
-  await nd.getByRole("button", { name: "Diffuser la recovery" }).click();
-  await nd.locator(".success", { hasText: "Recovery diffusée" }).waitFor({ timeout: 15000 });
+  await nd.getByRole("button", { name: "Broadcast the recovery" }).click();
+  await nd.locator(".success", { hasText: "Recovery broadcast" }).waitFor({ timeout: 15000 });
   await mine(1);
-  await nd.getByRole("button", { name: "Ouvrir mon nouveau compte" }).click();
-  await nd.getByText("Recovery terminée").waitFor({ timeout: 20000 });
+  await nd.getByRole("button", { name: "Open my new account" }).click();
+  await nd.getByText("Recovery complete").waitFor({ timeout: 20000 });
   try { await nd.getByText(/0\.149/).first().waitFor({ timeout: 20000 }); }
   catch (e) { await shot(nd, "8-ECHEC"); console.log("TEXTE DE LA PAGE :", (await nd.locator("main").textContent())?.replace(/\s+/g, " ").slice(0, 1500)); throw e; }
   await shot(nd, "8-nouveau-wallet");
@@ -320,17 +320,17 @@ try {
   const recPsbt = (await buildSpend({ cfg: ncfg, backend: rpc, utxos: await scan(ncfg, rpc), path: "recovery", feeRate: 2, to: outputAt(ncfg, 0, 3).getAddress() })).psbt;
   const rs = await fetch(`${WALLET}/api/sign`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ psbt: recPsbt, network: "regtest" }) });
   const rj: any = await rs.json();
-  report("6-12", "Le Wallet du client refuse de signer un PSBT de recovery, même appelé directement", rs.status === 400 && /chemin de recovery/.test(rj.error), `${rs.status} ${rj.error}`);
+  report("6-12", "Le Wallet du client refuse de signer un PSBT de recovery, même appelé directement", rs.status === 400 && /recovery path/.test(rj.error), `${rs.status} ${rj.error}`);
 
   // --- Compte Swissquote -> wallet : retrait sous la Travel Rule, preuve de propriété automatique ---
-  await nd.getByRole("button", { name: "Transférer", exact: true }).click();
+  await nd.getByRole("button", { name: "Transfer", exact: true }).click();
   await nd.getByTestId("custody-balance").getByText("BTC").waitFor({ timeout: 15000 });
   const custodyBefore = (await nd.getByTestId("custody-balance").textContent()) ?? "";
   await nd.locator("#transferer").getByPlaceholder("0.1").fill("0.1");
-  await nd.getByRole("button", { name: "Transférer vers mon wallet" }).click();
-  await newWallet.getByRole("heading", { name: "Prouver la propriété d'une adresse" }).waitFor({ timeout: 20000 });
+  await nd.getByRole("button", { name: "Transfer to my wallet" }).click();
+  await newWallet.getByRole("heading", { name: "Prove ownership of an address" }).waitFor({ timeout: 20000 });
   await typePin(newWallet);
-  await newWallet.getByRole("button", { name: "Signer la preuve" }).click();
+  await newWallet.getByRole("button", { name: "Sign the proof" }).click();
   const tr = (await nd.getByTestId("transfer-result").textContent({ timeout: 30000 })) ?? "";
   const trTxid = tr.match(/[0-9a-f]{64}/)?.[0];
   await mine(1);
@@ -338,11 +338,11 @@ try {
   await shot(nd, "9-transfert-travel-rule");
   const onChain = trTxid ? await rpc.call("getrawtransaction", [trTxid, true]) : null;
   report("6-19", "Retrait compte Swissquote → wallet : preuve de propriété demandée automatiquement au Wallet du client (Travel Rule), envoi on-chain, enregistrement Travel Rule affiché",
-    custodyBefore.includes("BTC") && !!trTxid && onChain?.confirmations === 1 && trList.includes("Retrait vers le wallet") && trList.includes("preuve de propriété"),
+    custodyBefore.includes("BTC") && !!trTxid && onChain?.confirmations === 1 && trList.includes("Withdrawal to wallet") && trList.includes("proof of ownership"),
     `compte Swissquote avant : ${custodyBefore} ; ${tr.trim().slice(0, 90)} ; ${trList.replace(/\s+/g, " ").slice(0, 160)}`);
 
   // --- Onglet Démo ---
-  await nd.getByRole("button", { name: "Démo", exact: true }).click();
+  await nd.getByRole("button", { name: "Demo", exact: true }).click();
   const attacks = await nd.locator(".attack button").count();
   report("6-10", "Onglet « Démo » (regtest) avec les trois scénarios d\x27attaque", attacks === 3, `${attacks} boutons`);
 } finally {

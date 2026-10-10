@@ -17,10 +17,10 @@ export async function miner() {
   };
 }
 
-// Verdict du nœud sans diffuser : "accepté" ou la raison réelle du refus.
+// Verdict du nœud sans diffuser : "accepted" ou la raison réelle du refus.
 export async function nodeVerdict(hex: string): Promise<string> {
   const [r] = await rpc.call("testmempoolaccept", [[hex]]);
-  return r.allowed ? "accepté" : r["reject-reason"];
+  return r.allowed ? "accepted" : r["reject-reason"];
 }
 
 export function makeReport() {

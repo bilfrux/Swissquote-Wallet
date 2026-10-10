@@ -8,14 +8,14 @@ export const CUSTOMERS: Record<string, Customer> = {
   "CH-0001": {
     firstName: "Anna", lastName: "Muster", password: "demo1234",
     accounts: [
-      { iban: "CH93 0076 2011 6238 5295 7", label: "Compte privé", currency: "CHF", balance: 12840.55, transactions: [
-        { date: "2026-10-08", label: "Salaire octobre", amount: 6450 },
+      { iban: "CH93 0076 2011 6238 5295 7", label: "Private account", currency: "CHF", balance: 12840.55, transactions: [
+        { date: "2026-10-08", label: "October salary", amount: 6450 },
         { date: "2026-10-07", label: "Migros Lausanne", amount: -84.3 },
-        { date: "2026-10-05", label: "CFF abonnement", amount: -340 },
-        { date: "2026-10-01", label: "Loyer", amount: -1950 },
+        { date: "2026-10-05", label: "SBB subscription", amount: -340 },
+        { date: "2026-10-01", label: "Rent", amount: -1950 },
       ] },
-      { iban: "CH56 0483 5012 3456 7800 9", label: "Compte épargne", currency: "CHF", balance: 35200, transactions: [
-        { date: "2026-09-30", label: "Intérêts", amount: 52.1 },
+      { iban: "CH56 0483 5012 3456 7800 9", label: "Savings account", currency: "CHF", balance: 35200, transactions: [
+        { date: "2026-09-30", label: "Interest", amount: 52.1 },
       ] },
     ],
   },
@@ -23,17 +23,17 @@ export const CUSTOMERS: Record<string, Customer> = {
   "CH-0003": {
     firstName: "Léa", lastName: "Martin", password: "demo0003",
     accounts: [
-      { iban: "CH44 0076 2011 6238 0003 1", label: "Compte privé", currency: "CHF", balance: 8420.15, transactions: [
-        { date: "2026-10-09", label: "Salaire octobre", amount: 5200 },
-        { date: "2026-10-06", label: "Coop Genève", amount: -63.45 },
-        { date: "2026-10-01", label: "Loyer", amount: -1680 },
+      { iban: "CH44 0076 2011 6238 0003 1", label: "Private account", currency: "CHF", balance: 8420.15, transactions: [
+        { date: "2026-10-09", label: "October salary", amount: 5200 },
+        { date: "2026-10-06", label: "Coop Geneva", amount: -63.45 },
+        { date: "2026-10-01", label: "Rent", amount: -1680 },
       ] },
-      { iban: "CH72 0483 5012 3456 0003 2", label: "Compte épargne", currency: "CHF", balance: 15000, transactions: [{ date: "2026-09-30", label: "Intérêts", amount: 21.4 }] },
+      { iban: "CH72 0483 5012 3456 0003 2", label: "Savings account", currency: "CHF", balance: 15000, transactions: [{ date: "2026-09-30", label: "Interest", amount: 21.4 }] },
     ],
   },
   "CH-0002": {
     firstName: "Paul", lastName: "Exemple", password: "demo5678",
-    accounts: [{ iban: "CH12 0900 0000 1234 5678 9", label: "Compte privé", currency: "CHF", balance: 2310.4, transactions: [{ date: "2026-10-02", label: "Virement reçu", amount: 500 }] }],
+    accounts: [{ iban: "CH12 0900 0000 1234 5678 9", label: "Private account", currency: "CHF", balance: 2310.4, transactions: [{ date: "2026-10-02", label: "Transfer received", amount: 500 }] }],
   },
 };
 

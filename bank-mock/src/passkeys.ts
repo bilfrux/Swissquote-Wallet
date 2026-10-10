@@ -34,7 +34,7 @@ const saveChallenge = (c: string, p: Purpose, challenge: string) =>
 function takeChallenge(c: string, p: Purpose): string {
   const row = db.prepare("select challenge, expires_at from webauthn_challenges where customer_id = ? and purpose = ?").get(c, p) as any;
   db.prepare("delete from webauthn_challenges where customer_id = ? and purpose = ?").run(c, p); // usage unique
-  if (!row || row.expires_at < Date.now()) throw new Error("défi WebAuthn absent ou expiré");
+  if (!row || row.expires_at < Date.now()) throw new Error("WebAuthn challenge missing or expired");
   return row.challenge;
 }
 const credentialsOf = (c: string) => db.prepare("select * from passkeys where customer_id = ?").all(c) as any[];
@@ -45,7 +45,7 @@ export const passkeyCount = (c: string) => credentialsOf(c).length;
 export async function registrationOptions(customerId: string) {
   const c = CUSTOMERS[customerId];
   const opts = await generateRegistrationOptions({
-    rpName: "Swissquote (banque simulée)", rpID: RP_ID, userName: customerId, userDisplayName: `${c.firstName} ${c.lastName}`,
+    rpName: "Swissquote (simulated bank)", rpID: RP_ID, userName: customerId, userDisplayName: `${c.firstName} ${c.lastName}`,
     userID: new TextEncoder().encode(customerId), attestationType: "none",
     excludeCredentials: credentialsOf(customerId).map((k) => ({ id: k.id })),
     authenticatorSelection: { residentKey: "preferred", userVerification: "required" },
@@ -58,7 +58,7 @@ export async function verifyRegistration(customerId: string, response: any) {
   const v = await verifyRegistrationResponse({
     response, expectedChallenge: takeChallenge(customerId, "register"), expectedOrigin: ORIGINS, expectedRPID: RP_ID, requireUserVerification: true,
   });
-  if (!v.verified) throw new Error("passkey refusée");
+  if (!v.verified) throw new Error("passkey rejected");
   const cred = v.registrationInfo.credential;
   db.prepare("insert or replace into passkeys (id, customer_id, public_key, counter, transports) values (?, ?, ?, ?, ?)")
     .run(cred.id, customerId, b64u(cred.publicKey), cred.counter, JSON.stringify(cred.transports ?? []));
@@ -67,7 +67,7 @@ export async function verifyRegistration(customerId: string, response: any) {
 
 export async function authenticationOptions(customerId: string, purpose: "login" | "stepup") {
   const creds = credentialsOf(customerId);
-  if (!creds.length) throw new Error("aucune passkey enregistrée pour ce client");
+  if (!creds.length) throw new Error("no passkey registered for this client");
   const opts = await generateAuthenticationOptions({
     rpID: RP_ID, userVerification: "required",
     allowCredentials: creds.map((k) => ({ id: k.id, transports: JSON.parse(k.transports ?? "[]") })),
@@ -79,12 +79,12 @@ export async function authenticationOptions(customerId: string, purpose: "login"
 // Vérifie une assertion (connexion ou step-up) ; met à jour le compteur anti-clonage.
 export async function verifyAuthentication(customerId: string, purpose: "login" | "stepup", response: any) {
   const k = db.prepare("select * from passkeys where id = ? and customer_id = ?").get(String(response?.id ?? ""), customerId) as any;
-  if (!k) throw new Error("passkey inconnue pour ce client");
+  if (!k) throw new Error("unknown passkey for this client");
   const v = await verifyAuthenticationResponse({
     response, expectedChallenge: takeChallenge(customerId, purpose), expectedOrigin: ORIGINS, expectedRPID: RP_ID, requireUserVerification: true,
     credential: { id: k.id, publicKey: new Uint8Array(Buffer.from(k.public_key, "base64url")), counter: k.counter, transports: JSON.parse(k.transports ?? "[]") },
   });
-  if (!v.verified) throw new Error("authentification par passkey refusée");
+  if (!v.verified) throw new Error("passkey authentication rejected");
   db.prepare("update passkeys set counter = ? where id = ?").run(v.authenticationInfo.newCounter, k.id);
   return v.authenticationInfo;
 }

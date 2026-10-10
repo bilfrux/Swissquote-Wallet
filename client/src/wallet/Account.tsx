@@ -16,7 +16,7 @@ import { Transfer } from "./Transfer";
 
 const RECEIVE_KEY = (cfg: WalletConfig) => `sq-wallet:receive-index:${cfg.network}:${cfg.client.fingerprint}`;
 const KIND: Record<HistoryEntry["kind"], string> = {
-  "reçu": "Reçu", "reçu par recovery": "Reçu par recovery", "envoyé": "Envoyé", "rafraîchissement": "Rafraîchissement", "recovery sortante": "Recovery (Swissquote + tiers)",
+  "reçu": "Received", "reçu par recovery": "Received by recovery", "envoyé": "Sent", "rafraîchissement": "Refresh", "recovery sortante": "Recovery (Swissquote + trusted contact)",
 };
 type Panel = "recevoir" | "envoyer" | "rafraichir" | "transferer";
 type SubTab = "historique" | "coins" | "securite";
@@ -41,7 +41,7 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
   const [sendTo, setSendTo] = useState<string | undefined>(undefined);
   const panelRef = useRef<HTMLDivElement>(null);
   const address = outputAt(cfg, 0, receiveIndex).getAddress();
-  const tiers = account.tiersName || "votre tiers";
+  const tiers = account.tiersName || "your trusted contact";
 
   // Seule la réponse du DERNIER scan lancé est prise en compte (un scan plus ancien ne peut pas écraser le solde).
   const lastScan = useRef(0);
@@ -54,7 +54,7 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
       setUtxos(u);
       onBalance(u.reduce((s, x) => s + x.value, 0n));
       history(cfg, chain).then((h) => { if (n === lastScan.current) setHist(h); }, () => undefined);
-    } catch (e: any) { if (n === lastScan.current) setError(`lecture de la chaîne impossible : ${e.message}`); }
+    } catch (e: any) { if (n === lastScan.current) setError(`cannot read the chain: ${e.message}`); }
   }, [cfg]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { refresh(); }, [refresh]);
   useEffect(() => { QRCode.toString(`bitcoin:${address}`, { type: "svg", margin: 1, width: 180 }).then(setQr, () => setQr("")); }, [address]);
@@ -83,76 +83,76 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
   const nextOpen = utxos?.length ? Math.min(...utxos.map((u) => u.recoveryOpensIn)) : null;
   const soon = (utxos ?? []).filter((u) => u.recoveryOpensIn <= Math.ceil(cfg.delay / 3));
   const link = addrLink(address);
-  const status = nextOpen === null ? null : nextOpen === 0 ? { cls: "bad", text: "Recovery ouverte sur un coin" } : nextOpen <= Math.ceil(cfg.delay / 3) ? { cls: "warn", text: `Recovery possible dans ${nextOpen} bloc(s)` } : { cls: "ok", text: `Recovery possible dans ${nextOpen} bloc(s)` };
+  const status = nextOpen === null ? null : nextOpen === 0 ? { cls: "bad", text: "Recovery open on a coin" } : nextOpen <= Math.ceil(cfg.delay / 3) ? { cls: "warn", text: `Recovery possible in ${nextOpen} block(s)` } : { cls: "ok", text: `Recovery possible in ${nextOpen} block(s)` };
 
   const header = (
     <section className="card asset-head">
       <div className="asset-id">
         <BtcIcon />
         <div><h1>Bitcoin</h1><p className="muted small">BTC · self-custody · {cfg.network}</p></div>
-        {!mobile && <button className="link refresh" onClick={refresh}><IconRefresh /> Actualiser</button>}
+        {!mobile && <button className="link refresh" onClick={refresh}><IconRefresh /> Reload</button>}
       </div>
       <div className="asset-balance">
         <p className="asset-btc" data-testid="btc-balance">{utxos ? btcFmt(balance) : "…"}</p>
-        <p className="muted">≈ {num(balanceChf)} CHF <span className="small">(cours simulé)</span>{mobile && <> · <button className="link" onClick={refresh}>Actualiser</button></>}</p>
+        <p className="muted">≈ {num(balanceChf)} CHF <span className="small">(simulated rate)</span>{mobile && <> · <button className="link" onClick={refresh}>Reload</button></>}</p>
         {status && <span className={`chip ${status.cls}`}><IconShield /> {status.text}</span>}
       </div>
       <div className="round-actions asset-actions">
-        <button className={panel === "recevoir" ? "on" : ""} onClick={() => open("recevoir")}><span className="round dark"><IconReceive /></span>Recevoir</button>
-        <button className={panel === "envoyer" ? "on" : ""} onClick={() => open("envoyer")}><span className="round dark"><IconSend /></span>Envoyer</button>
-        <button className={panel === "rafraichir" ? "on" : ""} onClick={() => open("rafraichir")}><span className="round dark"><IconRefresh /></span>Rafraîchir</button>
-        <button className={panel === "transferer" ? "on" : ""} onClick={() => open("transferer")}><span className="round dark"><IconBank /></span>Transférer</button>
+        <button className={panel === "recevoir" ? "on" : ""} onClick={() => open("recevoir")}><span className="round dark"><IconReceive /></span>Receive</button>
+        <button className={panel === "envoyer" ? "on" : ""} onClick={() => open("envoyer")}><span className="round dark"><IconSend /></span>Send</button>
+        <button className={panel === "rafraichir" ? "on" : ""} onClick={() => open("rafraichir")}><span className="round dark"><IconRefresh /></span>Refresh</button>
+        <button className={panel === "transferer" ? "on" : ""} onClick={() => open("transferer")}><span className="round dark"><IconBank /></span>Transfer</button>
       </div>
     </section>
   );
 
   const receivePanel = (
     <section className="card side-panel" id="recevoir">
-      <h2>Recevoir des bitcoins</h2>
+      <h2>Receive bitcoin</h2>
       {qr && <div className="qr" dangerouslySetInnerHTML={{ __html: qr }} />}
       <p className="mono address">{address}</p>
       <div className="btn-row">
-        <button className="btn-secondary" onClick={() => navigator.clipboard?.writeText(address)}>Copier l'adresse</button>
-        <button className="btn-secondary" onClick={() => { const n = receiveIndex + 1; localStorage.setItem(RECEIVE_KEY(cfg), String(n)); setReceiveIndex(n); setProof(null); }}>Nouvelle adresse</button>
+        <button className="btn-secondary" onClick={() => navigator.clipboard?.writeText(address)}>Copy address</button>
+        <button className="btn-secondary" onClick={() => { const n = receiveIndex + 1; localStorage.setItem(RECEIVE_KEY(cfg), String(n)); setReceiveIndex(n); setProof(null); }}>New address</button>
       </div>
-      <p className="muted small">Adresse n°{receiveIndex}{link && <> · <a href={link} target="_blank" rel="noreferrer">voir sur l'explorateur</a></>}</p>
+      <p className="muted small">Address #{receiveIndex}{link && <> · <a href={link} target="_blank" rel="noreferrer">view in explorer</a></>}</p>
       <div className="divider" />
-      <p className="small">Pour la Travel Rule, prouvez à Swissquote que vous contrôlez cette adresse. Votre wallet signe un défi, sans déplacer de fonds.</p>
-      <button className="btn-secondary wide" disabled={proving} onClick={prove}>Prouver à Swissquote que je contrôle cette adresse</button>
-      {proof && <p className={proof.ok ? "success" : "error"} data-testid="ownership-result">{proof.ok ? "Propriété vérifiée. " : ""}{proof.text}</p>}
+      <p className="small">For the Travel Rule, prove to Swissquote that you control this address. Your wallet signs a challenge, without moving any funds.</p>
+      <button className="btn-secondary wide" disabled={proving} onClick={prove}>Prove to Swissquote that I control this address</button>
+      {proof && <p className={proof.ok ? "success" : "error"} data-testid="ownership-result">{proof.ok ? "Ownership verified. " : ""}{proof.text}</p>}
     </section>
   );
   const sidePanel = panel === "recevoir" ? receivePanel : panel === "transferer" ? (
     <section className="card side-panel" id="transferer">
       <div className="panel-head">
-        <h2>Compte Swissquote ↔ wallet</h2>
-        <button className="link" aria-label="Fermer" onClick={() => setPanel("recevoir")}>✕</button>
+        <h2>Swissquote account ↔ wallet</h2>
+        <button className="link" aria-label="Close" onClick={() => setPanel("recevoir")}>✕</button>
       </div>
       <Transfer cfg={cfg} receiveIndex={receiveIndex} onDone={refresh} onDeposit={(addr) => { setSendTo(addr); setPanel("envoyer"); }} />
     </section>
   ) : (
     <section className="card side-panel" id={panel}>
       <div className="panel-head">
-        <h2>{panel === "envoyer" ? "Envoyer des bitcoins" : "Rafraîchir mes coins"}</h2>
-        <button className="link" aria-label="Fermer" onClick={() => setPanel("recevoir")}>✕</button>
+        <h2>{panel === "envoyer" ? "Send bitcoin" : "Refresh my coins"}</h2>
+        <button className="link" aria-label="Close" onClick={() => setPanel("recevoir")}>✕</button>
       </div>
       {utxos && utxos.length > 0
         ? <Send key={`${panel}:${sendTo ?? ""}`} cfg={cfg} utxos={utxos} onSent={refresh} mode={panel === "rafraichir" ? "refresh" : "send"} initialTo={panel === "envoyer" ? sendTo : undefined} />
-        : <p className="muted">Aucun coin à dépenser.</p>}
+        : <p className="muted">No coins to spend.</p>}
     </section>
   );
 
   const tabs = (
     <section className="card">
       <div className="segmented crypto-tabs">
-        {([["historique", "Historique"], ["coins", "Coins"], ["securite", "Sécurité"]] as const).map(([k, l]) => (
+        {([["historique", "History"], ["coins", "Coins"], ["securite", "Security"]] as const).map(([k, l]) => (
           <button key={k} className={sub === k ? "on" : ""} onClick={() => setSub(k)}>{l}</button>
         ))}
       </div>
       {sub === "historique" && (
         <div data-testid="history">
-          {!hist && <p className="muted small">Chargement…</p>}
-          {hist && hist.length === 0 && <p className="muted small">Aucune transaction.</p>}
+          {!hist && <p className="muted small">Loading…</p>}
+          {hist && hist.length === 0 && <p className="muted small">No transactions.</p>}
           {hist && hist.length > 0 && (
             <div className="tx-list">
               {hist.map((h) => (
@@ -161,9 +161,9 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
                   <div className="tx-main">
                     <p className="tx-kind">{KIND[h.kind]}</p>
                     <p className="muted small">
-                      {h.height === null ? "en attente" : h.time ? new Date(h.time * 1000).toLocaleString("fr-CH", { dateStyle: "medium", timeStyle: "short" }) : `bloc ${h.height}`}
-                      {h.fee !== null && ` · frais ${h.fee} sats`}
-                      {txLink(h.txid) && <> · <a href={txLink(h.txid)!} target="_blank" rel="noreferrer">explorateur</a></>}
+                      {h.height === null ? "pending" : h.time ? new Date(h.time * 1000).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : `block ${h.height}`}
+                      {h.fee !== null && ` · fee ${h.fee} sats`}
+                      {txLink(h.txid) && <> · <a href={txLink(h.txid)!} target="_blank" rel="noreferrer">explorer</a></>}
                     </p>
                   </div>
                   <p className={`tx-amount ${h.amount < 0n ? "neg" : h.amount > 0n ? "pos" : "muted"}`}>{h.amount > 0n ? "+" : ""}{btcFmt(h.amount)}</p>
@@ -175,17 +175,17 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
       )}
       {sub === "coins" && (
         <div id="coins">
-          {utxos && utxos.length === 0 && <p className="muted small">Aucun coin.</p>}
+          {utxos && utxos.length === 0 && <p className="muted small">No coins.</p>}
           {utxos && utxos.length > 0 && (
             <table>
-              <thead><tr><th className="hide-m">Coin</th><th>Montant</th><th>Confirmations</th><th>Recovery possible</th></tr></thead>
+              <thead><tr><th className="hide-m">Coin</th><th>Amount</th><th>Confirmations</th><th>Recovery possible</th></tr></thead>
               <tbody>
                 {utxos.map((u) => (
                   <tr key={`${u.txid}:${u.vout}`}>
                     <td className="mono hide-m">{u.txid.slice(0, 12)}…:{u.vout} {u.change ? "(change)" : ""}</td>
                     <td>{btcFmt(u.value)}</td>
-                    <td>{u.confirmations || "en attente"}</td>
-                    <td className={u.recoveryOpensIn === 0 ? "danger" : ""}>{u.recoveryOpensIn === 0 ? "ouverte" : `dans ${u.recoveryOpensIn} bloc(s)`}</td>
+                    <td>{u.confirmations || "pending"}</td>
+                    <td className={u.recoveryOpensIn === 0 ? "danger" : ""}>{u.recoveryOpensIn === 0 ? "open" : `in ${u.recoveryOpensIn} block(s)`}</td>
                   </tr>
                 ))}
               </tbody>
@@ -196,11 +196,11 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
       {sub === "securite" && (
         <div id="securite">
           <div className="sec-grid">
-            <div className="sec-item"><p className="sec-who">Vous</p><p className="small">Dépensez seul, à tout moment, avec votre Wallet du client (empreinte {cfg.client.fingerprint}).</p></div>
-            <div className="sec-item"><p className="sec-who">Swissquote + {tiers}</p><p className="small">Ensemble seulement, et uniquement pour des coins immobiles depuis {cfg.delay} blocs.</p></div>
-            <div className="sec-item"><p className="sec-who">Swissquote seule</p><p className="small">Ne peut rien dépenser.</p></div>
+            <div className="sec-item"><p className="sec-who">You</p><p className="small">Spend on your own, at any time, with your Client Wallet (fingerprint {cfg.client.fingerprint}).</p></div>
+            <div className="sec-item"><p className="sec-who">Swissquote + {tiers}</p><p className="small">Only together, and only for coins that have not moved for {cfg.delay} blocks.</p></div>
+            <div className="sec-item"><p className="sec-who">Swissquote alone</p><p className="small">Cannot spend anything.</p></div>
           </div>
-          <button className="btn-secondary" onClick={onLost}>J'ai perdu mon wallet : récupérer mes bitcoins</button>
+          <button className="btn-secondary" onClick={onLost}>I lost my wallet: recover my bitcoin</button>
         </div>
       )}
     </section>
@@ -211,7 +211,7 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
       {error && <p className="error">{error}</p>}
       {soon.length > 0 && (
         <p className="warning">
-          {soon.length} coin(s) bientôt dépensable(s) par Swissquote + {tiers}. S'il ne s'agit pas d'une recovery voulue, utilisez « Rafraîchir » pour remettre le délai à zéro.
+          {soon.length} coin(s) soon spendable by Swissquote + {tiers}. If this is not a recovery you asked for, use “Refresh” to reset the delay.
         </p>
       )}
       {mobile ? (

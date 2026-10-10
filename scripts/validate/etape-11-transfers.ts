@@ -50,7 +50,7 @@ try {
     v.body.verified === true && wd.status === 200 && got === 30_000_000n && wd.body.balanceSats === 50_000_000,
     `txid ${wd.body.txid} ; reçu dans le wallet : ${got} sats ; solde Swissquote : ${wd.body.balanceSats} sats`);
   report("11-3", "Enregistrement Travel Rule du retrait : donneur d'ordre et bénéficiaire, wallet auto-hébergé, référence de la preuve",
-    rec?.direction === "sortant" && rec.txid === wd.body.txid && rec.verification.startsWith("preuve de propriété") && rec.beneficiary.includes("wallet auto-hébergé"),
+    rec?.direction === "sortant" && rec.txid === wd.body.txid && rec.verification.startsWith("proof of ownership") && rec.beneficiary.includes("self-hosted wallet"),
     `${rec?.originator} → ${rec?.beneficiary} ; ${rec?.verification}`);
 
   const over = await call("POST", "/custody/withdraw", token, { network: "regtest", address: dest, amountSats: 90_000_000 });

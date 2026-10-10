@@ -86,7 +86,7 @@ export type BuildSpendParams = {
 
 export async function buildSpend(p: BuildSpendParams) {
   const { cfg, path } = p;
-  if (!p.utxos.length) throw new Error("aucun UTXO à dépenser");
+  if (!p.utxos.length) throw new Error("no UTXO to spend");
   const network = btcNetwork(cfg.network);
   const recipient = new Output({ descriptor: `addr(${p.to})`, network });
   const change = outputAt(cfg, 1, p.changeIndex ?? 0);
@@ -115,7 +115,7 @@ export async function buildSpend(p: BuildSpendParams) {
   }
   const total = selected.reduce((s, u) => s + u.value, 0n);
   const sendValue = p.amount ?? total - fee;
-  if (sendValue < DUST) throw new Error(`montant trop faible après frais : ${sendValue} sats`);
+  if (sendValue < DUST) throw new Error(`amount too low after fees: ${sendValue} sats`);
 
   const tx = new btc.Transaction();
   for (const u of selected) {
@@ -172,7 +172,7 @@ export function simulate(cfg: WalletConfig, psbt: string, lookahead = 50): PsbtS
     outputs.push({ address, value: o.amount!, own: own.get(address) ?? null });
   }
   const paths = new Set(inputs.map((i) => (i.sequence === cfg.delay ? "recovery" : "client")));
-  if (paths.size !== 1) throw new Error("PSBT mixte : entrées client et recovery mélangées");
+  if (paths.size !== 1) throw new Error("mixed PSBT: client and recovery inputs combined");
   const fee = inputs.reduce((s, i) => s + i.value, 0n) - outputs.reduce((s, o) => s + o.value, 0n);
   let vsize: number | null = null;
   try { vsize = tx.isFinal ? tx.vsize : null; } catch { vsize = null; }
@@ -207,7 +207,7 @@ export function finalizePsbt(cfg: WalletConfig, psbt: string): { hex: string; tx
   for (let i = 0; i < signed.inputsLength; i++) {
     const inp = signed.getInput(i);
     const meta = inputMeta(cfg, inp);
-    if (!meta) throw new Error(`entrée ${i} : n'appartient pas à ce compte`);
+    if (!meta) throw new Error(`input ${i}: does not belong to this account`);
     const path: SpendPath = inp.sequence === cfg.delay ? "recovery" : "client";
     // La transaction précédente complète est dans le PSBT (non_witness_utxo) : on la réutilise.
     const prev = inp.nonWitnessUtxo

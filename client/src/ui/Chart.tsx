@@ -6,7 +6,7 @@ export function Chart({ points, height = 120 }: { points: number[]; height?: num
   const xs = points.map((_, i) => (i / (points.length - 1)) * w);
   const line = points.map((v, i) => `${i ? "L" : "M"}${xs[i].toFixed(1)},${y(v).toFixed(1)}`).join(" ");
   return (
-    <svg className="chart" viewBox={`0 0 ${w} ${height}`} preserveAspectRatio="none" role="img" aria-label="évolution">
+    <svg className="chart" viewBox={`0 0 ${w} ${height}`} preserveAspectRatio="none" role="img" aria-label="performance">
       <defs>
         <linearGradient id="sq-grad" x1="0" x2="0" y1="0" y2="1">
           <stop offset="0" stopColor="#2f64d8" stopOpacity=".25" />

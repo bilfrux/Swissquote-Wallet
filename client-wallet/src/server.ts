@@ -23,7 +23,7 @@ const attempts = new Map<string, { fails: number; until: number }>();
 function unlock(w: StoredWallet, pin: unknown): string {
   if (!w.sealed) return w.mnemonic!; // wallet « non protégé » (créé avant l'étape 8)
   const a = attempts.get(w.id) ?? { fails: 0, until: 0 };
-  if (a.until > Date.now()) throw new HttpError(429, `wallet bloqué après 5 codes PIN incorrects : réessayez dans ${Math.ceil((a.until - Date.now()) / 1000)} s`);
+  if (a.until > Date.now()) throw new HttpError(429, `wallet locked after 5 incorrect PINs: try again in ${Math.ceil((a.until - Date.now()) / 1000)} s`);
   try {
     if (!validPin(pin)) throw new Error("format");
     const m = open(w.sealed, pin);
@@ -33,7 +33,7 @@ function unlock(w: StoredWallet, pin: unknown): string {
     a.fails += 1;
     if (a.fails >= 5) { a.fails = 0; a.until = Date.now() + 60_000; }
     attempts.set(w.id, a);
-    throw new HttpError(403, a.until > Date.now() ? "code PIN incorrect : wallet bloqué 60 s" : `code PIN incorrect (${5 - a.fails} essai(s) restant(s))`);
+    throw new HttpError(403, a.until > Date.now() ? "incorrect PIN: wallet locked for 60 s" : `incorrect PIN (${5 - a.fails} attempt(s) left)`);
   }
 }
 
@@ -66,7 +66,7 @@ async function describe(psbt: string, network: NetworkName) {
   let outputs: { address: string; value: string; mine: string | null }[];
   if (wallet?.policy) {
     const cfg = await createWalletConfig({ ...wallet.policy, client: wallet.accountKey });
-    outputs = simulate(cfg, psbt).outputs.map((o) => ({ address: o.address, value: String(o.value), mine: o.own ? (o.own.change ? "change (votre compte)" : "votre compte") : null }));
+    outputs = simulate(cfg, psbt).outputs.map((o) => ({ address: o.address, value: String(o.value), mine: o.own ? (o.own.change ? "change (this account)" : "this account") : null }));
   } else {
     outputs = Array.from({ length: tx.outputsLength }, (_, i) => {
       const o = tx.getOutput(i);
@@ -92,7 +92,7 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
 
     case "POST /api/wallets": {
       const network: NetworkName = body.network === "signet" ? "signet" : "regtest";
-      if (!validPin(body.pin)) throw new HttpError(400, "code PIN requis : 6 à 12 chiffres");
+      if (!validPin(body.pin)) throw new HttpError(400, "PIN required: 6 to 12 digits");
       const mnemonic = newMnemonic(); // @scure/bip39, 256 bits d'entropie
       const master = masterFromMnemonic(mnemonic, network);
       // Seule la version chiffrée par le PIN est écrite sur le disque.
@@ -103,7 +103,7 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
     }
 
     case "DELETE /api/wallets/:id": {
-      if (!wallets.some((w) => w.id === id)) throw new HttpError(404, "wallet inconnu");
+      if (!wallets.some((w) => w.id === id)) throw new HttpError(404, "unknown wallet");
       save(wallets.filter((w) => w.id !== id));
       return { deleted: id };
     }
@@ -111,9 +111,9 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
     case "POST /api/wallets/:id/protect": {
       // Ancien wallet en clair : chiffrement par un code PIN, puis suppression de la phrase en clair.
       const w = wallets.find((x) => x.id === id);
-      if (!w) throw new HttpError(404, "wallet inconnu");
-      if (w.sealed) throw new HttpError(409, "wallet déjà protégé par un code PIN");
-      if (!validPin(body.pin)) throw new HttpError(400, "code PIN requis : 6 à 12 chiffres");
+      if (!w) throw new HttpError(404, "unknown wallet");
+      if (w.sealed) throw new HttpError(409, "wallet already protected by a PIN");
+      if (!validPin(body.pin)) throw new HttpError(400, "PIN required: 6 to 12 digits");
       w.sealed = seal(w.mnemonic!, body.pin);
       delete w.mnemonic;
       save(wallets);
@@ -122,7 +122,7 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
 
     case "POST /api/wallets/:id/policy": {
       const w = wallets.find((x) => x.id === id);
-      if (!w) throw new HttpError(404, "wallet inconnu");
+      if (!w) throw new HttpError(404, "unknown wallet");
       const p = body.policy as Policy;
       await createWalletConfig({ ...p, client: w.accountKey }); // la politique doit compiler avec la clé de ce wallet
       w.policy = p;
@@ -137,10 +137,10 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
       // Preuve de propriété : signature BIP-322 « simple » d'un défi par la clé CLIENT à (change, index),
       // pour l'adresse P2WPKH de cette clé (bip322-js ne gère pas P2WSH). Ne déplace aucun fonds.
       const w = wallets.find((x) => x.accountKey === body.accountKey);
-      if (!w) throw new HttpError(404, "aucun wallet de cet appareil ne correspond à ce compte");
+      if (!w) throw new HttpError(404, "no wallet on this device matches this account");
       const change = Number(body.change), index = Number(body.index);
-      if (![0, 1].includes(change) || !Number.isInteger(index) || index < 0 || index > 1_000_000) throw new HttpError(400, "chemin de clé invalide");
-      if (typeof body.message !== "string" || body.message.length > 1000) throw new HttpError(400, "message invalide");
+      if (![0, 1].includes(change) || !Number.isInteger(index) || index < 0 || index > 1_000_000) throw new HttpError(400, "invalid key path");
+      if (typeof body.message !== "string" || body.message.length > 1000) throw new HttpError(400, "invalid message");
       const network: NetworkName = body.network === "signet" ? "signet" : "regtest";
       const child = masterFromMnemonic(unlock(w, body.pin), network).derive(`m/48'/1'/0'/2'/${change}/${index}`);
       const keyAddress = keyAddressOf(child.publicKey!, network);
@@ -150,18 +150,18 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
 
     case "POST /api/sign": {
       const d = await describe(body.psbt, body.network);
-      if (!d.wallet) throw new HttpError(400, "ce PSBT ne dépense aucun coin de vos wallets");
-      if (d.path !== "client") throw new HttpError(400, "ce PSBT utilise le chemin de recovery (Swissquote + tiers) : votre wallet n'a pas à le signer");
+      if (!d.wallet) throw new HttpError(400, "this PSBT spends no coin of your wallets");
+      if (d.path !== "client") throw new HttpError(400, "this PSBT uses the recovery path (Swissquote + trusted contact): your wallet must not sign it");
       const w = wallets.find((x) => x.id === d.wallet!.id)!;
       // Montant élevé : le client ressaisit les 6 derniers caractères de l'adresse de destination (contre une adresse substituée).
       if (d.high && String(body.confirmDest ?? "").trim().toLowerCase() !== d.confirmTarget!.slice(-6).toLowerCase())
-        throw new HttpError(400, "montant élevé : saisissez les 6 derniers caractères de l'adresse de destination");
+        throw new HttpError(400, "high-value amount: enter the last 6 characters of the destination address");
       const r = signPsbtWithMnemonic(body.psbt, unlock(w, body.pin), body.network);
-      if (r.added === 0) throw new HttpError(400, "aucune entrée signable par ce wallet");
+      if (r.added === 0) throw new HttpError(400, "no input signable by this wallet");
       return r;
     }
   }
-  throw new HttpError(404, `route inconnue : ${key}`);
+  throw new HttpError(404, `unknown route: ${key}`);
 }
 
 const server = createServer(async (req, res) => {
@@ -170,9 +170,9 @@ const server = createServer(async (req, res) => {
   // Aucune en-tête CORS : seule l'interface du wallet (même origine) ou un outil local peut appeler l'API.
   // Un navigateur envoie toujours Origin sur un POST d'une autre origine : il est refusé AVANT exécution.
   const origin = req.headers.origin;
-  if (origin && origin !== SELF) return send(403, { error: `origine refusée : ${origin}` });
+  if (origin && origin !== SELF) return send(403, { error: `origin rejected: ${origin}` });
   // Un POST « simple » (text/plain, formulaire) n'est pas précédé d'un contrôle CORS : on exige du JSON.
-  if (req.method === "POST" && req.headers["content-type"] !== "application/json") return send(415, { error: "application/json requis" });
+  if (req.method === "POST" && req.headers["content-type"] !== "application/json") return send(415, { error: "application/json required" });
   let raw = "";
   for await (const c of req) raw += c;
   try { send(200, await api(req, raw ? JSON.parse(raw) : {})); }

@@ -13,7 +13,7 @@ export const ACCOUNT_PATH = "m/48'/1'/0'/2'";
 export const policyString = (delay: number) => `or(pk(@C),and(pk(@S),and(pk(@T),older(${delay}))))`;
 
 export async function compileRecoveryPolicy(delay: number) {
-  if (!Number.isInteger(delay) || delay < 1 || delay > 0xffff) throw new Error(`délai invalide : ${delay} (1 à 65535 blocs)`);
+  if (!Number.isInteger(delay) || delay < 1 || delay > 0xffff) throw new Error(`invalid delay: ${delay} (1 to 65535 blocks)`);
   await ready;
   const policy = policyString(delay);
   const { miniscript, issane } = compilePolicy(policy);
@@ -27,7 +27,7 @@ export type AccountKey = { fingerprint: string; originPath: string; xpub: string
 
 export function parseAccountKey(raw: string, network: NetworkName): AccountKey {
   const m = raw.trim().match(ACCOUNT_KEY_RE);
-  if (!m) throw new Error("clé attendue au format [empreinte/48'/1'/0'/2']tpub…");
+  if (!m) throw new Error("key expected in the format [fingerprint/48'/1'/0'/2']tpub…");
   HDKey.fromExtendedKey(m[3], btcNetwork(network).bip32); // vérifie le xpub (somme de contrôle, version)
   return { fingerprint: m[1], originPath: "m" + m[2].replace(/h/g, "'"), xpub: m[3], raw: raw.trim() };
 }
@@ -45,7 +45,7 @@ export async function createWalletConfig(p: { network: NetworkName; delay: numbe
   const { miniscript } = await compileRecoveryPolicy(p.delay);
   const keys = { client: parseAccountKey(p.client, p.network), swissquote: parseAccountKey(p.swissquote, p.network), tiers: parseAccountKey(p.tiers, p.network) };
   const xs = [keys.client.xpub, keys.swissquote.xpub, keys.tiers.xpub];
-  if (new Set(xs).size !== 3) throw new Error("les trois clés doivent être distinctes");
+  if (new Set(xs).size !== 3) throw new Error("the three keys must be distinct");
   return { network: p.network, delay: p.delay, miniscript, ...keys };
 }
 

@@ -33,8 +33,8 @@ export function Send({ cfg, utxos, onSent, mode = "send", initialTo }: { cfg: Wa
   const sameTx = (psbt: string) => {
     const s = simulate(cfg, psbt);
     const key = (x: Summary) => JSON.stringify(x.outputs.map((o) => [o.address, String(o.value)]));
-    if (key(s) !== key(unsigned!.summary)) throw new Error("le PSBT signé ne correspond pas à la transaction préparée");
-    if (s.inputs.some((i) => i.signatures === 0)) throw new Error("le PSBT n'est pas signé");
+    if (key(s) !== key(unsigned!.summary)) throw new Error("the signed PSBT does not match the prepared transaction");
+    if (s.inputs.some((i) => i.signatures === 0)) throw new Error("the PSBT is not signed");
     return psbt;
   };
   const prepare = (refresh: boolean) =>
@@ -59,61 +59,61 @@ export function Send({ cfg, utxos, onSent, mode = "send", initialTo }: { cfg: Wa
     <div className="send">
       {mode === "send" ? (
         <>
-          <label><span>Destinataire</span><input className="mono" value={to} onChange={(e) => setTo(e.target.value)} placeholder="tb1… / bcrt1…" /></label>
-          <label><span>Montant (BTC)</span><input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.0001" /></label>
+          <label><span>Recipient</span><input className="mono" value={to} onChange={(e) => setTo(e.target.value)} placeholder="tb1… / bcrt1…" /></label>
+          <label><span>Amount (BTC)</span><input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.0001" /></label>
         </>
       ) : (
-        <p className="small">Tous vos coins sont renvoyés vers une nouvelle adresse de votre compte. Le délai de recovery repart de zéro : Swissquote et votre tiers ne peuvent plus les déplacer avant {cfg.delay} blocs.</p>
+        <p className="small">All your coins are sent to a new address of your account. The recovery delay restarts from zero: Swissquote and your trusted contact can no longer move them for {cfg.delay} blocks.</p>
       )}
-      <label><span>Frais (sat/vB)</span><input value={feeRate} onChange={(e) => { setTouched(true); setFeeRate(e.target.value); }} /></label>
+      <label><span>Fee (sat/vB)</span><input value={feeRate} onChange={(e) => { setTouched(true); setFeeRate(e.target.value); }} /></label>
       {rates && (
         <div className="fee-presets" data-testid="fee-presets">
-          {([["slow", "Économique", "~1 jour"], ["normal", "Normal", "~30 min"], ["fast", "Rapide", "~10 min"]] as const).map(([k, label, eta]) => (
+          {([["slow", "Economy", "~1 day"], ["normal", "Normal", "~30 min"], ["fast", "Fast", "~10 min"]] as const).map(([k, label, eta]) => (
             <button key={k} type="button" className={String(rates[k]) === feeRate ? "on" : ""} onClick={() => { setTouched(true); setFeeRate(String(rates[k])); }}>
               <strong>{label}</strong><span>{rates[k]} sat/vB</span><span>{eta}</span>
             </button>
           ))}
-          <span className="muted small">{rates.source === "réseau" ? "Estimation du réseau" : "Valeurs par défaut (pas d'estimation sur ce réseau)"} · minimum 1 sat/vB</span>
+          <span className="muted small">{rates.source === "réseau" ? "Network estimate" : "Default values (no estimate on this network)"} · minimum 1 sat/vB</span>
         </div>
       )}
       {mode === "send"
-        ? <button disabled={busy} className="btn-primary wide" onClick={prepare(false)}>Préparer l'envoi</button>
-        : <button disabled={busy} className="btn-primary wide" onClick={prepare(true)}>Préparer le rafraîchissement</button>}
+        ? <button disabled={busy} className="btn-primary wide" onClick={prepare(false)}>Prepare the transfer</button>
+        : <button disabled={busy} className="btn-primary wide" onClick={prepare(true)}>Prepare the refresh</button>}
       {error && <p className="error">{error}</p>}
 
       {unsigned && !result?.txid && (
         <div className="step">
-          <h3>Vérifiez, puis signez dans votre wallet</h3>
+          <h3>Review, then sign in your wallet</h3>
           <PsbtSummary summary={unsigned.summary} delay={cfg.delay} />
           {!signedPsbt ? (
             <>
-              {high && <p className="warning small">Montant élevé ({btcFmt(sentExternal)}) : confirmation par passkey auprès de Swissquote, puis confirmation renforcée dans votre wallet.</p>}
+              {high && <p className="warning small">High-value amount ({btcFmt(sentExternal)}): passkey confirmation with Swissquote, then enhanced confirmation in your wallet.</p>}
               <button disabled={busy} onClick={guard(async () => {
                 if (high) {
                   const r = await stepUp(sentExternal, unsigned.summary.outputs.find((o) => !o.own)?.address ?? "", cfg.network);
-                  setStepNote(r.status === "approuvé" ? "Montant élevé confirmé par passkey." : "Swissquote injoignable : la confirmation renforcée est assurée par votre wallet seul.");
+                  setStepNote(r.status === "approuvé" ? "High-value amount confirmed by passkey." : "Swissquote unreachable: enhanced confirmation is handled by your wallet alone.");
                 }
                 setSignedPsbt(sameTx((await walletRequest<{ psbt: string }>("sign", { psbt: unsigned.psbt })).psbt));
               })}>
-                Signer avec mon Wallet du client
+                Sign with my Client Wallet
               </button>
               {stepNote && <p className="note" data-testid="stepup-note">{stepNote}</p>}
-              <p className="note">L'appli ne peut pas signer : votre wallet s'ouvre, affiche la transaction et vous demande de confirmer.</p>
+              <p className="note">The app cannot sign: your wallet opens, shows the transaction and asks you to confirm.</p>
               <details>
-                <summary>Autre wallet externe (PSBT)</summary>
+                <summary>Other external wallet (PSBT)</summary>
                 <textarea readOnly rows={3} className="mono" value={unsigned.psbt} />
-                <button className="small" onClick={() => navigator.clipboard.writeText(unsigned.psbt)}>Copier le PSBT</button>
-                <textarea rows={3} className="mono" value={manual} onChange={(e) => setManual(e.target.value)} placeholder="PSBT signé (cHNidP8…)" />
-                <button className="small" disabled={!manual.trim()} onClick={guard(() => { setSignedPsbt(sameTx(manual.trim())); })}>Utiliser ce PSBT signé</button>
+                <button className="small" onClick={() => navigator.clipboard.writeText(unsigned.psbt)}>Copy the PSBT</button>
+                <textarea rows={3} className="mono" value={manual} onChange={(e) => setManual(e.target.value)} placeholder="Signed PSBT (cHNidP8…)" />
+                <button className="small" disabled={!manual.trim()} onClick={guard(() => { setSignedPsbt(sameTx(manual.trim())); })}>Use this signed PSBT</button>
               </details>
             </>
           ) : (
             <>
-              <p className="success">Transaction signée par votre wallet.</p>
+              <p className="success">Transaction signed by your wallet.</p>
               <button disabled={busy} onClick={guard(async () => {
                 const { hex } = finalizePsbt(cfg, signedPsbt);
                 try { setResult({ txid: await chain.broadcast(hex) }); onSent(); } catch (e: any) { setResult({ error: e.message }); }
-              })}>Diffuser sur le réseau Bitcoin</button>
+              })}>Broadcast on the Bitcoin network</button>
             </>
           )}
         </div>
@@ -121,11 +121,11 @@ export function Send({ cfg, utxos, onSent, mode = "send", initialTo }: { cfg: Wa
 
       {result?.txid && (
         <p className="success">
-          Transaction diffusée : <span className="mono">{result.txid}</span>
-          {txLink(result.txid) && <> · <a href={txLink(result.txid)!} target="_blank" rel="noreferrer">voir sur l'explorateur</a></>}
+          Transaction broadcast: <span className="mono">{result.txid}</span>
+          {txLink(result.txid) && <> · <a href={txLink(result.txid)!} target="_blank" rel="noreferrer">view in explorer</a></>}
         </p>
       )}
-      {result?.error && <p className="error">Refusée par le réseau : {result.error}</p>}
+      {result?.error && <p className="error">Rejected by the network: {result.error}</p>}
     </div>
   );
 }

@@ -5,6 +5,6 @@ export const btcFmt = (sats: bigint) => {
 };
 export const parseBtc = (v: string): bigint => {
   const m = v.trim().replace(",", ".").match(/^(\d+)(?:\.(\d{1,8}))?$/);
-  if (!m) throw new Error("montant invalide (BTC, 8 décimales max)");
+  if (!m) throw new Error("invalid amount (BTC, max 8 decimals)");
   return BigInt(m[1]) * 100_000_000n + BigInt((m[2] ?? "").padEnd(8, "0"));
 };

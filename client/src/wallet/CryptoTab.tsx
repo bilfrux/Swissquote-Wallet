@@ -26,7 +26,7 @@ export function CryptoTab({ session, onBalance }: { session: Session; onBalance:
         saveActiveAccount(cid, a);
         setAccount(a);
       },
-      () => { setAccount(cached ?? null); if (cached) setNotice("Swissquote est injoignable : compte chargé depuis cet appareil. Vous pouvez toujours dépenser."); },
+      () => { setAccount(cached ?? null); if (cached) setNotice("Swissquote is unreachable: account loaded from this device. You can still spend."); },
     );
   }, [cid]);
   useEffect(() => {
@@ -36,16 +36,16 @@ export function CryptoTab({ session, onBalance }: { session: Session; onBalance:
   }, [account]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activate = (a: BtcAccount) => { saveActiveAccount(cid, a); setAccount(a); };
-  if (account === undefined) return <section><p>Chargement…</p></section>;
+  if (account === undefined) return <section><p>Loading…</p></section>;
   if (recovering)
-    return <Recovery onCancel={() => setRecovering(false)} onDone={(a) => { activate(a); setRecovering(false); setNotice("Recovery terminée : voici votre nouveau wallet."); }} />;
+    return <Recovery onCancel={() => setRecovering(false)} onDone={(a) => { activate(a); setRecovering(false); setNotice("Recovery complete: here is your new wallet."); }} />;
   return (
     <>
       {notice && <p className="note banner">{notice}</p>}
       {!account && (
         <>
-          <CreateWallet onCreated={(a) => { activate(a); setNotice("Votre wallet Bitcoin est créé. Vous seul en détenez la clé."); }} />
-          <p className="center"><button className="link" onClick={() => setRecovering(true)}>J'avais un wallet et je l'ai perdu : récupérer mes bitcoins</button></p>
+          <CreateWallet onCreated={(a) => { activate(a); setNotice("Your Bitcoin wallet has been created. Only you hold its key."); }} />
+          <p className="center"><button className="link" onClick={() => setRecovering(true)}>I had a wallet and lost it: recover my bitcoin</button></p>
         </>
       )}
       {account && cfg && <Account key={cfg.client.raw} cfg={cfg} account={account} onLost={() => setRecovering(true)} onBalance={onBalance} />}

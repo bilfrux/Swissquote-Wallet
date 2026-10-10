@@ -90,7 +90,7 @@ export const travelRule = async (): Promise<TravelRuleRecord[]> => (await call(`
 export class NeedProof extends Error {}
 export async function withdrawToWallet(address: string, amountSats: number) {
   try { return (await call("/custody/withdraw", { network: NETWORK, address, amountSats })) as { txid: string; balanceSats: number; recordId: number }; }
-  catch (e: any) { if (/preuve de propriété requise/.test(e.message)) throw new NeedProof(e.message); throw e; }
+  catch (e: any) { if (/proof of ownership required/.test(e.message)) throw new NeedProof(e.message); throw e; }
 }
 export const ownershipStatus = async (address: string): Promise<boolean> => (await call(`/ownership/status?address=${encodeURIComponent(address)}`)).verified;
 // Relais vers le tiers (A3) : dépôt du PSBT signé par Swissquote, puis lecture de la signature du tiers.

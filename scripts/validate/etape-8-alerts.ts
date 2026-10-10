@@ -56,7 +56,7 @@ try {
     `alertes (récentes d'abord) : ${kinds.join(", ")} ; non lues : ${list.unread} ; « ${list.items[0]?.body.slice(0, 120)}… »`);
 
   const outbox = existsSync(`${DATA}/outbox.log`) ? readFileSync(`${DATA}/outbox.log`, "utf8").trim().split("\n") : [];
-  report("8-15", "Chaque alerte est aussi « envoyée » par email simulé (outbox.log)", outbox.length === 3 && outbox.every((l) => l.includes("email SIMULÉ à léa.martin@exemple.invalid")), `${outbox.length} ligne(s) ; ex. : ${outbox[0]?.slice(0, 140)}`);
+  report("8-15", "Chaque alerte est aussi « envoyée » par email simulé (outbox.log)", outbox.length === 3 && outbox.every((l) => l.includes("SIMULATED email to léa.martin@exemple.invalid")), `${outbox.length} ligne(s) ; ex. : ${outbox[0]?.slice(0, 140)}`);
 
   await call("/notifications/read", token, {});
   const after = (await call("/notifications", token)).body;
