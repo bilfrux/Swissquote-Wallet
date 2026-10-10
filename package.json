@@ -32,6 +32,8 @@
     "validate:7": "tsx scripts/validate/etape-7.ts",
     "demo:signet": "concurrently -n appli,bank,console,wallet -c blue,red,green,yellow \"VITE_BTC_NETWORK=signet npm run dev -w client\" \"npm run dev -w bank-mock\" \"VITE_BTC_NETWORK=signet npm run dev -w guardian-console\" \"npm run dev -w client-wallet\"",
     "validate:8:signet": "tsx scripts/validate/etape-8-signet-ui.ts",
+    "validate:17": "tsx scripts/validate/etape-17-evm-ui.ts",
+    "demo:signet:ports": "./scripts/demo/signet-ports.sh",
     "validate:8:pin": "tsx scripts/validate/etape-8-pin.ts",
     "validate:8:alerts": "tsx scripts/validate/etape-8-alerts.ts",
     "validate:9": "tsx scripts/validate/etape-9.ts",

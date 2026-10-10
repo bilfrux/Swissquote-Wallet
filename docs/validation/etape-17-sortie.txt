@@ -1,0 +1,53 @@
+$ npm run -s validate:17   # essai 1
+[OK ] 17-1 Ajout du compte Ethereum : adresse dérivée dans le Wallet du client (même phrase), Safe recalculé par Swissquote et affiché
+       Safe 0x292919c03fe12BEAD122998d1280812eeD5723AA ; propriétaire 0xB33ef3D09896dB38A5f15eceBDD25c88DeacE891 ; tiers 0x82436F79d37e0f9d41d7C3CF8925b8BC079F86Ee ; enregistrement sans session : 401
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+browserContext.waitForEvent: Timeout 30000ms exceeded while waiting for event "page"
+    at popupOf (/Users/f8114/Florian_Travail/ESILV/A4/DVB/Hackathons/EPFL_Hack/Swissquote-Wallet/scripts/validate/etape-17-evm-ui.ts:25:113)
+    at <anonymous> (/Users/f8114/Florian_Travail/ESILV/A4/DVB/Hackathons/EPFL_Hack/Swissquote-Wallet/scripts/validate/etape-17-evm-ui.ts:68:21) {
+  log: [],
+  name: 'TimeoutError'
+}
+
+Node.js v24.10.0
+
+$ npm run -s validate:17   # essai 2
+[OK ] 17-1 Ajout du compte Ethereum : adresse dérivée dans le Wallet du client (même phrase), Safe recalculé par Swissquote et affiché
+       Safe 0x292919c03fe12BEAD122998d1280812eeD5723AA ; propriétaire 0xB33ef3D09896dB38A5f15eceBDD25c88DeacE891 ; tiers 0x82436F79d37e0f9d41d7C3CF8925b8BC079F86Ee ; enregistrement sans session : 401
+[KO ] 17-2 Activation depuis l'interface : écran du wallet en clair (module, 2 gardiens, frais parrainés), Safe déployé, gardiens Swissquote + tiers, seuil 2, 0 ETH
+       Activation: 0xd943777d7bc9fcceba6c586d7047e96e3f82f3ea84091c9f66f22d2e18617eca ; écran : Confirm the Ethereum operationRequest from http://localhost:5183 · account 0x292919c03fe12BEAD122998d1280812eeD5723AA (Sepolia)Account created on-chain with this operationEnable the recovery module (Candide, 3 minutes delay)Add recovery guardian 0xd2D6c688BC62
+[OK ] 17-3 Le Wallet du client refuse de signer une opération contenant un appel non reconnu
+       400 refused: not decoded: do not sign unless you know what it does
+[-- ] 17-4 non testé : le Safe 0x292919c03fe12BEAD122998d1280812eeD5723AA n'a pas d'USDC (faucet Circle à demander vers cette adresse)
+[KO ] 17-x Aucune erreur dans les consoles des navigateurs
+       Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. [3c2db15c/48'/1'/0'/2']tpubDFdH7C31vqxx5oStZqzBNJ8vy5wqPfkGPgsjWTvkXGfAetK4N7DyjzU6Cv1mrHkNHATEsSPZxe1dBvJ6zStac8oqAeGXwsmu9rP72iepyTZ | Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or 
+
+RÉSUMÉ
+17-1 fonctionne         Ajout du compte Ethereum : adresse dérivée dans le Wallet du client (même phrase), Safe recalculé par Swissquote et affiché
+17-2 ne fonctionne pas  Activation depuis l'interface : écran du wallet en clair (module, 2 gardiens, frais parrainés), Safe déployé, gardiens Swissquote + tiers, seuil 2, 0 ETH
+17-3 fonctionne         Le Wallet du client refuse de signer une opération contenant un appel non reconnu
+17-x ne fonctionne pas  Aucune erreur dans les consoles des navigateurs
+
+$ npm run -s validate:17   # essai 3
+[OK ] 17-1 Ajout du compte Ethereum : adresse dérivée dans le Wallet du client (même phrase), Safe recalculé par Swissquote et affiché
+       Safe 0x292919c03fe12BEAD122998d1280812eeD5723AA ; propriétaire 0xB33ef3D09896dB38A5f15eceBDD25c88DeacE891 ; tiers 0x82436F79d37e0f9d41d7C3CF8925b8BC079F86Ee ; enregistrement sans session : 401
+[OK ] 17-2 Activation (déjà faite lors d'un essai précédent)
+       gardiens 0x82436F79d37e0f9d41d7C3CF8925b8BC079F86Ee, 0xd2D6c688BC62E6e8e89BdF22d7aC79a64BDBca17 ; seuil 2
+[OK ] 17-3 Le Wallet du client refuse de signer une opération contenant un appel non reconnu
+       400 refused: not decoded: do not sign unless you know what it does
+[-- ] 17-4 non testé : le Safe 0x292919c03fe12BEAD122998d1280812eeD5723AA n'a pas d'USDC (faucet Circle à demander vers cette adresse)
+[OK ] 17-x Aucune erreur dans les consoles des navigateurs
+       aucune
+
+RÉSUMÉ
+17-1 fonctionne         Ajout du compte Ethereum : adresse dérivée dans le Wallet du client (même phrase), Safe recalculé par Swissquote et affiché
+17-2 fonctionne         Activation (déjà faite lors d'un essai précédent)
+17-3 fonctionne         Le Wallet du client refuse de signer une opération contenant un appel non reconnu
+17-x fonctionne         Aucune erreur dans les consoles des navigateurs
+
+$ lecture on-chain après l essai 2 (readState du Safe 0x2929…23AA)
+{"deployed":true,"usdc":"0","owners":["0xB33ef3D09896dB38A5f15eceBDD25c88DeacE891"],"guardians":["0x82436F79d37e0f9d41d7C3CF8925b8BC079F86Ee","0xd2D6c688BC62E6e8e89BdF22d7aC79a64BDBca17"],"threshold":"2","moduleEnabled":true,"pending":null}
+GET /guardian/evm-address -> 0xd2D6c688BC62E6e8e89BdF22d7aC79a64BDBca17

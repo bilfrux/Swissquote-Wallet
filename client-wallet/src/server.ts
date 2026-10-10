@@ -15,6 +15,9 @@ import { Signer } from "bip322-js";
 import { type NetworkName, btcNetwork, createWalletConfig, keyAddressOf, simulate } from "@sq/bitcoin";
 import { accountKey, masterFromMnemonic, newMnemonic } from "@sq/bitcoin/keys";
 import { signPsbtWithMnemonic } from "@sq/bitcoin/sign";
+import { type JsonOp, describeOp, safeAddressOf, signOp } from "@sq/evm";
+import { evmAccountFromMnemonic, evmAddressFromMnemonic } from "@sq/evm/keys";
+import { getAddress, type Address } from "viem";
 import { type Policy, type StoredWallet, load, publicView, save } from "./store.ts";
 import { open, seal, validPin } from "./vault.ts";
 
@@ -81,6 +84,17 @@ async function describe(psbt: string, network: NetworkName) {
   return { wallet: wallet ? publicView(wallet) : null, path, delay: inputs[0]?.delay ?? null, inputs, outputs, fee: String(fee), sent: String(sent), high, highValueSats: String(HIGH_VALUE_SATS), confirmTarget: high ? external[0]?.address ?? null : null };
 }
 
+// Opération Ethereum : à quel wallet appartient le Safe, et que fait-elle (décodée ici, sans faire confiance à l'appli).
+function describeEvm(op: JsonOp, wallets: StoredWallet[]) {
+  if (!op?.sender || !op.callData) throw new HttpError(400, "operation missing");
+  const sender = getAddress(op.sender);
+  const w = wallets.find((x) => x.evmAddress && safeAddressOf(x.evmAddress as Address) === sender);
+  if (!w) throw new HttpError(400, "this operation is not for an account of your wallets");
+  let d;
+  try { d = describeOp(op); } catch (e: any) { throw new HttpError(400, `operation not decodable: ${e.message}`); }
+  return { wallet: publicView(w), owner: w.evmAddress, ...d };
+}
+
 async function api(req: IncomingMessage, body: any): Promise<unknown> {
   const url = new URL(req.url!, SELF);
   const key = `${req.method} ${url.pathname.replace(/\/[0-9a-f]{8}(?=\/|$)/, "/:id")}`;
@@ -96,7 +110,7 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
       const mnemonic = newMnemonic(); // @scure/bip39, 256 bits d'entropie
       const master = masterFromMnemonic(mnemonic, network);
       // Seule la version chiffrée par le PIN est écrite sur le disque.
-      const w: StoredWallet = { id: fp(master.fingerprint), label: String(body.label ?? "Mon wallet Bitcoin"), sealed: seal(mnemonic, body.pin), accountKey: accountKey(master), createdAt: new Date().toISOString() };
+      const w: StoredWallet = { id: fp(master.fingerprint), label: String(body.label ?? "Mon wallet Bitcoin"), sealed: seal(mnemonic, body.pin), accountKey: accountKey(master), evmAddress: evmAddressFromMnemonic(mnemonic), createdAt: new Date().toISOString() };
       save([...wallets, w]);
       // Seule réponse qui contienne la phrase : elle est affichée une fois à l'écran du wallet, puis plus jamais.
       return { wallet: publicView(w), mnemonic };
@@ -128,6 +142,27 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
       w.policy = p;
       save(wallets);
       return publicView(w);
+    }
+
+    case "POST /api/wallets/:id/evm": {
+      // Wallet créé avant l'étape 17 : calcul de l'adresse Ethereum (la phrase est déchiffrée par le PIN, en mémoire).
+      const w = wallets.find((x) => x.id === id);
+      if (!w) throw new HttpError(404, "unknown wallet");
+      if (!w.evmAddress) { w.evmAddress = evmAddressFromMnemonic(unlock(w, body.pin)); save(wallets); }
+      return { evmAddress: w.evmAddress };
+    }
+
+    case "POST /api/evm/describe":
+      return describeEvm(body.op, wallets);
+
+    case "POST /api/evm/sign": {
+      const d = describeEvm(body.op, wallets);
+      const unknown = d.calls.filter((c) => c.kind === "unknown" || c.risk);
+      if (unknown.length) throw new HttpError(400, `refused: ${unknown.map((c) => c.risk ?? c.text).join("; ")}`);
+      const w = wallets.find((x) => x.id === d.wallet.id)!;
+      const { privateKey, account } = evmAccountFromMnemonic(unlock(w, body.pin));
+      if (getAddress(account.address) !== getAddress(w.evmAddress!)) throw new HttpError(500, "derived key does not match the wallet's address");
+      return { signature: signOp(body.op as JsonOp, privateKey) };
     }
 
     case "POST /api/describe":

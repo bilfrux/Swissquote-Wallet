@@ -7,7 +7,9 @@ import { randomBytes } from "node:crypto";
 import { Verifier } from "bip322-js";
 import { type NetworkName, type WalletConfig, addresses, clientKeyAddress, combinePsbts, createWalletConfig, inputsBelongTo, outputAt, simulate } from "@sq/bitcoin";
 import { db } from "./db.ts";
-import { signAsSwissquote, swissquoteAccountKey } from "./guardian.ts";
+import { signAsSwissquote, signEvmRecovery, swissquoteAccountKey, swissquoteEvmAddress } from "./guardian.ts";
+import { getAddress, isAddress } from "viem";
+import { safeAddressOf } from "@sq/evm";
 import { TEST_CUSTOMERS, customerFromToken, verifyIdentity } from "./kyc.ts";
 import { CUSTOMERS, createSession, customerFromSession, login } from "./bank.ts";
 import { authenticationOptions, passkeyCount, recordStepup, registrationOptions, verifyAuthentication, verifyRegistration } from "./passkeys.ts";
@@ -71,6 +73,31 @@ async function route(req: IncomingMessage, body: any, url: URL) {
       const row = db.prepare("select id, customer_id from accounts where network = ? and client_key = ?").get(net, cfg.client.raw) as any;
       if (row.customer_id !== body.customerId) throw new HttpError(409, "this client key is already registered by another client");
       return { accountId: row.id };
+    }
+
+    // ---- Ethereum (étape 17) : Safe du client, Swissquote est l'un des deux gardiens du module de recovery ----
+    case "GET /guardian/evm-address":
+      return { address: swissquoteEvmAddress };
+
+    case "POST /evm/accounts/register": {
+      const customerId = customerFromSession(req.headers.authorization);
+      if (!customerId) throw new HttpError(401, "session expired: please log in again");
+      if (!isAddress(String(body.owner)) || !isAddress(String(body.tiers))) throw new HttpError(400, "invalid Ethereum address");
+      const owner = getAddress(body.owner), tiers = getAddress(body.tiers);
+      if (tiers === owner || tiers === swissquoteEvmAddress) throw new HttpError(400, "the trusted contact must be a third party (not you, not Swissquote)");
+      const safe = safeAddressOf(owner); // recalculé ici : Swissquote ne fait pas confiance à l'appli
+      db.prepare("insert or ignore into evm_accounts (customer_id, owner, safe, tiers, tiers_name) values (?, ?, ?, ?, ?)")
+        .run(customerId, owner, safe, tiers, typeof body.tiersName === "string" ? body.tiersName.slice(0, 80) : null);
+      const row = db.prepare("select * from evm_accounts where owner = ?").get(owner) as any;
+      if (row.customer_id !== customerId) throw new HttpError(409, "this Ethereum key is already registered by another client");
+      return { id: row.id, owner, safe, tiers: row.tiers, tiersName: row.tiers_name, swissquote: swissquoteEvmAddress };
+    }
+
+    case "GET /evm/accounts": {
+      const customerId = customerFromSession(req.headers.authorization);
+      if (!customerId) throw new HttpError(401, "session expired: please log in again");
+      const rows = db.prepare("select * from evm_accounts where customer_id = ? order by id").all(customerId) as any[];
+      return { swissquote: swissquoteEvmAddress, accounts: rows.map((r) => ({ id: r.id, owner: r.owner, safe: r.safe, tiers: r.tiers, tiersName: r.tiers_name, createdAt: r.created_at })) };
     }
 
     case "POST /auth/login": {

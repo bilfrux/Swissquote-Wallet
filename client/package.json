@@ -10,9 +10,11 @@
   "dependencies": {
     "@simplewebauthn/browser": "^14.0.0",
     "@sq/bitcoin": "*",
+    "@sq/evm": "*",
     "qrcode": "^1.5.4",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "viem": "2.57.4"
   },
   "devDependencies": {
     "@types/qrcode": "^1.5.6",

@@ -96,3 +96,9 @@ export const ownershipStatus = async (address: string): Promise<boolean> => (awa
 // Relais vers le tiers (A3) : dépôt du PSBT signé par Swissquote, puis lecture de la signature du tiers.
 export const relayCreate = async (psbt: string): Promise<string> => (await call("/relay", { psbt })).id;
 export const relayGet = async (id: string): Promise<{ psbt: string; signed: string | null }> => call(`/relay?id=${id}`);
+
+// --- Ethereum (Sepolia) : Safe du client, Swissquote est l'un des deux gardiens ---
+export type EvmAccount = { id: number; owner: `0x${string}`; safe: `0x${string}`; tiers: `0x${string}`; tiersName: string | null; createdAt?: string };
+export const evmAccounts = () => call("/evm/accounts") as Promise<{ swissquote: `0x${string}`; accounts: EvmAccount[] }>;
+export const registerEvm = (owner: string, tiers: string, tiersName?: string | null) =>
+  call("/evm/accounts/register", { owner, tiers, tiersName }) as Promise<EvmAccount & { swissquote: `0x${string}` }>;

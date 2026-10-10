@@ -7,6 +7,7 @@ import { base64 } from "@scure/base";
 import { type NetworkName, btcNetwork } from "@sq/bitcoin";
 import { accountKey, masterFromMnemonic, newMnemonic } from "@sq/bitcoin/keys";
 import { signPsbtWithMnemonic } from "@sq/bitcoin/sign";
+import { evmAddressFromMnemonic } from "@sq/evm/keys";
 
 // Relais Swissquote (A3) : la demande arrive par un lien ?req=… ; la signature y est renvoyée. Swissquote transporte
 // seulement : la phrase du tiers ne quitte jamais cette console.
@@ -37,7 +38,8 @@ export function Console() {
   const [signed, setSigned] = useState<{ psbt: string; added: number } | null>(null);
   const [pubKey, setPubKey] = useState<string | null>(null);
   // Identité de tiers créée ici : phrase affichée une fois (jusqu'à « J'ai noté »), jamais stockée.
-  const [identity, setIdentity] = useState<{ words: string[]; key: string } | null>(null);
+  const [identity, setIdentity] = useState<{ words: string[]; key: string; evm: string } | null>(null);
+  const [evmAddr, setEvmAddr] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   useEffect(() => {
@@ -76,7 +78,7 @@ export function Console() {
         <h2>Become a trusted contact</h2>
         <p className="note">Create your guardian key. The phrase is shown only once: write it down, it will be required to sign a recovery.</p>
         {!identity ? (
-          <button className="secondary small" onClick={() => { const m = newMnemonic(); setIdentity({ words: m.split(" "), key: accountKey(masterFromMnemonic(m, NETWORK)) }); setPubKey(null); }}>
+          <button className="secondary small" onClick={() => { const m = newMnemonic(); setIdentity({ words: m.split(" "), key: accountKey(masterFromMnemonic(m, NETWORK)), evm: evmAddressFromMnemonic(m) }); setPubKey(null); }}>
             Create my trusted-contact identity
           </button>
         ) : (
@@ -89,6 +91,8 @@ export function Console() {
             )}
             <p><strong>Public key to send to the client:</strong></p>
             <p className="mono address identity-key">{identity.key}</p>
+            <p><strong>Ethereum address to send to the client</strong> (same phrase):</p>
+            <p className="mono address identity-evm">{identity.evm}</p>
           </>
         )}
       </section>
@@ -101,6 +105,10 @@ export function Console() {
           Show my public key (to send to the client)
         </button>
         {pubKey && <p className="mono address">{pubKey}</p>}
+        <button className="secondary small" onClick={() => withPhrase((p) => setEvmAddr(evmAddressFromMnemonic(p)))}>
+          Show my Ethereum address (to send to the client)
+        </button>
+        {evmAddr && <p className="mono address" data-testid="evm-address">{evmAddr}</p>}
       </section>
 
       <section>

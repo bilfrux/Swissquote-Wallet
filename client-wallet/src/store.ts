@@ -9,8 +9,9 @@ mkdirSync(DATA_DIR, { recursive: true });
 const FILE = join(DATA_DIR, "wallets.json");
 
 export type Policy = { network: "regtest" | "signet"; delay: number; swissquote: string; tiers: string; tiersName?: string };
+// `evmAddress` : adresse Ethereum dérivée de la même phrase (m/44'/60'/0'/0/0), donnée publique.
 // `sealed` : graine chiffrée par le code PIN. `mnemonic` en clair : ancien format, avant l'étape 8 (« non protégé »).
-export type StoredWallet = { id: string; label: string; mnemonic?: string; sealed?: Sealed; accountKey: string; createdAt: string; policy?: Policy };
+export type StoredWallet = { id: string; label: string; mnemonic?: string; sealed?: Sealed; accountKey: string; createdAt: string; policy?: Policy; evmAddress?: string };
 
 export const load = (): StoredWallet[] => (existsSync(FILE) ? JSON.parse(readFileSync(FILE, "utf8")) : []);
 export const save = (w: StoredWallet[]) => writeFileSync(FILE, JSON.stringify(w, null, 2) + "\n", { mode: 0o600 });

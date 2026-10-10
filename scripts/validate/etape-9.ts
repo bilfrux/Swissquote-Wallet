@@ -56,12 +56,16 @@ report("9-4", "Frais regtest : estimation du nœud, ou valeurs par défaut s'il 
 const esplora = new EsploraBackend("https://blockstream.info/signet/api");
 const fs = await esplora.feeRates();
 report("9-5", "Frais signet : estimation réelle de l'API Esplora, planchérisée au minimum de relais (1 sat/vB)", fs.source === "réseau" && fs.slow >= MIN_RELAY_FEE && fs.fast >= fs.slow, JSON.stringify(fs));
+// Wallet signet de CH-0003 qui a reçu le coin du faucet. Après la recovery de l'étape 8, il a été effacé du Wallet du
+// client : sa clé publique reste dans l'état du test (.local/signet-ui), avec la politique du wallet signet actuel.
 const wf = "client-wallet/data/wallets.json";
 const w = existsSync(wf) ? (JSON.parse(readFileSync(wf, "utf8")) as any[]).filter((x) => x.policy?.network === "signet").at(-1) : null;
+const sf = ".local/signet-ui/state.json";
+const lost = existsSync(sf) ? JSON.parse(readFileSync(sf, "utf8")).lostAccountKey : null;
 if (w) {
-  const cfg = await createWalletConfig({ ...w.policy, client: w.accountKey });
+  const cfg = await createWalletConfig({ ...w.policy, client: lost ?? w.accountKey });
   const hs = await history(cfg, esplora);
-  report("9-6", "Historique signet réel du wallet CH-0003 : réception du faucet visible", hs.some((e) => e.kind === "reçu" && e.amount >= 10_000n), hs.map((e) => `${e.txid.slice(0, 10)}… ${fmt(e)}`).join(" | "));
+  report("9-6", `Historique signet réel du wallet CH-0003${lost ? " d'origine (avant recovery)" : ""} : réception du faucet visible`, hs.some((e) => e.kind === "reçu" && e.amount >= 10_000n), hs.map((e) => `${e.txid.slice(0, 10)}… ${fmt(e)}`).join(" | "));
 } else report("9-6", "Historique signet réel", false, "aucun wallet signet dans client-wallet/data");
 
 process.exit(summary() ? 0 : 1);

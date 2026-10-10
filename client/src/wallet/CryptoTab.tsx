@@ -7,6 +7,7 @@ import { type BtcAccount, NETWORK, loadActiveAccount, saveActiveAccount } from "
 import { Recovery } from "../recovery/Recovery";
 import { Account } from "./Account";
 import { CreateWallet } from "./CreateWallet";
+import { Ethereum } from "./Ethereum";
 
 export function CryptoTab({ session, onBalance }: { session: Session; onBalance: (s: bigint | null) => void }) {
   const cid = session.customer.id;
@@ -49,6 +50,7 @@ export function CryptoTab({ session, onBalance }: { session: Session; onBalance:
         </>
       )}
       {account && cfg && <Account key={cfg.client.raw} cfg={cfg} account={account} onLost={() => setRecovering(true)} onBalance={onBalance} />}
+      {account && <Ethereum key={`evm:${account.client}`} customerId={cid} accountKey={account.client} tiersName={account.tiersName} />}
     </>
   );
 }

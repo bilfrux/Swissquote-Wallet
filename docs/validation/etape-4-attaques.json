@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-10T20:36:36.447Z",
+  "date": "2026-10-10T23:53:19.088Z",
   "results": [
     {
       "id": "attaque-1",
@@ -34,10 +34,10 @@
       "expected": "success",
       "outcome": "success",
       "ok": true,
-      "chainMessage": "broadcast cc98d5d6255a3bef7c6aa91e29751f251cd3b0d867354b600f5f50c56d80227c",
+      "chainMessage": "broadcast 198c03d7fd2b01d9fb458a7830738cf5af6903bb4e1ff0716afdbbda2e2019a4",
       "steps": [
         "account registered with Swissquote (200), then bank-mock stopped: unreachable (ECONNREFUSED)",
-        "the client signs with their external wallet (tools/client-signer) and broadcasts: broadcast cc98d5d6255a3bef7c6aa91e29751f251cd3b0d867354b600f5f50c56d80227c"
+        "the client signs with their external wallet (tools/client-signer) and broadcasts: broadcast 198c03d7fd2b01d9fb458a7830738cf5af6903bb4e1ff0716afdbbda2e2019a4"
       ]
     },
     {

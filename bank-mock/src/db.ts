@@ -37,3 +37,9 @@ db.exec(`create table if not exists relay (
   id text primary key, customer_id text not null, psbt text not null, signed text,
   created_at text not null default (datetime('now'))
 )`);
+
+// Comptes Ethereum (étape 17) : Safe du client (adresse calculée depuis son EOA), gardien tiers. Données publiques.
+db.exec(`create table if not exists evm_accounts (
+  id integer primary key, customer_id text not null, owner text not null unique, safe text not null,
+  tiers text not null, tiers_name text, created_at text not null default (datetime('now'))
+)`);

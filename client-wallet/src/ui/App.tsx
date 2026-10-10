@@ -6,8 +6,8 @@
 import { useEffect, useRef, useState } from "react";
 
 const ALLOWED = (import.meta.env.VITE_WALLET_ALLOWED_ORIGINS ?? "http://localhost:5173").split(",");
-type Req = { id: string; action: "create" | "sign" | "policy" | "prove"; network: "regtest" | "signet"; payload: any; origin: string; source: Window };
-type WalletView = { id: string; label: string; accountKey: string; createdAt: string; protected: boolean; policy?: { delay: number; tiersName?: string; network: string } };
+type Req = { id: string; action: "create" | "sign" | "policy" | "prove" | "evm-address" | "evm-sign"; network: "regtest" | "signet"; payload: any; origin: string; source: Window };
+type WalletView = { id: string; label: string; accountKey: string; createdAt: string; protected: boolean; evmAddress?: string; policy?: { delay: number; tiersName?: string; network: string } };
 
 // Saisie du code PIN (6 à 12 chiffres). Le PIN n'est envoyé qu'au serveur du wallet (même origine).
 function PinInput({ value, onChange, label = "Wallet PIN" }: { value: string; onChange: (v: string) => void; label?: string }) {
@@ -80,6 +80,22 @@ export function App() {
           req={req}
           onDone={(d) => { reply(true, d); setDone("Proof signed and returned to the app. No funds were moved."); }}
           onRefuse={() => { reply(false, "refused by the client"); setDone("Proof refused."); }}
+          onError={setError}
+        />
+      )}
+      {req?.action === "evm-address" && !done && (
+        <EvmAddress
+          req={req}
+          onDone={(d) => { reply(true, d); setDone("Ethereum address sent to Swissquote. You can close this window."); }}
+          onRefuse={() => { reply(false, "refused by the client"); setDone("Refused."); }}
+          onError={setError}
+        />
+      )}
+      {req?.action === "evm-sign" && !done && (
+        <EvmSign
+          req={req}
+          onDone={(d) => { reply(true, d); setDone("Operation signed and returned to the app. You can close this window."); }}
+          onRefuse={() => { reply(false, "refused by the client"); setDone("Signature refused."); }}
           onError={setError}
         />
       )}
@@ -222,6 +238,7 @@ function Wallets() {
         <div key={w.id} className="card">
           <p><strong>{w.label}</strong> · fingerprint {w.id} · created on {w.createdAt.slice(0, 16).replace("T", " ")}</p>
           <p className="mono small">{w.accountKey}</p>
+          {w.evmAddress && <p className="mono small">Ethereum: {w.evmAddress}</p>}
           {w.policy && <p className="small">Policy: you alone, or Swissquote + {w.policy.tiersName ?? "trusted contact"} after {w.policy.delay} blocks of inactivity ({w.policy.network})</p>}
           {w.protected ? <p className="small ok">Phrase encrypted by PIN</p> : (
             protecting === w.id ? (
@@ -243,6 +260,58 @@ function Wallets() {
           )}
         </div>
       ))}
+    </section>
+  );
+}
+
+// Adresse Ethereum : dérivée de la même phrase. Le wallet est désigné par sa clé publique Bitcoin (donnée publique).
+function EvmAddress({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unknown) => void; onRefuse: () => void; onError: (e: string) => void }) {
+  const [w, setW] = useState<WalletView | null | undefined>(undefined);
+  const [pin, setPin] = useState("");
+  useEffect(() => { api("/api/wallets").then((l: WalletView[]) => setW(l.find((x) => x.accountKey === req.payload.accountKey) ?? null)); }, [req]);
+  if (w === undefined) return <section><p>Loading…</p></section>;
+  if (!w) return <section><p className="error">No wallet on this device matches your Bitcoin account.</p><button className="secondary" onClick={onRefuse}>Close</button></section>;
+  return (
+    <section>
+      <h2>Add an Ethereum account</h2>
+      <p>Request from <strong>{req.origin}</strong>. Your Ethereum key is derived from the same secret phrase, on this device. Swissquote will only receive its <strong>address</strong>.</p>
+      {w.evmAddress ? <p className="mono card">{w.evmAddress}</p> : <p className="small">Your PIN is needed once to compute the address.</p>}
+      {!w.evmAddress && w.protected && <PinInput value={pin} onChange={setPin} />}
+      <div className="row">
+        <button className="secondary" onClick={onRefuse}>Refuse</button>
+        <button disabled={!w.evmAddress && w.protected && !pinOk(pin)} onClick={async () => { try { onDone(await api(`/api/wallets/${w.id}/evm`, { pin })); } catch (e: any) { onError(e.message); } finally { setPin(""); } }}>
+          Send my Ethereum address
+        </button>
+      </div>
+    </section>
+  );
+}
+
+type EvmDescription = { wallet: WalletView; owner: string; safe: string; deploys: boolean; sponsored: boolean; paymaster: string | null; calls: { kind: string; text: string; risk?: string }[] };
+// Confirmation d'une opération Ethereum : décodée par le wallet lui-même ; tout appel non reconnu bloque la signature.
+function EvmSign({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unknown) => void; onRefuse: () => void; onError: (e: string) => void }) {
+  const [d, setD] = useState<EvmDescription | null>(null);
+  const [pin, setPin] = useState("");
+  useEffect(() => { api("/api/evm/describe", { op: req.payload.op }).then(setD, (e) => onError(e.message)); }, [req]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!d) return <section><p>Reading the operation…</p></section>;
+  const blocked = d.calls.some((c) => c.kind === "unknown" || c.risk);
+  return (
+    <section>
+      <h2>Confirm the Ethereum operation</h2>
+      <p className="small muted">Request from <strong>{req.origin}</strong> · account <span className="mono">{d.safe}</span> (Sepolia)</p>
+      <div className="card">
+        {d.deploys && <p><span className="k">Account</span> created on-chain with this operation</p>}
+        <ol className="calls">{d.calls.map((c, i) => <li key={i} className={c.risk ? "risk" : ""}>{c.text}{c.risk && <strong> · {c.risk}</strong>}</li>)}</ol>
+        <p><span className="k">Network fees</span> {d.sponsored ? `paid by a sponsor (paymaster ${d.paymaster}), not by you` : "paid in ETH by your account"}</p>
+      </div>
+      {blocked && <p className="error">This operation contains a call your wallet cannot explain: it will not sign it.</p>}
+      {d.wallet.protected && <PinInput value={pin} onChange={setPin} />}
+      <div className="row">
+        <button className="secondary" onClick={onRefuse}>Refuse</button>
+        <button disabled={blocked || (d.wallet.protected && !pinOk(pin))} onClick={async () => { try { onDone(await api("/api/evm/sign", { op: req.payload.op, pin })); } catch (e: any) { onError(e.message); } finally { setPin(""); } }}>
+          Confirm and sign
+        </button>
+      </div>
     </section>
   );
 }
