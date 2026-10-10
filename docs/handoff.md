@@ -21,22 +21,26 @@ Model: the client holds their own key in the **Client Wallet** (separate referen
 | A2 (step 11) | Swissquote custodial crypto account ↔ wallet transfers, automatic ownership proof, Travel Rule records (regtest only) |
 | A3 part 1 (step 12) | Recovery without copy-paste: link relayed through bank-mock (`/relay`), contact signs in console |
 | Step 13 | Whole interface and documentation translated to English |
+| Step 8 (end) | Signet, from the interface: send `f7ce359c…` and Swissquote + contact recovery `c5ca6873…` (A3 relay) |
+| Step 14 | Regtest: the recovered key spends, the old one cannot; race after D (client first / guardians first / mempool replacement) |
+| A4 | `docs/custody-models.md`, `docs/travel-rule.md`, `docs/business-case.md` (illustrative assumptions kept for now) |
+| Steps 15-16 | EVM on the real Sepolia with no ETH (Candide public bundler + paymaster): Safe + recovery module (3 min) + 2 guardians; Swissquote alone refused; early finalize refused; recovery to a new key; old key refused; owner cancels a hostile recovery. Script only (`scripts/feasibility/e2e-sepolia.ts`) |
 
 Last verified: `npm run typecheck`; `validate:6:ui` desktop 19/19 and phone 20/20; `validate:1,2,3,7,8:pin,8:alerts,9,10,11,12,inv5`, `test:attacks` all pass. Reports in `docs/validation/etape-N.md` (raw outputs in `*-sortie.txt`, kept as recorded, French).
 
 ## Remaining
 
 ### Bitcoin
-1. **Signet UI spend and recovery** (8-3, 8-4): the faucet coin (tx `8a34bfcd…e34a2`, 10,000 sats, wallet CH-0003 address `tb1qsd8naqffu8q4460kjvwd3nmu4svzw5tmg3xdv06q0nh6zeyl2xuq9m06j6`) is now confirmed. The first run of `CONSOLE_URL=http://localhost:5175 npm run -s validate:8:signet -- spend` failed at `login` in `scripts/validate/etape-8-signet-ui.ts:42` ("Execution context was destroyed"): wait for navigation to finish before reading the page. Then run `recover`, update `etape-8.md`, commit. Watch the blockstream.info rate limit (700 req/h/IP).
+1. Done: signet UI spend and recovery (step 8). Run the signet demo on free ports: `APP_URL`/`CONSOLE_URL`, and `VITE_GUARDIAN_CONSOLE_URL` for the relay link.
 2. **A3 rest**: trusted contact inbox and notification (today the link is passed by hand).
 3. Not tested: high-value amount with Swissquote unreachable in the UI; deposit button flow in Chrome; one unexplained 500 seen once in the desktop test (cause unknown; the test now logs any 5xx).
 4. Not rerun after A3/step 13: signet scripts; old `etape-1/2/3-ui` scripts target the pre-redesign UI.
 
-### Ethereum (priority 2, nothing coded)
-Safe owned by the client's EOA (key in Client Wallet) + Candide SocialRecoveryModule v0.0.1 (Swissquote + contact, threshold 2; Sepolia addresses in `docs/validation/etape-0.md`; pitfalls: `cancelRecovery` + `invalidateNonce`, guardian removal does not cancel). Then gasless (ERC-4337 + paymaster or EIP-7702), compliant dApp interaction (allowlist, mocked sanctions screening, plain-language simulation, threshold checks), then MetaMask-like features. Decisions to confirm with the user: dApp connection (extension vs WalletConnect), networks (Sepolia fork then real), gas option.
+### Ethereum (in progress)
+Decisions taken (11 Oct): ERC-4337 + paymaster; local fork then real Sepolia; local demo dApp (no WalletConnect). Done: steps 15-16 (script). Next: client EOA derived from the Client Wallet seed, Swissquote EVM guardian in bank-mock, contact EIP-712 signature in the console, interface; USDC transfer (test USDC needed); then compliant dApp. Pitfall observed: read chain state at the receipt's block (public RPC node returns stale state).
 
 ### A4 written deliverables (cheap, worth many points)
-Comparison of the 5 custody models; custody and grey-zone argument; Travel Rule; quantified business case (explicit assumptions, no unsourced Swissquote figures); pitch/slides; backup video; complete `docs/ia.md` ("to be completed by the team" row). Open question: clean the demo data of CH-0001/CH-0002?
+Done: comparison of the 5 custody models, custody and grey-zone argument, Travel Rule, business case. Remaining: pitch/slides; backup video; complete `docs/ia.md` ("to be completed by the team" row). Open question: clean the demo data of CH-0001/CH-0002?
 
 ### Housekeeping
 Code comments and `CLAUDE.md` are still in French (CLAUDE.md quotes the old French heading "Révisions après revue critique", now "Revisions after critical review" in `SPEC.md`). Background `npm run demo:signet` may still be running (user's own processes on 5173/5174/5175 must not be killed). Existing `bank-mock/data` keeps old French alerts/records.
