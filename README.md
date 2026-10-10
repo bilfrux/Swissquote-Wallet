@@ -12,6 +12,7 @@ Demo: D = 6 blocks. Target production value (assumption, parameter): about 6 mon
 
 Why this model rather than custodial, seed phrase, MPC, smart account or Shamir split: [`docs/custody-models.md`](docs/custody-models.md).
 Travel Rule, ownership proof and whether Swissquote is the sending institution: [`docs/travel-rule.md`](docs/travel-rule.md).
+Business case (formula and explicit assumptions, no Swissquote figure): [`docs/business-case.md`](docs/business-case.md).
 
 ## Real or mocked
 
