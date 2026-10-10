@@ -5,3 +5,6 @@ dist/
 bank-mock/data/
 scripts/feasibility-btc/.keys/
 client-wallet/data/
+
+# Document du track (non versionné)
+*.docx
