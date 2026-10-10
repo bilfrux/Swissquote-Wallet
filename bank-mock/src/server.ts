@@ -10,6 +10,7 @@ import { db } from "./db.ts";
 import { signAsSwissquote, swissquoteAccountKey } from "./guardian.ts";
 import { TEST_CUSTOMERS, customerFromToken, verifyIdentity } from "./kyc.ts";
 import { CUSTOMERS, customerFromSession, login } from "./bank.ts";
+import { notify, runAlerts } from "./alerts.ts";
 
 const PORT = Number(process.env.BANK_MOCK_PORT ?? 4000);
 const ORIGINS = (process.env.BANK_MOCK_ORIGINS ?? "http://localhost:5173,http://localhost:5174").split(",");
@@ -134,6 +135,24 @@ async function route(req: IncomingMessage, body: any, url: URL) {
       };
     }
 
+    case "GET /notifications": {
+      const id = customerFromSession(req.headers.authorization);
+      if (!id) throw new HttpError(401, "session expirée : reconnectez-vous");
+      const items = db.prepare("select id, account_id as accountId, kind, title, body, created_at as createdAt, read_at as readAt from notifications where customer_id = ? order by id desc limit 50").all(id) as any[];
+      return { unread: items.filter((n) => !n.readAt).length, items };
+    }
+
+    case "POST /notifications/read": {
+      const id = customerFromSession(req.headers.authorization);
+      if (!id) throw new HttpError(401, "session expirée : reconnectez-vous");
+      db.prepare("update notifications set read_at = datetime('now') where customer_id = ? and read_at is null").run(id);
+      return { ok: true };
+    }
+
+    case "POST /alerts/run":
+      // Passe de surveillance à la demande (démo et tests) ; elle tourne aussi périodiquement.
+      return runAlerts(configOf, body.network ? [network(body.network)] : undefined);
+
     case "POST /identity/verify": {
       const session = verifyIdentity(body);
       if (!session) throw new HttpError(403, "vérification d'identité refusée (dossier de test inconnu ou réponses incorrectes)");
@@ -160,6 +179,9 @@ async function route(req: IncomingMessage, body: any, url: URL) {
         const { psbt, added } = signAsSwissquote(body.psbt, net);
         if (added === 0) throw new HttpError(500, "aucune entrée signable par la clé Swissquote");
         log("signé", `compte ${review.source} -> compte ${review.destination}`);
+        notify(customerId, review.source, "recovery-signee", "Swissquote a signé une demande de recovery",
+          `Swissquote a signé une demande de recovery de votre compte n°${review.source} vers votre compte n°${review.destination}, après vérification d'identité. Si ce n'est pas vous, rafraîchissez immédiatement vos coins depuis votre wallet.`,
+          `sign:${customerId}:${review.source}:${Date.now()}`);
         return { psbt, added, review: { ...review, summary: JSON.parse(JSON.stringify(review.summary, (_, v) => (typeof v === "bigint" ? v.toString() : v))) } };
       } catch (e: any) {
         log("refusé", e.message);
@@ -188,3 +210,10 @@ createServer(async (req, res: ServerResponse) => {
     res.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify({ error: e.message }));
   }
 }).listen(PORT, () => console.log(`[bank-mock] guardian Swissquote sur http://localhost:${PORT}`));
+
+// Surveillance périodique des comptes (alertes au client) : regtest toutes les 30 s ; signet toutes les 5 min
+// (API Esplora publique : on limite le nombre de requêtes). 0 désactive.
+const REGTEST_MS = Number(process.env.ALERT_INTERVAL_MS ?? 30_000);
+const SIGNET_MS = Number(process.env.ALERT_SIGNET_INTERVAL_MS ?? 300_000);
+if (REGTEST_MS > 0) setInterval(() => { runAlerts(configOf, ["regtest"]).catch(() => undefined); }, REGTEST_MS);
+if (SIGNET_MS > 0) setInterval(() => { runAlerts(configOf, ["signet"]).catch(() => undefined); }, SIGNET_MS);

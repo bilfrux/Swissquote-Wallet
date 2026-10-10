@@ -1,0 +1,20 @@
+[OK ] 8-11 1 confirmation (recovery dans 5 blocs) : aucune alerte
+       alertes créées : 0 ; erreurs : aucune
+[OK ] 8-12 Recovery dans 2 blocs : alerte « bientôt » créée une seule fois (pas de doublon au passage suivant)
+       1er passage : 1 ; 2e passage : 0
+[OK ] 8-13 Recovery ouverte (D confirmations) : alerte « ouverte » créée
+       alertes créées : 1
+[OK ] 8-14 Swissquote signe une recovery : le client reçoit immédiatement l'alerte « Swissquote a signé une demande de recovery »
+       alertes (récentes d'abord) : recovery-signee, recovery-ouverte, recovery-bientot ; non lues : 3 ; « Swissquote a signé une demande de recovery de votre compte n°1 vers votre compte n°2, après vérification d'identité. Si … »
+[OK ] 8-15 Chaque alerte est aussi « envoyée » par email simulé (outbox.log)
+       3 ligne(s) ; ex. : 2026-10-10T18:33:17.909Z | email SIMULÉ à léa.martin@exemple.invalid | Recovery possible dans 2 bloc(s) | Le coin 9828b48872…:1 (5000000 sat
+[OK ] 8-16 Alertes marquées lues ; un autre client ne voit pas ces alertes
+       non lues après lecture : 0 ; alertes visibles par CH-0002 : 0
+
+RÉSUMÉ
+8-11 fonctionne         1 confirmation (recovery dans 5 blocs) : aucune alerte
+8-12 fonctionne         Recovery dans 2 blocs : alerte « bientôt » créée une seule fois (pas de doublon au passage suivant)
+8-13 fonctionne         Recovery ouverte (D confirmations) : alerte « ouverte » créée
+8-14 fonctionne         Swissquote signe une recovery : le client reçoit immédiatement l'alerte « Swissquote a signé une demande de recovery »
+8-15 fonctionne         Chaque alerte est aussi « envoyée » par email simulé (outbox.log)
+8-16 fonctionne         Alertes marquées lues ; un autre client ne voit pas ces alertes

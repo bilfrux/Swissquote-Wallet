@@ -1,0 +1,20 @@
+[OK ] 8-5 Création sans code PIN : refusée
+       400 code PIN requis : 6 à 12 chiffres
+[OK ] 8-6 Graine chiffrée sur le disque : ni la phrase ni aucun de ses 24 mots en clair ; scrypt + AES-256-GCM ; le bon PIN la redonne
+       paires de mots ou mots dans la partie chiffrée : 0 ; mots isolés coïncidant avec la structure du fichier : aucun ; champs stockés : id, label, sealed, accountKey, createdAt ; paramètres scrypt N=32768 r=8 p=1
+[OK ] 8-7 Signature avec un PIN faux ou absent : refusée, essais restants indiqués
+       code PIN incorrect (4 essai(s) restant(s)) | code PIN incorrect (3 essai(s) restant(s))
+[OK ] 8-8 Signature avec le bon PIN : PSBT signé (une signature ajoutée)
+       200 ajoutées=1
+[OK ] 8-9 Après 5 PIN faux : wallet bloqué, même le bon PIN est refusé pendant 60 s
+       429 wallet bloqué après 5 codes PIN incorrects : réessayez dans 60 s
+[OK ] 8-10 Ancien wallet en clair : signalé « non protégé », puis chiffré par un PIN ; la phrase en clair disparaît du disque
+       avant : protected=false ; après : 200 protected=true ; phrase encore sur le disque : false
+
+RÉSUMÉ
+8-5 fonctionne         Création sans code PIN : refusée
+8-6 fonctionne         Graine chiffrée sur le disque : ni la phrase ni aucun de ses 24 mots en clair ; scrypt + AES-256-GCM ; le bon PIN la redonne
+8-7 fonctionne         Signature avec un PIN faux ou absent : refusée, essais restants indiqués
+8-8 fonctionne         Signature avec le bon PIN : PSBT signé (une signature ajoutée)
+8-9 fonctionne         Après 5 PIN faux : wallet bloqué, même le bon PIN est refusé pendant 60 s
+8-10 fonctionne         Ancien wallet en clair : signalé « non protégé », puis chiffré par un PIN ; la phrase en clair disparaît du disque

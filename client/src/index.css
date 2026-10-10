@@ -139,3 +139,16 @@ td.num, th.num { text-align: right; white-space: nowrap; }
 .attack .verdict { font-weight: 600; font-size: 15px; margin: 4px 0; }
 .attack ul { margin: 4px 0 0 18px; padding: 0; font-size: 12.5px; }
 .identity-words { columns: 3; background: #f6f8fc; padding: 10px 10px 10px 34px; border-radius: 8px; }
+
+/* Alertes */
+.bell-wrap { position: relative; }
+button.bell { background: none; color: var(--text); padding: 6px; position: relative; display: inline-flex; }
+button.round.bell { background: #fff; padding: 0; }
+.badge-count { position: absolute; top: -2px; right: -4px; background: var(--red); color: #fff; font-size: 11px; font-weight: 700; border-radius: 9px; min-width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; padding: 0 5px; }
+.bell-panel { position: absolute; right: 0; top: calc(100% + 8px); width: min(380px, 92vw); max-height: 70vh; overflow: auto; background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px #0002; padding: 10px 14px; z-index: 10; text-align: left; }
+.bell-head { margin: 4px 0 8px; }
+.bell-item { border-top: 1px solid var(--line); padding: 8px 0; }
+.bell-item p { margin: 2px 0; }
+.bell-title { font-weight: 600; }
+.bell-item.recovery-signee .bell-title, .bell-item.recovery-ouverte .bell-title { color: var(--red-text); }
+.m-top-actions { display: flex; gap: 10px; }

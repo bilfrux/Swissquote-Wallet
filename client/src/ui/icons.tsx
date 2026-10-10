@@ -13,6 +13,7 @@ export const IconReceive = () => <S><path d="M12 4v12M7 11l5 5 5-5M5 20h14" /></
 export const IconSend = () => <S><path d="M12 20V8M7 13l5-5 5 5M5 4h14" /></S>;
 export const IconList = () => <S><path d="M9 7h11M9 12h11M9 17h11M4.5 7h.01M4.5 12h.01M4.5 17h.01" /></S>;
 export const IconRefresh = () => <S><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5" /></S>;
+export const IconBell = () => <S><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15L6 16Z" /><path d="M10 20a2 2 0 0 0 4 0" /></S>;
 export const IconChevron = () => <S size={18}><path d="m9 6 6 6-6 6" /></S>;
 export const IconCash = () => <S><rect x="3" y="7" width="18" height="10" rx="1.5" /><circle cx="12" cy="12" r="2.2" /></S>;
 export const IconSavings = () => <S><path d="M5 11c0-3 3-5 7-5s7 2 7 5-3 6-7 6-7-3-7-6Z" /><path d="M12 6V4M9 20l1-3M15 20l-1-3" /></S>;

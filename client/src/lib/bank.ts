@@ -45,3 +45,8 @@ export const ownershipChallenge = (client: string, change: number, index: number
   call("/ownership/challenge", { network: NETWORK, client, change, index }) as Promise<{ challengeId: string; message: string; address: string; change: number; index: number }>;
 export const ownershipVerify = (challengeId: string, signature: string) =>
   call("/ownership/verify", { challengeId, signature }) as Promise<{ verified: boolean; address: string; keyAddress: string; proves: string }>;
+
+// --- Alertes (information ; dépendent de Swissquote) ---
+export type Notification = { id: number; accountId: number | null; kind: string; title: string; body: string; createdAt: string; readAt: string | null };
+export const notifications = () => call("/notifications") as Promise<{ unread: number; items: Notification[] }>;
+export const markNotificationsRead = () => call("/notifications/read", {}) as Promise<{ ok: boolean }>;

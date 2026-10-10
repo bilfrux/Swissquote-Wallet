@@ -6,6 +6,7 @@ import { NETWORK } from "../lib/config";
 import { IconBank, IconBolt, IconCrypto, IconHome, IconPortfolio, IconShield, IconUser, Logo } from "./icons";
 import { num } from "./format";
 import { useIsMobile } from "./useIsMobile";
+import { NotificationBell } from "./NotificationBell";
 
 export type Tab = "accueil" | "banque" | "crypto" | "demo";
 type Props = {
@@ -32,7 +33,10 @@ export function Shell(p: Props) {
       <div className="m-app">
         <div className="m-top">
           <Logo size={26} />
-          <button className="round" aria-label="Mon compte" onClick={() => setSheet(!sheet)}><IconUser /></button>
+          <div className="m-top-actions">
+            <NotificationBell round />
+            <button className="round" aria-label="Mon compte" onClick={() => setSheet(!sheet)}><IconUser /></button>
+          </div>
         </div>
         {sheet && (
           <div className="m-sheet">
@@ -70,6 +74,7 @@ export function Shell(p: Props) {
           ))}
         </nav>
         <div className="d-header-right">
+          <NotificationBell />
           <span className="account-pill"><IconUser /> {p.user.firstName} {p.user.lastName}</span>
           <button className="btn-outline-red" onClick={p.onLogout}>Déconnexion</button>
         </div>

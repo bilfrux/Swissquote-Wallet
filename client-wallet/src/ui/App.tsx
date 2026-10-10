@@ -7,7 +7,18 @@ import { useEffect, useRef, useState } from "react";
 
 const ALLOWED = (import.meta.env.VITE_WALLET_ALLOWED_ORIGINS ?? "http://localhost:5173").split(",");
 type Req = { id: string; action: "create" | "sign" | "policy" | "prove"; network: "regtest" | "signet"; payload: any; origin: string; source: Window };
-type WalletView = { id: string; label: string; accountKey: string; createdAt: string; policy?: { delay: number; tiersName?: string; network: string } };
+type WalletView = { id: string; label: string; accountKey: string; createdAt: string; protected: boolean; policy?: { delay: number; tiersName?: string; network: string } };
+
+// Saisie du code PIN (6 à 12 chiffres). Le PIN n'est envoyé qu'au serveur du wallet (même origine).
+function PinInput({ value, onChange, label = "Code PIN du wallet" }: { value: string; onChange: (v: string) => void; label?: string }) {
+  return (
+    <label className="pin">
+      <span>{label}</span>
+      <input type="password" inputMode="numeric" autoComplete="off" maxLength={12} value={value} onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))} />
+    </label>
+  );
+}
+const pinOk = (p: string) => /^\d{6,12}$/.test(p);
 type Description = {
   wallet: WalletView | null; path: "client" | "recovery" | "mixte"; delay: number | null;
   inputs: { value: string }[]; outputs: { address: string; value: string; mine: string | null }[]; fee: string;
@@ -76,13 +87,19 @@ export function App() {
 function Create({ req, onDone, onError }: { req: Req; onDone: (d: unknown) => void; onError: (e: string) => void }) {
   const [created, setCreated] = useState<{ wallet: WalletView; mnemonic: string } | null>(null);
   const [noted, setNoted] = useState(false);
+  const [pin, setPin] = useState("");
+  const [pin2, setPin2] = useState("");
   const words = useRef<string[]>([]);
   if (!created)
     return (
       <section>
         <h2>Créer votre wallet Bitcoin</h2>
         <p>L'appli <strong>{req.origin}</strong> demande la création d'un wallet. Votre phrase secrète sera générée ici, sur cet appareil. Swissquote ne recevra que votre clé publique.</p>
-        <button onClick={async () => { try { const c = await api("/api/wallets", { network: req.network, label: req.payload?.label }); words.current = c.mnemonic.split(" "); setCreated(c); } catch (e: any) { onError(e.message); } }}>
+        <p className="small">Choisissez un code PIN : il chiffre votre phrase sur cet appareil et vous sera demandé à chaque signature.</p>
+        <PinInput value={pin} onChange={setPin} label="Nouveau code PIN (6 à 12 chiffres)" />
+        <PinInput value={pin2} onChange={setPin2} label="Confirmer le code PIN" />
+        {pin2 && pin !== pin2 && <p className="error">Les deux codes ne correspondent pas.</p>}
+        <button disabled={!pinOk(pin) || pin !== pin2} onClick={async () => { try { const c = await api("/api/wallets", { network: req.network, label: req.payload?.label, pin }); setPin(""); setPin2(""); words.current = c.mnemonic.split(" "); setCreated(c); } catch (e: any) { onError(e.message); } }}>
           Générer ma phrase secrète
         </button>
       </section>
@@ -109,6 +126,7 @@ function PolicyReq({ req, onDone, onError }: { req: Req; onDone: (d: unknown) =>
 
 function Sign({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unknown) => void; onRefuse: () => void; onError: (e: string) => void }) {
   const [d, setD] = useState<Description | null>(null);
+  const [pin, setPin] = useState("");
   useEffect(() => { api("/api/describe", { psbt: req.payload.psbt, network: req.network }).then(setD, (e) => onError(e.message)); }, [req]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!d) return <section><p>Lecture de la transaction…</p></section>;
   const total = d.inputs.reduce((s, i) => s + BigInt(i.value), 0n);
@@ -133,9 +151,10 @@ function Sign({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unknow
         <p><span className="k">Frais</span> {btc(d.fee)}</p>
       </div>
       <p className="hint">Vérifiez l'adresse du destinataire par un autre moyen que l'appli qui vous l'a proposée.</p>
+      {d.wallet?.protected && <PinInput value={pin} onChange={setPin} />}
       <div className="row">
         <button className="secondary" onClick={onRefuse}>Refuser</button>
-        <button disabled={d.path !== "client" || !d.wallet} onClick={async () => { try { onDone(await api("/api/sign", { psbt: req.payload.psbt, network: req.network })); } catch (e: any) { onError(e.message); } }}>
+        <button disabled={d.path !== "client" || !d.wallet || (d.wallet.protected && !pinOk(pin))} onClick={async () => { try { onDone(await api("/api/sign", { psbt: req.payload.psbt, network: req.network, pin })); } catch (e: any) { onError(e.message); } finally { setPin(""); } }}>
           Confirmer et signer
         </button>
       </div>
@@ -145,14 +164,18 @@ function Sign({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unknow
 
 function Prove({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unknown) => void; onRefuse: () => void; onError: (e: string) => void }) {
   const p = req.payload;
+  const [pin, setPin] = useState("");
+  const [w, setW] = useState<WalletView | null>(null);
+  useEffect(() => { api("/api/wallets").then((l: WalletView[]) => setW(l.find((x) => x.accountKey === p.accountKey) ?? null)); }, [p.accountKey]);
   return (
     <section>
       <h2>Prouver la propriété d'une adresse</h2>
       <p>Demande de <strong>{req.origin}</strong>. Votre wallet va signer ce message avec votre clé (adresse n°{p.index}{p.change ? ", change" : ""}). <strong>Cette signature ne déplace aucun fonds</strong> et ne peut pas servir à dépenser.</p>
       <pre className="card mono message">{p.message}</pre>
+      {w?.protected && <PinInput value={pin} onChange={setPin} />}
       <div className="row">
         <button className="secondary" onClick={onRefuse}>Refuser</button>
-        <button onClick={async () => { try { onDone(await api("/api/prove", { accountKey: p.accountKey, change: p.change, index: p.index, message: p.message, network: req.network })); } catch (e: any) { onError(e.message); } }}>
+        <button disabled={!!w?.protected && !pinOk(pin)} onClick={async () => { try { onDone(await api("/api/prove", { accountKey: p.accountKey, change: p.change, index: p.index, message: p.message, network: req.network, pin })); } catch (e: any) { onError(e.message); } finally { setPin(""); } }}>
           Signer la preuve
         </button>
       </div>
@@ -164,6 +187,8 @@ function Wallets() {
   const [list, setList] = useState<WalletView[] | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [protecting, setProtecting] = useState<string | null>(null);
+  const [newPin, setNewPin] = useState("");
   const refresh = () => api("/api/wallets").then(setList, (e) => setErr(e.message));
   useEffect(() => { refresh(); }, []);
   if (!list) return null;
@@ -177,6 +202,16 @@ function Wallets() {
           <p><strong>{w.label}</strong> · empreinte {w.id} · créé le {w.createdAt.slice(0, 16).replace("T", " ")}</p>
           <p className="mono small">{w.accountKey}</p>
           {w.policy && <p className="small">Politique : vous seul, ou Swissquote + {w.policy.tiersName ?? "tiers"} après {w.policy.delay} blocs d'inactivité ({w.policy.network})</p>}
+          {w.protected ? <p className="small ok">Phrase chiffrée par code PIN</p> : (
+            protecting === w.id ? (
+              <div>
+                <PinInput value={newPin} onChange={setNewPin} label="Nouveau code PIN (6 à 12 chiffres)" />
+                <button disabled={!pinOk(newPin)} onClick={async () => { try { await api(`/api/wallets/${w.id}/protect`, { pin: newPin }); setNewPin(""); setProtecting(null); refresh(); } catch (e: any) { setErr(e.message); } }}>Chiffrer ma phrase</button>
+              </div>
+            ) : (
+              <p className="small warnline">Non protégé : phrase stockée en clair. <button className="secondary" onClick={() => setProtecting(w.id)}>Protéger par un code PIN</button></p>
+            )
+          )}
           {confirming === w.id ? (
             <div className="row">
               <button className="secondary" onClick={() => setConfirming(null)}>Annuler</button>

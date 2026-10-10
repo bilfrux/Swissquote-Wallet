@@ -1,15 +1,15 @@
 [OK ] 6-1 Console : identité de tiers créée, phrase affichée une fois puis masquée, clé publique fournie
-       24 mots, puis 0 affiché(s) ; clé [57c60cde/48'/1'/0'/2']tpubDET…
+       24 mots, puis 0 affiché(s) ; clé [3a4705f3/48'/1'/0'/2']tpubDEy…
 [OK ] 6-2 Connexion e-banking simulée (mauvais mot de passe refusé), aperçu avec comptes CHF et tuile « Créer mon wallet »
        identifiant ou mot de passe incorrect ; aperçu affiché
 [OK ] 6-3 Wallet du client : 24 mots générés et affichés une fois ; la banque reçoit la clé publique, la politique est enregistrée dans le wallet
-       wallet 4916e5e2, politique : délai 6, tiers Marie Dupont ; mots=24, phrase stockée = phrase affichée : true, wallets stockés=1
+       wallet 7e7f1815, politique : délai 6, tiers Marie Dupont ; mots=24, phrase chiffrée par PIN = phrase affichée : true, wallets stockés=1
 [OK ] 6-4 La phrase du client n'est ni dans l'appli (stockage, page), ni dans la base de Swissquote ; seule la clé publique y est
        phrase dans l'appli : false ; 4 premiers mots dans l'appli : false ; phrase chez Swissquote : false ; clé publique chez Swissquote : true
 [OK ] 6-5 Réception : 0,5 BTC visibles dans l'onglet Crypto
-       bcrt1q7fje36s3uh7rt5aj0crjfe7gd8j9u4umepkdazp8w0ttx5gcyyuqh43ysg
+       bcrt1qunusmeklvw83nvr74rh9a9fhdy3j4clzjmkntf8ql0wsfv9rfj6ssyug8y
 [OK ] 6-13 Preuve de propriété depuis l'interface : défi affiché en entier dans le wallet, signé après confirmation, vérifié par Swissquote
-       Propriété vérifiée. Le client détient la clé privée de sa clé client à l'index 0 (signature BIP-322 vérifiée pour bcrt1qpnrd35cj04ehk05ej7s2yvfaa38ddq5xqzkyvq). D'après la politique enregistrée, cette clé suffit seule à 
+       Propriété vérifiée. Le client détient la clé privée de sa clé client à l'index 0 (signature BIP-322 vérifiée pour bcrt1q3ur8uhk3ysjugra84ej9keq4g9ju6x8g662kgg). D'après la politique enregistrée, cette clé suffit seule à 
 [OK ] 6-14 Téléphone : aucune page plus large que l'écran (390 px), même avec les adresses longues affichées
        {"inner":390,"doc":390}
 [OK ] 6-6 Envoi : refus dans le wallet remonté à l'appli ; écran de confirmation (chemin, sorties, montants, frais) ; signé, diffusé, confirmé
@@ -18,6 +18,8 @@
        navigateur : lecture bloquée ; POST avec Origin http://localhost:5191 : 403 origine refusée : http://localhost:5191
 [OK ] 6-8 Accueil : la ligne / tuile Crypto affiche le solde du wallet (contre-valeur CHF)
         Crypto33'999.71
+[OK ] 6-15 Alerte : dès que Swissquote signe la recovery, l'ancien appareil du client voit « Swissquote a signé une demande de recovery » dans la cloche
+       non lues : 1 ; Alertes par email simulé et dans l'appliSwissquote a signé une demande de recoverySwissquote a signé une demande de recovery de votre compte n°1 vers votre comp
 [OK ] 6-9 Recovery (nouvel appareil, wallet perdu) : re-KYC, nouveau Wallet du client, Swissquote + tiers ; refus réel avant D, succès à D, nouveau wallet actif
        ancien wallet effacé du Wallet du client : true ; avant D : Refusée par le réseau Bitcoin : « non-BIP68-final ». Le délai de 6 blocs n'est pas écoulé  ; nouveau solde visible
 [OK ] 6-12 Le Wallet du client refuse de signer un PSBT de recovery, même appelé directement
@@ -38,6 +40,7 @@ RÉSUMÉ
 6-6 fonctionne         Envoi : refus dans le wallet remonté à l'appli ; écran de confirmation (chemin, sorties, montants, frais) ; signé, diffusé, confirmé
 6-7 fonctionne         Depuis l'origine de la banque, l'API du wallet est inaccessible : lecture bloquée (CORS) et POST refusé avant exécution (403)
 6-8 fonctionne         Accueil : la ligne / tuile Crypto affiche le solde du wallet (contre-valeur CHF)
+6-15 fonctionne         Alerte : dès que Swissquote signe la recovery, l'ancien appareil du client voit « Swissquote a signé une demande de recovery » dans la cloche
 6-9 fonctionne         Recovery (nouvel appareil, wallet perdu) : re-KYC, nouveau Wallet du client, Swissquote + tiers ; refus réel avant D, succès à D, nouveau wallet actif
 6-12 fonctionne         Le Wallet du client refuse de signer un PSBT de recovery, même appelé directement
 6-10 fonctionne         Onglet « Démo » (regtest) avec les trois scénarios d'attaque

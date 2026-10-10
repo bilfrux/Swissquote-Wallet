@@ -18,12 +18,13 @@ Démo : D = 6 blocs. Valeur visée en production (hypothèse, paramètre) : envi
 | Nœud Bitcoin | **Réel** | bitcoind 29 en regtest (Docker) ; signet via l'API Esplora de blockstream.info |
 | Transactions signet | **Réel** | Dépense du client [9203045e…](https://blockstream.info/signet/tx/9203045ed6d150a225821dff8c4287601f94d0c065ec975a795e92f637e6d248) ; recovery Swissquote + tiers refusée avant D (`non-BIP68-final`), puis diffusée à D : [d26b94de…](https://blockstream.info/signet/tx/d26b94de30f36cbfa8b1a7f39976bf74a09e7afafda09b7a66a916b37326c519) |
 | Appli de la banque | **Réel** (wallet) / **mocké** (banque) | `client/` : e-banking simulé au style Swissquote (connexion, accueil avec graphique simulé, comptes CHF), onglet Crypto réel. Aucune clé privée, uniquement des clés publiques et des PSBT |
-| **Wallet du client** | **Implémentation de référence** | `client-wallet/` : appli séparée (processus et stockage propres) qui représente le wallet matériel ou l'appli téléphone du client. Graine générée par `@scure/bip39` et affichée une fois ; signature seulement après un écran de confirmation (sorties, montants, frais, chemin) ; API fermée aux autres origines |
+| **Wallet du client** | **Implémentation de référence** | `client-wallet/` : appli séparée (processus et stockage propres) qui représente le wallet matériel ou l'appli téléphone du client. Graine générée par `@scure/bip39`, affichée une fois, puis **chiffrée par un code PIN** (scrypt + AES-256-GCM, `node:crypto`) ; PIN demandé à chaque signature, blocage 60 s après 5 erreurs ; signature seulement après un écran de confirmation (sorties, montants, frais, chemin) ; API fermée aux autres origines |
 | Signataire externe réel | **Réel** | Bitcoin Core 29 (`walletprocesspsbt`), validé en regtest |
 | Signataire en ligne de commande | **Outil de test** | `tools/client-signer` : signataire utilisé par les scripts de validation (il lit la phrase à l'exécution et ne stocke rien) |
 | Backend Swissquote (guardian) | **Mocké**, processus séparé | `bank-mock/` : clé propre dans son stockage, re-KYC mocké (dossiers de test), signature limitée aux recoveries vers un compte du même client |
 | Connexion e-banking, comptes et opérations CHF, re-KYC, cours BTC/CHF | **Mocké** | Clients de test codés en dur (`bank-mock/src/bank.ts`, `kyc.ts`) |
 | Console du tiers de confiance | **Réel** (logique), démo | `guardian-console/` : création de l'identité du tiers (phrase affichée une fois), décodage et signature ; la phrase n'est jamais conservée |
+| Alertes au client | **Réel** (surveillance) / **email simulé** | bank-mock surveille les comptes (regtest toutes les 30 s, signet toutes les 5 min) : coin bientôt ou déjà dépensable par Swissquote + tiers, et alerte immédiate quand Swissquote signe une recovery. Cloche dans l'appli et email simulé (`bank-mock/data/outbox.log`) |
 | Preuve de propriété d'adresse | **Réel** | Défi émis par bank-mock, signé par le Wallet du client (BIP-322 « simple », `bip322-js`), vérifié en mode strict. Ce qui est prouvé est détaillé ci-dessous |
 | Panneau « Attaques » | **Réel**, démo regtest | Scénarios exécutés contre bitcoind avec des graines jetables (`scripts/attacks/`) |
 | Ethereum, Taproot, gasless, dApp, DeFi | **Hors périmètre** | Non développés (voir « Perspectives ») |
@@ -44,12 +45,15 @@ Si un port de Vite est déjà pris, la console prend le suivant (affiché dans l
 
 1. **Le tiers** ouvre la console (http://localhost:5174), clique sur « Créer mon identité de tiers », note sa phrase et transmet sa clé publique au client.
 2. **Le client** se connecte à la banque (http://localhost:5173) : identifiant `CH-0003`, mot de passe `demo0003`. C'est le client de démo **vierge**, sans aucun compte Bitcoin. `CH-0001` et `CH-0002` contiennent des comptes créés par les tests.
-3. **Crypto → Créer mon wallet** : saisir le nom et la clé du tiers, puis « Créer mon wallet avec le Wallet du client ». La fenêtre du Wallet du client génère et affiche la phrase une fois ; le client confirme l'avoir notée ; seule la clé publique revient à la banque.
+3. **Crypto → Créer mon wallet** : saisir le nom et la clé du tiers, puis « Créer mon wallet avec le Wallet du client ». Dans la fenêtre du Wallet du client, choisir un code PIN : le wallet génère la phrase, l'affiche une fois, puis la chiffre. Le client confirme l'avoir notée ; seule la clé publique revient à la banque.
 4. **Recevoir** : `npm run regtest -- fund <adresse affichée> 0.5`, puis « Actualiser ».
    **Preuve de propriété** : « Prouver à Swissquote que je contrôle cette adresse ». Le Wallet du client affiche le défi en entier, le client signe, Swissquote vérifie.
 5. **Envoyer** : préparer l'envoi (simulation en clair), « Signer avec mon Wallet du client », vérifier l'écran de confirmation du wallet, signer, puis diffuser. `npm run regtest -- mine 1` confirme la transaction.
 6. **Perte du wallet** : dans le Wallet du client (http://localhost:5180), « Simuler la perte de cet appareil ». Puis, dans un autre profil de navigateur, se reconnecter et cliquer sur « J'ai perdu mon wallet ». Re-KYC mocké de CH-0003 : `Martin`, `1992-03-21`, `246810`. Ensuite : nouveau wallet, signature Swissquote, signature du tiers dans sa console, diffusion. **Le réseau refuse** (`non-BIP68-final`) ; après `npm run regtest -- mine 6`, diffuser à nouveau : accepté.
-7. **Démo** : les trois boutons d'attaque.
+7. **Alertes** : la cloche de l'en-tête signale un coin bientôt dépensable par Swissquote + tiers, ou une recovery signée par Swissquote (y compris sur l'ancien appareil).
+8. **Démo** : les trois boutons d'attaque.
+
+Sur le vrai réseau signet : `npm run demo:signet` (sans onglet Démo). Il faut des signet BTC, à obtenir d'un faucet.
 
 Le logo est le logo officiel fourni par l'équipe (`client/public/`). L'interface s'adapte à la largeur : version téléphone sous 820 px (barre d'onglets en bas), version ordinateur au-delà (menu, rail latéral, barre d'état).
 
@@ -65,6 +69,9 @@ Toutes les affirmations de ce dépôt renvoient à une exécution consignée dan
 | `npm run test:attacks` | Les trois attaques et l'invariant 1 contre le consensus |
 | `npm run validate:6:ui` (et `MOBILE=1 npm run validate:6:ui`) | Parcours complet dans Chrome sur une pile isolée, en version ordinateur et téléphone : connexion, création du wallet via le Wallet du client, envoi confirmé dans le wallet, API du wallet fermée à la banque, perte du wallet et recovery |
 | `npm run validate:7` | Preuve de propriété (valide, et refus : rejeu, message altéré, autre clé, format BIP-137, autre client) ; client vierge CH-0003 |
+| `npm run validate:8:pin` | Code PIN : graine chiffrée sur le disque, PIN faux refusé, blocage après 5 erreurs, ancien wallet protégé |
+| `npm run validate:8:alerts` | Alertes : seuil, sans doublon, recovery ouverte, recovery signée par Swissquote, email simulé, étanchéité entre clients |
+| `npm run validate:8:signet -- create\|spend\|recover` | Parcours de l'interface sur le vrai réseau signet |
 | `npm run validate:inv5` | Aucune clé privée ni graine dans `client/` et son bundle (avec témoin positif) |
 
 Les tests Chrome des étapes 1 à 4 visaient l'interface précédente (commit `779a5bd`) ; ils sont remplacés par `validate:6:ui`.
@@ -87,6 +94,8 @@ Swissquote émet un défi à usage unique (10 min) qui nomme le client et l'adre
 - **Peu de wallets externes signent ce type de script** (Miniscript avec délai) : Bitcoin Core (vérifié), Liana et certains wallets matériels (annoncés, non vérifiés). Sparrow ne le gère très probablement pas (issues GitHub #1700 ouverte et #1757 refusée ; non vérifié en lançant Sparrow).
 - **Confidentialité.** En P2WSH, chaque dépense révèle la politique, donc l'existence du délai.
 - **Pas d'Ethereum, pas de Taproot, pas de gasless, pas de dApp conforme** : voir « Perspectives ».
+- **Code PIN du Wallet du client** : il protège l'usage du wallet (5 essais, puis blocage), mais **pas un vol du fichier** suivi d'une attaque hors ligne. scrypt ralentit chaque essai, mais un PIN de 6 chiffres reste à portée d'une recherche exhaustive. En production, il faut un élément sécurisé (wallet matériel, enclave du téléphone).
+- **Alertes** : simple information. Elles dépendent de Swissquote (Swissquote arrêtée = plus d'alertes), et l'email est simulé. La protection reste le délai imposé par le consensus et le rafraîchissement par le client.
 - Re-KYC et session bancaire mockés ; `node:sqlite` est expérimental dans Node 24.
 
 ## Perspectives (non implémentées)

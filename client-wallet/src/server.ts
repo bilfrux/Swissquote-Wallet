@@ -16,6 +16,26 @@ import { type NetworkName, btcNetwork, createWalletConfig, keyAddressOf, simulat
 import { accountKey, masterFromMnemonic, newMnemonic } from "@sq/bitcoin/keys";
 import { signPsbtWithMnemonic } from "@sq/bitcoin/sign";
 import { type Policy, type StoredWallet, load, publicView, save } from "./store.ts";
+import { open, seal, validPin } from "./vault.ts";
+
+// Déverrouillage par code PIN : 5 essais, puis blocage de 60 s (compteur en mémoire du processus).
+const attempts = new Map<string, { fails: number; until: number }>();
+function unlock(w: StoredWallet, pin: unknown): string {
+  if (!w.sealed) return w.mnemonic!; // wallet « non protégé » (créé avant l'étape 8)
+  const a = attempts.get(w.id) ?? { fails: 0, until: 0 };
+  if (a.until > Date.now()) throw new HttpError(429, `wallet bloqué après 5 codes PIN incorrects : réessayez dans ${Math.ceil((a.until - Date.now()) / 1000)} s`);
+  try {
+    if (!validPin(pin)) throw new Error("format");
+    const m = open(w.sealed, pin);
+    attempts.delete(w.id);
+    return m;
+  } catch {
+    a.fails += 1;
+    if (a.fails >= 5) { a.fails = 0; a.until = Date.now() + 60_000; }
+    attempts.set(w.id, a);
+    throw new HttpError(403, a.until > Date.now() ? "code PIN incorrect : wallet bloqué 60 s" : `code PIN incorrect (${5 - a.fails} essai(s) restant(s))`);
+  }
+}
 
 const PORT = Number(process.env.CLIENT_WALLET_PORT ?? 5180);
 const SELF = `http://localhost:${PORT}`;
@@ -66,9 +86,11 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
 
     case "POST /api/wallets": {
       const network: NetworkName = body.network === "signet" ? "signet" : "regtest";
+      if (!validPin(body.pin)) throw new HttpError(400, "code PIN requis : 6 à 12 chiffres");
       const mnemonic = newMnemonic(); // @scure/bip39, 256 bits d'entropie
       const master = masterFromMnemonic(mnemonic, network);
-      const w: StoredWallet = { id: fp(master.fingerprint), label: String(body.label ?? "Mon wallet Bitcoin"), mnemonic, accountKey: accountKey(master), createdAt: new Date().toISOString() };
+      // Seule la version chiffrée par le PIN est écrite sur le disque.
+      const w: StoredWallet = { id: fp(master.fingerprint), label: String(body.label ?? "Mon wallet Bitcoin"), sealed: seal(mnemonic, body.pin), accountKey: accountKey(master), createdAt: new Date().toISOString() };
       save([...wallets, w]);
       // Seule réponse qui contienne la phrase : elle est affichée une fois à l'écran du wallet, puis plus jamais.
       return { wallet: publicView(w), mnemonic };
@@ -78,6 +100,18 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
       if (!wallets.some((w) => w.id === id)) throw new HttpError(404, "wallet inconnu");
       save(wallets.filter((w) => w.id !== id));
       return { deleted: id };
+    }
+
+    case "POST /api/wallets/:id/protect": {
+      // Ancien wallet en clair : chiffrement par un code PIN, puis suppression de la phrase en clair.
+      const w = wallets.find((x) => x.id === id);
+      if (!w) throw new HttpError(404, "wallet inconnu");
+      if (w.sealed) throw new HttpError(409, "wallet déjà protégé par un code PIN");
+      if (!validPin(body.pin)) throw new HttpError(400, "code PIN requis : 6 à 12 chiffres");
+      w.sealed = seal(w.mnemonic!, body.pin);
+      delete w.mnemonic;
+      save(wallets);
+      return publicView(w);
     }
 
     case "POST /api/wallets/:id/policy": {
@@ -102,7 +136,7 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
       if (![0, 1].includes(change) || !Number.isInteger(index) || index < 0 || index > 1_000_000) throw new HttpError(400, "chemin de clé invalide");
       if (typeof body.message !== "string" || body.message.length > 1000) throw new HttpError(400, "message invalide");
       const network: NetworkName = body.network === "signet" ? "signet" : "regtest";
-      const child = masterFromMnemonic(w.mnemonic, network).derive(`m/48'/1'/0'/2'/${change}/${index}`);
+      const child = masterFromMnemonic(unlock(w, body.pin), network).derive(`m/48'/1'/0'/2'/${change}/${index}`);
       const keyAddress = keyAddressOf(child.publicKey!, network);
       const wif = btc.WIF(btcNetwork(network)).encode(child.privateKey!);
       return { signature: Signer.sign(wif, keyAddress, body.message), keyAddress };
@@ -113,7 +147,7 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
       if (!d.wallet) throw new HttpError(400, "ce PSBT ne dépense aucun coin de vos wallets");
       if (d.path !== "client") throw new HttpError(400, "ce PSBT utilise le chemin de recovery (Swissquote + tiers) : votre wallet n'a pas à le signer");
       const w = wallets.find((x) => x.id === d.wallet!.id)!;
-      const r = signPsbtWithMnemonic(body.psbt, w.mnemonic, body.network);
+      const r = signPsbtWithMnemonic(body.psbt, unlock(w, body.pin), body.network);
       if (r.added === 0) throw new HttpError(400, "aucune entrée signable par ce wallet");
       return r;
     }

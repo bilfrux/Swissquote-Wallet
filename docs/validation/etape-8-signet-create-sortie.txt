@@ -1,0 +1,11 @@
+[OK ] 8-1 Signet, interface : wallet CH-0003 créé via le Wallet du client, solde lu sur le réseau signet (Esplora), adresse tb1q affichée
+       adresse tb1qsd8naqffu8q4460kjvwd3nmu4svzw5tmg3xdv06q0nh6zeyl2xuq9m06j6
+[OK ] 8-2 Signet, interface : preuve de propriété vérifiée par Swissquote
+       Propriété vérifiée. Le client détient la clé privée de sa clé client à l'index 0 (signature BIP-322 vérifiée pour tb1qrgrvacgcphhadjw66a3rhdcsc9889vgl4xggmz). D'après la politique enregistrée, cette c
+[OK ] 8-x Aucune erreur dans les consoles des navigateurs
+       aucune
+
+RÉSUMÉ
+8-1 fonctionne         Signet, interface : wallet CH-0003 créé via le Wallet du client, solde lu sur le réseau signet (Esplora), adresse tb1q affichée
+8-2 fonctionne         Signet, interface : preuve de propriété vérifiée par Swissquote
+8-x fonctionne         Aucune erreur dans les consoles des navigateurs

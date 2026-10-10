@@ -6,7 +6,13 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync } from "node:fs";
 import { type BrowserContext, type Page, chromium } from "playwright-core";
 import { buildSpend, createWalletConfig, outputAt, scan } from "@sq/bitcoin";
+import { open } from "../../client-wallet/src/vault.ts";
 import { makeReport, miner, rpc } from "./lib.ts";
+
+const PIN = "482916";
+// Choix du PIN à la création (deux champs), puis saisie sur les écrans de signature et de preuve.
+const choosePin = async (w: Page) => { await w.getByLabel("Nouveau code PIN (6 à 12 chiffres)").fill(PIN); await w.getByLabel("Confirmer le code PIN").fill(PIN); };
+const typePin = (w: Page) => w.getByLabel("Code PIN du wallet").fill(PIN);
 
 const APP = "http://localhost:5191";
 const BANK = "http://localhost:4110";
@@ -97,6 +103,7 @@ try {
   await app.getByPlaceholder("Marie Dupont").fill("Marie Dupont");
   await app.getByLabel("Clé publique du tiers").fill(tiersKey);
   const wallet = await popupOf(ctxA, () => app.getByRole("button", { name: "Créer mon wallet avec le Wallet du client" }).click());
+  await choosePin(wallet);
   await wallet.getByRole("button", { name: "Générer ma phrase secrète" }).click();
   await wallet.locator(".words li").nth(23).waitFor();
   const clientWords = (await wallet.locator(".words li").allTextContents()).map((w) => w.trim());
@@ -107,8 +114,8 @@ try {
   const stored = JSON.parse(readFileSync(WALLET_FILE, "utf8")) as any[];
   const mine_ = stored[stored.length - 1];
   report("6-3", "Wallet du client : 24 mots générés et affichés une fois ; la banque reçoit la clé publique, la politique est enregistrée dans le wallet",
-    clientWords.length === 24 && mine_.mnemonic === clientWords.join(" ") && !!mine_.policy && mine_.policy.tiersName === "Marie Dupont",
-    `wallet ${mine_.id}, politique : délai ${mine_.policy?.delay}, tiers ${mine_.policy?.tiersName} ; mots=${clientWords.length}, phrase stockée = phrase affichée : ${mine_.mnemonic === clientWords.join(" ")}, wallets stockés=${stored.length}`);
+    clientWords.length === 24 && !mine_.mnemonic && open(mine_.sealed, PIN) === clientWords.join(" ") && !!mine_.policy && mine_.policy.tiersName === "Marie Dupont",
+    `wallet ${mine_.id}, politique : délai ${mine_.policy?.delay}, tiers ${mine_.policy?.tiersName} ; mots=${clientWords.length}, phrase chiffrée par PIN = phrase affichée : ${open(mine_.sealed, PIN) === clientWords.join(" ")}, wallets stockés=${stored.length}`);
 
   // Ni la graine, ni la clé privée dans l'appli de la banque ou chez Swissquote
   const appStorage = await app.evaluate(() => JSON.stringify({ ...localStorage }) + JSON.stringify({ ...sessionStorage }) + document.documentElement.outerHTML);
@@ -132,6 +139,7 @@ try {
   await wallet.getByRole("heading", { name: "Prouver la propriété d'une adresse" }).waitFor({ timeout: 15000 });
   const challengeShown = (await wallet.locator(".message").textContent()) ?? "";
   await shot(wallet, "4b-wallet-preuve");
+  await typePin(wallet);
   await wallet.getByRole("button", { name: "Signer la preuve" }).click();
   const proofText = (await app.getByTestId("ownership-result").textContent({ timeout: 15000 })) ?? "";
   report("6-13", "Preuve de propriété depuis l'interface : défi affiché en entier dans le wallet, signé après confirmation, vérifié par Swissquote",
@@ -155,6 +163,7 @@ try {
   await wallet.getByRole("heading", { name: "Confirmer l'envoi" }).waitFor({ timeout: 15000 });
   const confirm = (await wallet.locator("section").first().textContent()) ?? "";
   await shot(wallet, "5-wallet-confirmation");
+  await typePin(wallet);
   await wallet.getByRole("button", { name: "Confirmer et signer" }).click();
   await app.getByRole("button", { name: "Diffuser sur le réseau Bitcoin" }).click();
   const sent = await app.locator(".success", { hasText: "Transaction diffusée" }).textContent({ timeout: 15000 });
@@ -206,12 +215,23 @@ try {
   await nd.getByRole("button", { name: "Vérifier mon identité" }).click();
   await nd.locator("p", { hasText: mine_.accountKey.slice(0, 22) }).getByRole("button", { name: "Choisir" }).click();
   const newWallet = await popupOf(ctxB, () => nd.getByRole("button", { name: "Créer un nouveau wallet avec le Wallet du client" }).click());
+  await choosePin(newWallet);
   await newWallet.getByRole("button", { name: "Générer ma phrase secrète" }).click();
   await newWallet.getByLabel("J'ai noté ma phrase en lieu sûr").check();
   await newWallet.getByRole("button", { name: "Transmettre ma clé publique à Swissquote" }).click();
   await nd.getByRole("button", { name: "Préparer la demande" }).click({ timeout: 20000 });
   await nd.getByRole("button", { name: "Demander la signature de Swissquote" }).click();
   const sqPsbt = await nd.locator(".step textarea[readonly]").inputValue({ timeout: 15000 });
+
+  // L'ANCIEN appareil du client est alerté : la cloche signale la signature de Swissquote.
+  await app.reload();
+  await app.getByTestId("bell-count").waitFor({ timeout: 20000 });
+  const bellCount = await app.getByTestId("bell-count").textContent();
+  await app.getByRole("button", { name: /^Alertes/ }).click();
+  const bellText = (await app.getByTestId("bell-panel").textContent()) ?? "";
+  await shot(app, "7b-alerte");
+  report("6-15", "Alerte : dès que Swissquote signe la recovery, l'ancien appareil du client voit « Swissquote a signé une demande de recovery » dans la cloche",
+    Number(bellCount) >= 1 && bellText.includes("Swissquote a signé une demande de recovery"), `non lues : ${bellCount} ; ${bellText.replace(/\s+/g, " ").slice(0, 160)}`);
   await tiers.getByPlaceholder(/PSBT reçu du client/).fill(sqPsbt);
   await tiers.getByPlaceholder("mot1 mot2 … mot24").fill(tiersWords.join(" "));
   await tiers.getByRole("button", { name: "Signer en tant que tiers" }).click();
