@@ -4,6 +4,7 @@ import { type AccountInput, DELAY, NETWORK, clearAccountInput, loadAccountInput,
 import { AccountSetup } from "./wallet/AccountSetup";
 import { registerAccount } from "./lib/bank";
 import { Recovery } from "./recovery/Recovery";
+import { AttackPanel } from "./attacks/AttackPanel";
 import { Account } from "./wallet/Account";
 
 export function App() {
@@ -51,6 +52,7 @@ export function App() {
         <p><button className="link" onClick={() => setRecovering(true)}>J'ai perdu la clé de mon wallet : récupérer mon compte</button></p>
       )}
       {cfg && !recovering && <Account cfg={cfg} onReset={() => { clearAccountInput(); setInput(null); }} />}
+      {NETWORK === "regtest" && !recovering && <AttackPanel />}
     </main>
   );
 }

@@ -26,3 +26,5 @@ tr.external td:first-child { font-weight: 600; }
 .success { background: #e3f6e8; padding: 8px 12px; border-radius: 6px; }
 .step { border-top: 1px solid #e3e8f2; margin-top: 16px; padding-top: 8px; }
 .summary { background: #f9fafc; padding: 8px 12px; border-radius: 6px; margin: 8px 0; }
+.attack .verdict { font-weight: 600; font-size: 16px; margin: 4px 0; }
+.attack ul { margin: 4px 0 0 18px; padding: 0; font-size: 13px; }

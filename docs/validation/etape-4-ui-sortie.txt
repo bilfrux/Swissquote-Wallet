@@ -1,0 +1,14 @@
+[OK ] UI-1 Bouton « Voler le téléphone et l'email » : ⛔ Refusé, conforme, message réel de la chaîne affiché
+       ⛔ Refusé — attendu : refus (conforme)Message réel de la chaîne : mempool-script-verify-flag-failed (Signature must be zero for failed CHECK(MULTI)SIG operation)l'appli du téléphone volé ne contient aucune clé privée (clés publiques seulement)re-KYC Swissquote 
+[OK ] UI-2 Bouton « Collusion Swissquote + tiers avant le délai » : ⛔ Refusé, conforme, message réel de la chaîne affiché
+       ⛔ Refusé — attendu : refus (conforme)Message réel de la chaîne : non-BIP68-finalSwissquote et tiers complices signent tous les deux (bank-mock contourné) une dépense vers l'attaquantà 1 confirmation : non-BIP68-finalà 5 confirmations : non-BIP68-final(zone gri
+[OK ] UI-3 Bouton « Swissquote disparaît » : ✅ Réussi, conforme, message réel de la chaîne affiché
+       ✅ Réussi — attendu : succès (conforme)Message réel de la chaîne : diffusée 42a35c1d9dbe53c41c1137329b7be0ef1ae6f102a34fabb02c9b40f568bc5da1compte enregistré chez Swissquote (200), puis bank-mock arrêté : injoignable (ECONNREFUSED)le client signe avec son walle
+[OK ] UI-4 Aucune erreur dans la console du navigateur
+       aucune
+
+RÉSUMÉ
+UI-1 fonctionne         Bouton « Voler le téléphone et l'email » : ⛔ Refusé, conforme, message réel de la chaîne affiché
+UI-2 fonctionne         Bouton « Collusion Swissquote + tiers avant le délai » : ⛔ Refusé, conforme, message réel de la chaîne affiché
+UI-3 fonctionne         Bouton « Swissquote disparaît » : ✅ Réussi, conforme, message réel de la chaîne affiché
+UI-4 fonctionne         Aucune erreur dans la console du navigateur

@@ -1,0 +1,31 @@
+
+[OK ] attaque-1 — Attaquant avec téléphone et email, sans les clés des guardians
+      attendu : refus ; observé : refus
+      message de la chaîne : mempool-script-verify-flag-failed (Signature must be zero for failed CHECK(MULTI)SIG operation)
+      · l'appli du téléphone volé ne contient aucune clé privée (clés publiques seulement)
+      · re-KYC Swissquote (mocké) : 403 vérification d'identité refusée (dossier de test inconnu ou réponses incorrectes)
+      · après D, témoin avec deux signatures de l'attaquant à la place de Swissquote et du tiers : mempool-script-verify-flag-failed (Signature must be zero for failed CHECK(MULTI)SIG operation)
+
+[OK ] attaque-2 — Collusion Swissquote + tiers avant D
+      attendu : refus ; observé : refus
+      message de la chaîne : non-BIP68-final
+      · Swissquote et tiers complices signent tous les deux (bank-mock contourné) une dépense vers l'attaquant
+      · à 1 confirmation : non-BIP68-final
+      · à 5 confirmations : non-BIP68-final
+      · (zone grise assumée, non diffusée) à 6 confirmations sans rafraîchissement du client : accepté
+
+[OK ] attaque-3 — Swissquote arrêtée : le client dépense seul
+      attendu : succès ; observé : succès
+      message de la chaîne : diffusée 711eee50f4e41109dfcfecf8f0ad4c8bac9d0bcf0b9a98e7589523fe04fac2e4
+      · compte enregistré chez Swissquote (200), puis bank-mock arrêté : injoignable (ECONNREFUSED)
+      · le client signe avec son wallet externe (tools/client-signer) et diffuse : diffusée 711eee50f4e41109dfcfecf8f0ad4c8bac9d0bcf0b9a98e7589523fe04fac2e4
+
+[OK ] invariant-1 — Swissquote seule tente de dépenser (après D, par les deux chemins)
+      attendu : refus ; observé : refus
+      message de la chaîne : mempool-script-verify-flag-failed (Script failed an OP_CHECKSIGVERIFY operation) | mempool-script-verify-flag-failed (Signature must be zero for failed CHECK(MULTI)SIG operation)
+      · compte de démo financé, 11 confirmations (D = 6)
+      · bibliothèque : finalisation impossible avec la seule signature Swissquote (Error: unresolvable miniscript andor(pk(@0),and_v(v:pk(@1),older(6)),pk(@2)))
+      · témoin [∅ à la place du tiers, signature Swissquote] sur le chemin recovery : mempool-script-verify-flag-failed (Script failed an OP_CHECKSIGVERIFY operation)
+      · témoin [signature Swissquote à la place du client, ∅] sur le chemin client : mempool-script-verify-flag-failed (Signature must be zero for failed CHECK(MULTI)SIG operation)
+
+4/4 conformes ; preuves : docs/validation/etape-4-attaques.json

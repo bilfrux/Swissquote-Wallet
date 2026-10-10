@@ -1,0 +1,58 @@
+{
+  "date": "2026-10-10T16:34:43.469Z",
+  "results": [
+    {
+      "id": "attaque-1",
+      "title": "Attaquant avec téléphone et email, sans les clés des guardians",
+      "expected": "refus",
+      "outcome": "refus",
+      "ok": true,
+      "chainMessage": "mempool-script-verify-flag-failed (Signature must be zero for failed CHECK(MULTI)SIG operation)",
+      "steps": [
+        "l'appli du téléphone volé ne contient aucune clé privée (clés publiques seulement)",
+        "re-KYC Swissquote (mocké) : 403 vérification d'identité refusée (dossier de test inconnu ou réponses incorrectes)",
+        "après D, témoin avec deux signatures de l'attaquant à la place de Swissquote et du tiers : mempool-script-verify-flag-failed (Signature must be zero for failed CHECK(MULTI)SIG operation)"
+      ]
+    },
+    {
+      "id": "attaque-2",
+      "title": "Collusion Swissquote + tiers avant D",
+      "expected": "refus",
+      "outcome": "refus",
+      "ok": true,
+      "chainMessage": "non-BIP68-final",
+      "steps": [
+        "Swissquote et tiers complices signent tous les deux (bank-mock contourné) une dépense vers l'attaquant",
+        "à 1 confirmation : non-BIP68-final",
+        "à 5 confirmations : non-BIP68-final",
+        "(zone grise assumée, non diffusée) à 6 confirmations sans rafraîchissement du client : accepté"
+      ]
+    },
+    {
+      "id": "attaque-3",
+      "title": "Swissquote arrêtée : le client dépense seul",
+      "expected": "succès",
+      "outcome": "succès",
+      "ok": true,
+      "chainMessage": "diffusée 711eee50f4e41109dfcfecf8f0ad4c8bac9d0bcf0b9a98e7589523fe04fac2e4",
+      "steps": [
+        "compte enregistré chez Swissquote (200), puis bank-mock arrêté : injoignable (ECONNREFUSED)",
+        "le client signe avec son wallet externe (tools/client-signer) et diffuse : diffusée 711eee50f4e41109dfcfecf8f0ad4c8bac9d0bcf0b9a98e7589523fe04fac2e4"
+      ]
+    },
+    {
+      "id": "invariant-1",
+      "title": "Swissquote seule tente de dépenser (après D, par les deux chemins)",
+      "expected": "refus",
+      "outcome": "refus",
+      "ok": true,
+      "chainMessage": "mempool-script-verify-flag-failed (Script failed an OP_CHECKSIGVERIFY operation) | mempool-script-verify-flag-failed (Signature must be zero for failed CHECK(MULTI)SIG operation)",
+      "steps": [
+        "compte de démo financé, 11 confirmations (D = 6)",
+        "bibliothèque : finalisation impossible avec la seule signature Swissquote (Error: unresolvable miniscript andor(pk(@0),and_v(v:pk(@1),older(6)),pk(@2)))",
+        "témoin [∅ à la place du tiers, signature Swissquote] sur le chemin recovery : mempool-script-verify-flag-failed (Script failed an OP_CHECKSIGVERIFY operation)",
+        "témoin [signature Swissquote à la place du client, ∅] sur le chemin client : mempool-script-verify-flag-failed (Signature must be zero for failed CHECK(MULTI)SIG operation)"
+      ]
+    }
+  ]
+}
