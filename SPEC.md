@@ -346,3 +346,14 @@ Cette section remplace les modèles précédents (passkey, backup, chemins D1/D2
 **Limites** : clé du client perdue et Swissquote disparue, alors les fonds sont perdus. Tiers qui perd sa clé, alors il faut le remplacer par une nouvelle politique. Zone grise : Swissquote + tiers peuvent dépenser après D, vers n'importe quelle destination. Sémantique différente sur Ethereum (annulation) et sur Bitcoin (rafraîchissement). Peu de wallets externes gèrent Miniscript (Liana, Bitcoin Core, Ledger, Coldcard, BitBox02). En P2WSH, une dépense révèle la politique ; Taproot est une perspective. Pas de gasless ni de dApp.
 
 **Ordre** : 1. Bitcoin, porte A. 2. bank-mock + console guardian. 3. Recovery Bitcoin, porte B. 4. Attaques et invariants. 5. Livrables. 6. Ethereum.
+
+## Interface bancaire et Wallet du client (étape 6, 10 octobre 2026)
+
+Cette section complète le « Modèle 2 guardians », sans le modifier.
+- **Appli de la banque (simulée)** : connexion e-banking mockée, onglets Aperçu / Comptes / Wallet crypto. L'onglet Démo · Attaques n'existe qu'en regtest. La recovery est un écran à part, ouvert depuis « J'ai perdu mon wallet ».
+- **Wallet du client** (`client-wallet/`) : **implémentation de référence** d'un wallet externe (en production : wallet matériel ou appli téléphone). Appli séparée, avec son propre processus et son propre stockage.
+  - Il génère la graine avec `@scure/bip39`, l'affiche **une fois**, et ne transmet à la banque que la clé publique étendue.
+  - Il signe uniquement après un écran de confirmation qui décode le PSBT : sorties, montants, frais, chemin de dépense. Il refuse de signer un PSBT de recovery.
+  - L'appli de la banque lui parle par fenêtre (`postMessage`, avec contrôle de l'origine). Son API refuse toute requête d'une autre origine.
+- **Tiers** : il crée son identité dans la console guardian (phrase affichée une fois) et transmet sa clé publique au client, qui la saisit avec son nom à la création du wallet.
+- L'appli de la banque **ne reçoit jamais** ni la graine ni une clé privée du client.

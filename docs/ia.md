@@ -30,7 +30,10 @@ L'exécution systématique a fait apparaître des erreurs, de la spec comme du c
 | Bug de code IA | Deux `scantxoutset` simultanés : bitcoind en refuse un (HTTP 500) | Erreur console dans le test Chrome de l'étape 1 |
 | Bug de test IA | Message d'erreur attendu inexact (`bad-txns-inputs-missingorspent` au lieu de `missing-inputs`, renvoyé par Bitcoin Core 29) | Test rouge alors que le comportement était correct |
 | Bug de test IA | Temporisation erronée : le test de rafraîchissement aurait laissé le nouveau coin atteindre D | Relecture du test avant exécution |
-| Bug de test IA | Lectures trop tôt dans l'interface (ligne d'un ancien coin, élément sans le montant) | Tests Chrome rouges, corrigés côté test |
+| Bug de test IA | Lectures trop tôt dans l'interface (ligne d'un ancien coin, élément sans le montant, mots de la phrase non encore affichés) | Tests Chrome rouges, corrigés côté test |
+| Bug de code IA | Course entre deux scans : à la bascule vers le nouveau wallet après recovery, un scan obsolète de l'ancien compte écrasait le solde par 0 | Test de bout en bout de l'étape 6 (fonds bien sur la chaîne, solde affiché à 0) |
+| Bug de code IA | « Simuler la perte de l'appareil » ne supprimait rien : le contrôle anti-requêtes « simples » du wallet refusait aussi le DELETE (415), et l'erreur n'était pas affichée | Test 6-9 (« ancien wallet effacé : false ») |
+| Bug de code IA | Deux instances du Wallet du client se disputaient le port de rechargement à chaud de Vite | Erreurs websocket dans la console, test 6-11 |
 
 ## Limites de cet usage
 

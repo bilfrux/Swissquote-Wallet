@@ -1,0 +1,10 @@
+[OK ] Témoin : la même recherche retrouve bien les graines là où elles sont stockées
+       grep -rlF -f <…> .local bank-mock/data client-wallet/data -> 18 fichier(s) trouvé(s) sur 18 contenant des graines
+[OK ] Aucune des 19 graines de la machine (y compris celles du Wallet du client), ni leurs clés privées de compte, dans client/
+       grep -rlF -f <graines et tprv de 18 fichiers de .local/ et bank-mock/data/> client/src client/dist client/index.html client/vite.config.ts -> rien
+[OK ] Aucune clé privée étendue (xprv/tprv), aucune clé WIF dans les sources, pas de liste BIP39 dans le bundle
+       grep -rlE '[tx]prv…' -> rien ; grep -rlE '<WIF>' client/src -> rien ; grep -rl '"abandon","ability"' client/dist -> rien
+[OK ] client/src n'importe ni signature, ni graine, ni dérivation de clé privée
+       grep -rnE '@sq/bitcoin/(sign|keys)|mnemonicToSeed|fromMasterSeed|privateExtendedKey|signBIP32|signers\.' client/src -> rien
+
+info : noms de fonctions de signature de bibliothèque présents dans le bundle (code non appelé, aucune clé) : signECPair, signBIP32

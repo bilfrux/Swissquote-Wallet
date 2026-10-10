@@ -8,16 +8,17 @@ import {
 } from "@sq/bitcoin";
 import { type KycForm, type RegisteredAccount, guardianSign, listAccounts, registerAccount, verifyIdentity } from "../lib/bank";
 import { chain, txLink } from "../lib/chain";
-import { NETWORK, saveAccountInput } from "../lib/config";
+import { type BtcAccount, NETWORK } from "../lib/config";
+import { walletRequest } from "../lib/walletBridge";
 import { btcFmt } from "../lib/format";
 import { PsbtSummary } from "../simulation/PsbtSummary";
 
 // État persistant (données publiques uniquement : clés publiques et PSBT), pour survivre aux D blocs d'attente.
-type Saved = { old?: RegisteredAccount; newClient?: string; psbt?: string; sqPsbt?: string; combined?: string; txid?: string };
+type Saved = { old?: RegisteredAccount; newClient?: string; newAccountId?: number; newWalletId?: string; psbt?: string; sqPsbt?: string; combined?: string; txid?: string };
 const KEY = `sq-wallet:recovery:${NETWORK}`;
 const load = (): Saved => JSON.parse(localStorage.getItem(KEY) ?? "{}");
 
-export function Recovery({ onDone, onCancel }: { onDone: () => void; onCancel: () => void }) {
+export function Recovery({ onDone, onCancel }: { onDone: (a: BtcAccount) => void; onCancel: () => void }) {
   const [s, setS] = useState<Saved>(load);
   const save = (patch: Partial<Saved>) => setS((prev) => { const n = { ...prev, ...patch }; localStorage.setItem(KEY, JSON.stringify(n)); return n; });
   const [token, setToken] = useState<string | null>(null); // jeton KYC : en mémoire seulement
@@ -31,6 +32,12 @@ export function Recovery({ onDone, onCancel }: { onDone: () => void; onCancel: (
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const guard = (f: () => Promise<void> | void) => async () => { setError(null); try { await f(); } catch (e: any) { setError(e.message); } };
+  // Nouveau compte : nouvelle clé client, mêmes guardians et même délai, enregistré chez Swissquote.
+  const createNewAccount = async (client: string, walletId?: string) => {
+    await createWalletConfig({ network: NETWORK, delay: s.old!.delay, client, swissquote: s.old!.swissquote, tiers: s.old!.tiers });
+    const { accountId } = await registerAccount({ delay: s.old!.delay, client, tiers: s.old!.tiers, tiersName: s.old!.tiersName });
+    save({ newClient: client, newAccountId: accountId, newWalletId: walletId });
+  };
 
   useEffect(() => {
     if (!s.old) return setOldCfg(null);
@@ -97,15 +104,20 @@ export function Recovery({ onDone, onCancel }: { onDone: () => void; onCancel: (
       {s.old && (
         <div className="step">
           <h3>3. Votre nouvelle clé</h3>
-          <p className="note">Créez un nouveau wallet (Liana, Bitcoin Core, wallet matériel…) et collez sa clé publique de compte.</p>
-          <textarea rows={2} className="mono" placeholder="[empreinte/48'/1'/0'/2']tpub…" value={newClientText} onChange={(e) => setNewClientText(e.target.value)} disabled={!!s.psbt} />
-          {!s.newClient && (
-            <button onClick={guard(async () => {
-              await createWalletConfig({ network: NETWORK, delay: s.old!.delay, client: newClientText, swissquote: s.old!.swissquote, tiers: s.old!.tiers });
-              await registerAccount({ delay: s.old!.delay, client: newClientText.trim(), tiers: s.old!.tiers });
-              save({ newClient: newClientText.trim() });
-            })}>Créer le nouveau compte</button>
-          )}
+          {!s.newClient ? (
+            <>
+              <p className="note">Créez un nouveau wallet sur votre nouvel appareil. Sa phrase secrète sera générée dans le Wallet du client ; Swissquote ne recevra que sa clé publique.</p>
+              <button onClick={guard(async () => {
+                const r = await walletRequest<{ accountKey: string; walletId: string }>("create", { label: "Wallet Bitcoin Swissquote (après recovery)" });
+                await createNewAccount(r.accountKey, r.walletId);
+              })}>Créer un nouveau wallet avec le Wallet du client</button>
+              <details>
+                <summary>J'utilise un autre wallet compatible (Bitcoin Core, Liana…)</summary>
+                <textarea rows={2} className="mono" placeholder="[empreinte/48'/1'/0'/2']tpub…" value={newClientText} onChange={(e) => setNewClientText(e.target.value)} />
+                <button className="secondary" onClick={guard(() => createNewAccount(newClientText.trim()))}>Créer le nouveau compte avec cette clé</button>
+              </details>
+            </>
+          ) : <p className="success">Nouveau wallet créé (clé <span className="mono">{s.newClient.slice(0, 22)}…</span>).</p>}
           {newCfg && <p>Nouvelle adresse : <span className="mono">{outputAt(newCfg, 0, 0).getAddress()}</span></p>}
         </div>
       )}
@@ -135,7 +147,7 @@ export function Recovery({ onDone, onCancel }: { onDone: () => void; onCancel: (
       {s.sqPsbt && oldCfg && (
         <div className="step">
           <h3>5. Signature de votre tiers de confiance</h3>
-          <p className="note">Envoyez ce PSBT à votre tiers. Il le vérifie et le signe dans sa console guardian, puis vous le renvoie.</p>
+          <p className="note">Envoyez ce PSBT à {s.old?.tiersName || "votre tiers"}. Il le vérifie et le signe dans sa console guardian, puis vous le renvoie.</p>
           <textarea readOnly rows={3} className="mono" value={s.sqPsbt} />
           <button className="small" onClick={() => navigator.clipboard.writeText(s.sqPsbt!)}>Copier pour le tiers</button>
           {!s.combined && (
@@ -162,11 +174,14 @@ export function Recovery({ onDone, onCancel }: { onDone: () => void; onCancel: (
                 Recovery diffusée : <span className="mono">{s.txid}</span>
                 {txLink(s.txid) && <> · <a href={txLink(s.txid)!} target="_blank" rel="noreferrer">explorateur</a></>}
               </p>
-              <button onClick={() => {
-                saveAccountInput({ client: s.newClient!, swissquote: s.old!.swissquote, tiers: s.old!.tiers });
+              <button onClick={guard(async () => {
+                const o = s.old!;
+                const account: BtcAccount = { id: s.newAccountId, client: s.newClient!, swissquote: o.swissquote, tiers: o.tiers, tiersName: o.tiersName, delay: o.delay, walletId: s.newWalletId };
+                // Le nouveau wallet apprend la politique du compte (données publiques) pour reconnaître son change.
+                if (s.newWalletId) await walletRequest("policy", { walletId: s.newWalletId, policy: { network: NETWORK, delay: o.delay, swissquote: o.swissquote, tiers: o.tiers, tiersName: o.tiersName } });
                 localStorage.removeItem(KEY);
-                onDone();
-              }}>Ouvrir mon nouveau compte</button>
+                onDone(account);
+              })}>Ouvrir mon nouveau compte</button>
             </>
           ) : (
             <button onClick={guard(async () => {

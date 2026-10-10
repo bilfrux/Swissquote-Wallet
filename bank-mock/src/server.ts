@@ -7,6 +7,7 @@ import { type NetworkName, type WalletConfig, addresses, createWalletConfig, inp
 import { db } from "./db.ts";
 import { signAsSwissquote, swissquoteAccountKey } from "./guardian.ts";
 import { TEST_CUSTOMERS, customerFromToken, verifyIdentity } from "./kyc.ts";
+import { CUSTOMERS, customerFromSession, login } from "./bank.ts";
 
 const PORT = Number(process.env.BANK_MOCK_PORT ?? 4000);
 const ORIGINS = (process.env.BANK_MOCK_ORIGINS ?? "http://localhost:5173,http://localhost:5174").split(",");
@@ -20,7 +21,8 @@ const network = (n: unknown): NetworkName => {
   return n as NetworkName;
 };
 
-type AccountRow = { id: number; customer_id: string; network: NetworkName; delay: number; client_key: string; tiers_key: string };
+type AccountRow = { id: number; customer_id: string; network: NetworkName; delay: number; client_key: string; tiers_key: string; tiers_name: string | null; created_at: string };
+const publicAccount = (r: AccountRow) => ({ id: r.id, delay: r.delay, client: r.client_key, tiers: r.tiers_key, tiersName: r.tiers_name, swissquote: swissquoteAccountKey(r.network), createdAt: r.created_at });
 const configOf = (a: AccountRow): Promise<WalletConfig> =>
   createWalletConfig({ network: a.network, delay: a.delay, client: a.client_key, swissquote: swissquoteAccountKey(a.network), tiers: a.tiers_key });
 
@@ -51,16 +53,40 @@ async function route(req: IncomingMessage, body: any, url: URL) {
 
     case "POST /accounts/register": {
       // Session bancaire MOCKÉE : le client est identifié par son identifiant de la banque simulée.
-      if (!TEST_CUSTOMERS[body.customerId]) throw new HttpError(403, "client inconnu de la banque simulée");
+      // Client identifié par sa session bancaire (appli) ou, pour les scripts de validation, par son identifiant.
+      const customerId = customerFromSession(req.headers.authorization) ?? body.customerId;
+      if (!TEST_CUSTOMERS[customerId]) throw new HttpError(403, "client inconnu de la banque simulée");
+      body.customerId = customerId;
       const net = network(body.network);
       const cfg = await createWalletConfig({ network: net, delay: Number(body.delay), client: body.client, swissquote: swissquoteAccountKey(net), tiers: body.tiers }).catch((e) => {
         throw new HttpError(400, e.message);
       });
-      db.prepare("insert or ignore into accounts (customer_id, network, delay, client_key, tiers_key) values (?, ?, ?, ?, ?)")
-        .run(body.customerId, net, cfg.delay, cfg.client.raw, cfg.tiers.raw);
+      db.prepare("insert or ignore into accounts (customer_id, network, delay, client_key, tiers_key, tiers_name) values (?, ?, ?, ?, ?, ?)")
+        .run(body.customerId, net, cfg.delay, cfg.client.raw, cfg.tiers.raw, typeof body.tiersName === "string" ? body.tiersName.slice(0, 80) : null);
       const row = db.prepare("select id, customer_id from accounts where network = ? and client_key = ?").get(net, cfg.client.raw) as any;
       if (row.customer_id !== body.customerId) throw new HttpError(409, "cette clé client est déjà enregistrée par un autre client");
       return { accountId: row.id };
+    }
+
+    case "POST /auth/login": {
+      const s = login(body.customerId, body.password);
+      if (!s) throw new HttpError(403, "identifiant ou mot de passe incorrect");
+      return s;
+    }
+
+    case "GET /me": {
+      const id = customerFromSession(req.headers.authorization);
+      if (!id) throw new HttpError(401, "session expirée : reconnectez-vous");
+      const { password: _p, ...c } = CUSTOMERS[id];
+      return { id, ...c };
+    }
+
+    case "GET /wallet/accounts": {
+      // Comptes Bitcoin (clés PUBLIQUES) du client connecté : un nouvel appareil retrouve son wallet.
+      const id = customerFromSession(req.headers.authorization);
+      if (!id) throw new HttpError(401, "session expirée : reconnectez-vous");
+      const rows = db.prepare("select * from accounts where customer_id = ? and network = ? order by id").all(id, network(url.searchParams.get("network"))) as AccountRow[];
+      return { accounts: rows.map(publicAccount) };
     }
 
     case "POST /identity/verify": {
@@ -74,7 +100,7 @@ async function route(req: IncomingMessage, body: any, url: URL) {
       const customerId = customerFromToken(body.token);
       if (!customerId) throw new HttpError(403, "identité non vérifiée : re-KYC requis");
       const rows = db.prepare("select * from accounts where customer_id = ? and network = ? order by id").all(customerId, network(body.network)) as AccountRow[];
-      return { accounts: rows.map((r) => ({ id: r.id, delay: r.delay, client: r.client_key, tiers: r.tiers_key, swissquote: swissquoteAccountKey(r.network), createdAt: (r as any).created_at })) };
+      return { accounts: rows.map(publicAccount) };
     }
 
     case "POST /guardian/sign": {
@@ -103,7 +129,7 @@ createServer(async (req, res: ServerResponse) => {
   const origin = req.headers.origin;
   if (origin && ORIGINS.includes(origin)) {
     res.setHeader("access-control-allow-origin", origin);
-    res.setHeader("access-control-allow-headers", "content-type");
+    res.setHeader("access-control-allow-headers", "content-type, authorization");
     res.setHeader("access-control-allow-methods", "GET, POST, OPTIONS");
   }
   if (req.method === "OPTIONS") return res.writeHead(204).end();

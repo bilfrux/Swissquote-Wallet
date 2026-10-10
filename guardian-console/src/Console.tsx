@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 import { btc } from "@bitcoinerlab/descriptors-scure";
 import { base64 } from "@scure/base";
 import { type NetworkName, btcNetwork } from "@sq/bitcoin";
-import { accountKey, masterFromMnemonic } from "@sq/bitcoin/keys";
+import { accountKey, masterFromMnemonic, newMnemonic } from "@sq/bitcoin/keys";
 import { signPsbtWithMnemonic } from "@sq/bitcoin/sign";
 
 const NETWORK = (import.meta.env.VITE_BTC_NETWORK ?? "signet") as NetworkName;
@@ -32,6 +32,8 @@ export function Console() {
   const [psbt, setPsbt] = useState("");
   const [signed, setSigned] = useState<{ psbt: string; added: number } | null>(null);
   const [pubKey, setPubKey] = useState<string | null>(null);
+  // Identité de tiers créée ici : phrase affichée une fois (jusqu'à « J'ai noté »), jamais stockée.
+  const [identity, setIdentity] = useState<{ words: string[]; key: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Lit la phrase, l'utilise, l'efface du champ, quoi qu'il arrive.
@@ -59,6 +61,27 @@ export function Console() {
         <h1>Console guardian · tiers de confiance</h1>
         <p className="badge">Indépendante de Swissquote et de l'app cliente · réseau {NETWORK} · aucune donnée conservée</p>
       </header>
+
+      <section>
+        <h2>Devenir tiers de confiance</h2>
+        <p className="note">Créez votre clé de guardian. La phrase s'affiche une seule fois : notez-la, elle vous sera demandée pour signer une recovery.</p>
+        {!identity ? (
+          <button className="secondary small" onClick={() => { const m = newMnemonic(); setIdentity({ words: m.split(" "), key: accountKey(masterFromMnemonic(m, NETWORK)) }); setPubKey(null); }}>
+            Créer mon identité de tiers
+          </button>
+        ) : (
+          <>
+            {identity.words.length > 0 && (
+              <>
+                <ol className="mono identity-words">{identity.words.map((w, i) => <li key={i}>{w}</li>)}</ol>
+                <button className="small" onClick={() => setIdentity({ ...identity, words: [] })}>J'ai noté ma phrase : la masquer définitivement</button>
+              </>
+            )}
+            <p><strong>Clé publique à transmettre au client :</strong></p>
+            <p className="mono address identity-key">{identity.key}</p>
+          </>
+        )}
+      </section>
 
       <section>
         <h2>Votre phrase de guardian</h2>

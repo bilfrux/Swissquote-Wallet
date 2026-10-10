@@ -15,25 +15,27 @@ const grep = (args: string[]) => { try { return execFileSync("grep", args, { enc
 
 execFileSync("npm", ["run", "-s", "build", "-w", "client"], { stdio: "ignore" });
 
-// (1) Graines présentes sur la machine (fichiers ignorés par git)
+// (1) Graines présentes sur la machine (fichiers ignorés par git), y compris celles du Wallet du client
 const seedFiles: string[] = [];
 const walk = (d: string) => { if (!existsSync(d)) return; for (const f of readdirSync(d)) { const p = join(d, f); statSync(p).isDirectory() ? walk(p) : p.endsWith(".json") && seedFiles.push(p); } };
-walk(".local"); walk("bank-mock/data");
+walk(".local"); walk("bank-mock/data"); walk("client-wallet/data");
 const secrets: string[] = [];
 for (const f of seedFiles) {
-  const m = JSON.parse(readFileSync(f, "utf8")).mnemonic as string | undefined;
-  if (!m) continue;
-  secrets.push(m, accountPrivateKey(masterFromMnemonic(m, "regtest")).split("]")[1]);
+  const j = JSON.parse(readFileSync(f, "utf8"));
+  // fichier à une graine ({ mnemonic }) ou liste de wallets du Wallet du client ([{ mnemonic }, …])
+  for (const m of (Array.isArray(j) ? j.map((w: any) => w.mnemonic) : [j.mnemonic]).filter(Boolean) as string[])
+    secrets.push(m, accountPrivateKey(masterFromMnemonic(m, "regtest")).split("]")[1]);
 }
 const dir = mkdtempSync(join(tmpdir(), "inv5-"));
 writeFileSync(join(dir, "secrets.txt"), secrets.join("\n") + "\n", { mode: 0o600 });
 const found = grep(["-rlF", "-f", join(dir, "secrets.txt"), ...TARGETS]);
 // Témoin positif : la même recherche sur les dossiers qui CONTIENNENT les graines doit les trouver.
-const control = grep(["-rlF", "-f", join(dir, "secrets.txt"), ".local", "bank-mock/data"]).split("\n").filter(Boolean);
+const control = grep(["-rlF", "-f", join(dir, "secrets.txt"), ".local", "bank-mock/data", "client-wallet/data"]).split("\n").filter(Boolean);
 rmSync(dir, { recursive: true });
-report("Témoin : la même recherche retrouve bien les graines là où elles sont stockées", control.length >= seedFiles.length,
-  `grep -rlF -f <…> .local bank-mock/data -> ${control.length} fichier(s) trouvé(s) sur ${seedFiles.length}`);
-report(`Aucune des ${secrets.length / 2} graines de test de la machine (ni sa clé privée de compte) dans client/`, !found,
+const withSeeds = seedFiles.filter((f) => /mnemonic/.test(readFileSync(f, "utf8"))).length;
+report("Témoin : la même recherche retrouve bien les graines là où elles sont stockées", control.length >= withSeeds,
+  `grep -rlF -f <…> .local bank-mock/data client-wallet/data -> ${control.length} fichier(s) trouvé(s) sur ${withSeeds} contenant des graines`);
+report(`Aucune des ${secrets.length / 2} graines de la machine (y compris celles du Wallet du client), ni leurs clés privées de compte, dans client/`, !found,
   `grep -rlF -f <graines et tprv de ${seedFiles.length} fichiers de .local/ et bank-mock/data/> ${TARGETS.join(" ")} -> ${found || "rien"}`);
 
 // (2) Motifs génériques

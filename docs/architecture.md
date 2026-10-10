@@ -11,9 +11,13 @@ flowchart LR
   classDef mock fill:#fff4d6,stroke:#b8860b,color:#4d3800
   classDef demo fill:#e3e8f2,stroke:#44546f,color:#1d2433
 
-  subgraph Client["Client"]
-    APP["Appli web<br/>client/ (Vite + React)<br/>clés publiques + PSBT"]:::reel
-    WALLET["Wallet externe du client<br/>Bitcoin Core (réel)<br/>tools/client-signer (substitut de démo)"]:::demo
+  subgraph Banque["Appli de la banque (navigateur)"]
+    APP["client/ (Vite + React)<br/>e-banking simulé + Wallet crypto<br/>clés publiques + PSBT"]:::reel
+  end
+
+  subgraph Appareil["Appareil du client"]
+    WALLET["Wallet du client · client-wallet/<br/>implémentation de référence<br/>graine @scure/bip39 · écran de confirmation"]:::demo
+    WDB[("client-wallet/data<br/>graines (600)")]:::demo
   end
 
   subgraph SQ["Swissquote (processus séparé)"]
@@ -31,8 +35,9 @@ flowchart LR
 
   ATT["scripts/attacks/server.ts<br/>panneau « Attaques » (démo regtest)"]:::demo
 
-  APP -- "PSBT non signé" --> WALLET
-  WALLET -- "PSBT signé (client)" --> APP
+  APP -- "fenêtre + postMessage :<br/>créer · politique · PSBT à signer" --> WALLET
+  WALLET -- "clé publique · PSBT signé<br/>(après confirmation)" --> APP
+  WALLET --- WDB
   APP -- "clé publique, enregistrement, re-KYC,<br/>demande de recovery (PSBT)" --> BANK
   BANK --- DB
   BANK -- "PSBT signé (Swissquote)" --> APP
@@ -43,7 +48,9 @@ flowchart LR
   ATT -- "transactions de démo" --> NODE
 ```
 
-Légende : vert = réel, jaune = mocké, gris-bleu = substitut ou outil de démo.
+Légende : vert = réel, jaune = mocké, gris-bleu = implémentation de référence ou outil de démo.
+
+Autres signataires : Bitcoin Core (`walletprocesspsbt`, validé) peut remplacer le Wallet du client via l'option « Autre wallet externe (PSBT) » ; `tools/client-signer` sert aux scripts de test.
 
 ## Politique et chemins de dépense
 
@@ -60,8 +67,9 @@ flowchart TD
 
 | Flux | Étapes | Qui signe | Dépend de Swissquote ? |
 | --- | --- | --- | --- |
-| Création du compte | L'appli reçoit 3 clés publiques (client, Swissquote, tiers), compile la politique, dérive les adresses, enregistre le compte chez bank-mock (facultatif) | — | Non (la clé Swissquote peut être collée) |
-| Dépense du client | L'appli prépare le PSBT et le simule en clair → le wallet externe signe → l'appli finalise et diffuse | Client | **Non** (attaque 3) |
+| Connexion | e-banking simulé : session bank-mock, comptes CHF fictifs | — | Oui (banque simulée) |
+| Création du wallet | Le tiers transmet sa clé publique → le Wallet du client génère la graine, l'affiche une fois, renvoie la clé publique → l'appli obtient la clé Swissquote, compile la politique, enregistre le compte → le wallet enregistre la politique | — | Oui (clé et enregistrement Swissquote) |
+| Dépense du client | L'appli prépare le PSBT et le simule → le Wallet du client le décode et le fait confirmer, puis signe → l'appli finalise et diffuse | Client | **Non** (attaque 3 ; compte en cache local) |
 | Rafraîchissement | Envoi de tous les coins vers une adresse de change neuve du compte | Client | Non |
 | Recovery | Re-KYC → ancien compte retrouvé → nouvelle clé → PSBT de recovery → bank-mock signe → le tiers signe dans sa console → l'appli combine, finalise, diffuse ; refus réel `non-BIP68-final` avant D | Swissquote + tiers | Oui (par conception) |
 
@@ -70,10 +78,11 @@ flowchart TD
 | Dossier | Rôle | Réel / mocké |
 | --- | --- | --- |
 | `packages/bitcoin` | Politique Miniscript, descripteurs, scan, PSBT, simulation, finalisation, backends Esplora et bitcoind. `index.ts` n'expose ni clé ni signature ; `sign.ts` et `keys.ts` sont réservés aux outils, à bank-mock et à la console | Réel |
-| `client/` | Appli du client (port 5173) | Réel (banque et session simulées) |
-| `bank-mock/` | Guardian Swissquote (port 4000) : clé publique, comptes, re-KYC mocké, signature limitée aux recoveries, journal | Mocké |
-| `guardian-console/` | Console du tiers (port 5174) | Réel (logique) |
-| `tools/client-signer`, `tools/keygen` | Substituts de démo du wallet externe | Démo |
+| `client/` | Appli de la banque (port 5173) : connexion, Aperçu, Comptes, Wallet crypto, recovery, Démo | Wallet réel ; banque et session simulées |
+| `client-wallet/` | Wallet du client (port 5180) : un seul processus (API + interface Vite en middleware), stockage `client-wallet/data/` | Implémentation de référence |
+| `bank-mock/` | Banque simulée et guardian Swissquote (port 4000) : connexion, comptes CHF fictifs, clé publique, comptes Bitcoin, re-KYC mocké, signature limitée aux recoveries, journal | Mocké |
+| `guardian-console/` | Console du tiers (port 5174) : création de l'identité, décodage, signature | Réel (logique) |
+| `tools/client-signer`, `tools/keygen` | Signataire et générateur de graine des scripts de test | Outils de test |
 | `scripts/attacks/` | Scénarios d'attaque (tests et panneau, port 4200) | Réel contre regtest, graines jetables |
 | `docker/regtest.yml` | bitcoind 29 regtest | Réel |
 

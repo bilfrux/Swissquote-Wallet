@@ -21,3 +21,6 @@ db.exec(`
     psbt text, created_at text not null default (datetime('now'))
   );
 `);
+
+// Migration : nom du tiers (ajouté à l'étape 6).
+if (!(db.prepare("pragma table_info(accounts)").all() as any[]).some((c) => c.name === "tiers_name")) db.exec("alter table accounts add column tiers_name text");

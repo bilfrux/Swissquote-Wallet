@@ -7,7 +7,8 @@
     "client",
     "tools/*",
     "bank-mock",
-    "guardian-console"
+    "guardian-console",
+    "client-wallet"
   ],
   "scripts": {
     "dev": "concurrently -n client,bank,console -c blue,red,green \"npm run dev -w client\" \"npm run dev -w bank-mock\" \"npm run dev -w guardian-console\"",
@@ -17,20 +18,17 @@
     "regtest:up": "docker compose -f docker/regtest.yml up -d",
     "regtest:down": "docker compose -f docker/regtest.yml down -v",
     "validate:1": "tsx scripts/validate/etape-1-regtest.ts",
-    "typecheck": "tsc -p packages/bitcoin && tsc -p tools/client-signer && tsc -p tools/keygen && tsc -p client && tsc -p bank-mock && tsc -p guardian-console",
+    "typecheck": "tsc -p packages/bitcoin && tsc -p tools/client-signer && tsc -p tools/keygen && tsc -p client && tsc -p bank-mock && tsc -p guardian-console && tsc -p client-wallet",
     "validate:1:signet": "tsx scripts/validate/etape-1-signet.ts",
-    "validate:1:ui": "tsx scripts/validate/etape-1-ui.ts",
     "validate:2": "tsx scripts/validate/etape-2.ts",
-    "validate:2:ui": "tsx scripts/validate/etape-2-ui.ts",
     "validate:3": "tsx scripts/validate/etape-3.ts",
-    "validate:3:ui": "tsx scripts/validate/etape-3-ui.ts",
     "validate:3:signet": "tsx scripts/validate/etape-3-signet.ts",
     "test:attacks": "tsx scripts/attacks/run.ts",
     "attacks:server": "tsx scripts/attacks/server.ts",
     "validate:inv5": "tsx scripts/validate/invariant-5.ts",
-    "validate:4:ui": "tsx scripts/validate/etape-4-ui.ts",
-    "demo": "concurrently -n appli,bank,console,attaques -c blue,red,green,magenta \"VITE_BTC_NETWORK=regtest npm run dev -w client\" \"npm run dev -w bank-mock\" \"VITE_BTC_NETWORK=regtest npm run dev -w guardian-console\" \"npm run attacks:server\"",
-    "regtest": "tsx scripts/demo/regtest.ts"
+    "demo": "concurrently -n appli,bank,console,wallet,attaques -c blue,red,green,yellow,magenta \"VITE_BTC_NETWORK=regtest npm run dev -w client\" \"npm run dev -w bank-mock\" \"VITE_BTC_NETWORK=regtest npm run dev -w guardian-console\" \"npm run dev -w client-wallet\" \"npm run attacks:server\"",
+    "regtest": "tsx scripts/demo/regtest.ts",
+    "validate:6:ui": "tsx scripts/validate/etape-6-ui.ts"
   },
   "devDependencies": {
     "concurrently": "^10.0.6",

@@ -4,3 +4,4 @@ dist/
 .local/
 bank-mock/data/
 scripts/feasibility-btc/.keys/
+client-wallet/data/
