@@ -1,23 +1,25 @@
-// Connexion à la banque SIMULÉE (identifiants de démo : CH-0001 / demo1234).
+// Connexion à la banque SIMULÉE (identifiants de démo).
 import { useState } from "react";
 import { type Session, login } from "../lib/bank";
+import { Logo } from "../ui/icons";
 
 export function Login({ onLogin }: { onLogin: (s: Session) => void }) {
-  const [id, setId] = useState("CH-0001");
+  const [id, setId] = useState("CH-0002");
   const [pwd, setPwd] = useState("");
   const [error, setError] = useState<string | null>(null);
   return (
     <div className="login">
+      <header className="login-head"><Logo /></header>
       <div className="login-card">
-        <div className="logo">Swissquote</div>
-        <h1>Connexion à votre e-banking</h1>
+        <h1>Connexion</h1>
+        <p className="muted small">Accédez à votre compte Swissquote</p>
         <form onSubmit={async (e) => { e.preventDefault(); setError(null); try { onLogin(await login(id.trim(), pwd)); } catch (err: any) { setError(err.message); } }}>
           <label><span>Identifiant client</span><input value={id} onChange={(e) => setId(e.target.value)} autoComplete="username" /></label>
           <label><span>Mot de passe</span><input type="password" value={pwd} onChange={(e) => setPwd(e.target.value)} autoComplete="current-password" /></label>
           {error && <p className="error">{error}</p>}
-          <button type="submit">Se connecter</button>
+          <button type="submit" className="btn-primary wide">Se connecter</button>
         </form>
-        <p className="note small-text">Banque simulée pour la démo · identifiant CH-0001, mot de passe demo1234</p>
+        <p className="muted small center">Banque simulée pour la démo · CH-0002 / demo5678</p>
       </div>
     </div>
   );

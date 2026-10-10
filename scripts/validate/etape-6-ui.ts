@@ -39,8 +39,14 @@ const watch = (p: Page) => {
   p.on("pageerror", (e) => errors.push(`${p.url()} : ${e.message}`));
   p.on("console", (m) => m.type() === "error" && !/CORS|Failed to fetch|ERR_FAILED/.test(m.text()) && errors.push(`${p.url()} : ${m.text()}`));
 };
-const device = async () => { const ctx = await browser.newContext({ viewport: { width: 1200, height: 1400 } }); ctx.on("page", watch); return ctx; };
-const shot = (p: Page, n: string) => p.screenshot({ path: `${SHOTS}/etape-6-${n}.png`, fullPage: true });
+// MOBILE=1 : mise en page téléphone (390×844, tactile) ; sinon ordinateur.
+const MOBILE = process.env.MOBILE === "1";
+const device = async () => {
+  const ctx = await browser.newContext(MOBILE ? { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 } : { viewport: { width: 1280, height: 1000 } });
+  ctx.on("page", watch);
+  return ctx;
+};
+const shot = (p: Page, n: string) => p.screenshot({ path: `${SHOTS}/etape-6-${MOBILE ? "mobile" : "desktop"}-${n}.png`, fullPage: true });
 const popupOf = async (ctx: BrowserContext, click: () => Promise<void>) => { const [p] = await Promise.all([ctx.waitForEvent("page"), click()]); await p.waitForLoadState(); return p; };
 const login = async (p: Page) => {
   await p.goto(APP);
@@ -79,14 +85,15 @@ try {
   await shot(app, "1-connexion");
   await app.getByLabel("Mot de passe").fill("demo5678");
   await app.getByRole("button", { name: "Se connecter" }).click();
-  await app.getByText("Compte privé").first().waitFor();
+  await app.getByText(MOBILE ? "Épargne" : "Compte privé").first().waitFor();
+  await app.getByText(/2[’']310\.40/).first().waitFor(); // comptes CHF chargés
   const overview = await app.locator("main").textContent();
   report("6-2", "Connexion e-banking simulée (mauvais mot de passe refusé), aperçu avec comptes CHF et tuile « Créer mon wallet »",
-    !!badLogin?.includes("incorrect") && !!overview?.includes("Compte privé") && !!overview?.includes("Créer mon wallet"), `${badLogin} ; aperçu affiché`);
+    !!badLogin?.includes("incorrect") && (MOBILE ? !!overview?.includes("Valeur totale") && !!overview?.includes("Cash") && !!overview?.includes("Créer") : !!overview?.includes("Compte privé") && !!overview?.includes("Créer mon wallet")), `${badLogin} ; aperçu affiché`);
   await shot(app, "2-apercu");
 
   // --- Wallet crypto : création via le Wallet du client ---
-  await app.getByRole("button", { name: "Wallet crypto" }).click();
+  await app.getByRole("button", { name: "Crypto", exact: true }).click();
   await app.getByPlaceholder("Marie Dupont").fill("Marie Dupont");
   await app.getByLabel("Clé publique du tiers").fill(tiersKey);
   const wallet = await popupOf(ctxA, () => app.getByRole("button", { name: "Créer mon wallet avec le Wallet du client" }).click());
@@ -118,7 +125,7 @@ try {
   await app.getByRole("button", { name: "Actualiser" }).click();
   await app.getByText("0.50000000 BTC").first().waitFor({ timeout: 15000 });
   await shot(app, "4-wallet");
-  report("6-5", "Réception : 0,5 BTC visibles dans l'onglet Wallet crypto", true, address);
+  report("6-5", "Réception : 0,5 BTC visibles dans l'onglet Crypto", true, address);
 
   // --- Envoi : refus, puis confirmation dans le Wallet du client ---
   await app.getByPlaceholder("tb1… / bcrt1…").fill(minerAddr);
@@ -157,9 +164,9 @@ try {
   // --- Aperçu : la tuile Bitcoin reflète le wallet (après confirmation de l'envoi) ---
   await app.getByRole("button", { name: "Actualiser" }).click();
   await app.getByText(/0\.399/).first().waitFor({ timeout: 15000 });
-  await app.getByRole("button", { name: "Aperçu" }).click();
-  const tile = await app.locator(".tile.crypto").textContent();
-  report("6-8", "Aperçu : la tuile « Wallet Bitcoin · self-custody » affiche le solde et sa contre-valeur", !!tile?.includes("0.39") && !!tile?.includes("CHF"), tile?.replace(/\s+/g, " ") ?? "");
+  await app.getByRole("button", { name: "Accueil", exact: true }).click();
+  const tile = await app.getByTestId("home-crypto").textContent();
+  report("6-8", "Accueil : la ligne / tuile Crypto affiche le solde du wallet (contre-valeur CHF)", MOBILE ? /33[’']99\d\.\d\d/.test(tile ?? "") : !!tile?.includes("0.39") && !!tile?.includes("CHF"), tile?.replace(/\s+/g, " ") ?? "");
 
   // --- Perte du wallet, puis recovery depuis un NOUVEL appareil ---
   const lost = await ctxA.newPage();
@@ -173,7 +180,7 @@ try {
   const ctxB = await device();
   const nd = await ctxB.newPage();
   await login(nd);
-  await nd.getByRole("button", { name: "Wallet crypto" }).click();
+  await nd.getByRole("button", { name: "Crypto", exact: true }).click();
   await nd.getByTestId("btc-balance").waitFor({ timeout: 20000 });
   await nd.getByRole("button", { name: /J'ai perdu mon wallet/ }).click();
   const kyc = nd.locator(".step").first().locator("input");
@@ -219,9 +226,9 @@ try {
   report("6-12", "Le Wallet du client refuse de signer un PSBT de recovery, même appelé directement", rs.status === 400 && /chemin de recovery/.test(rj.error), `${rs.status} ${rj.error}`);
 
   // --- Onglet Démo ---
-  await nd.getByRole("button", { name: "Démo · Attaques" }).click();
+  await nd.getByRole("button", { name: "Démo", exact: true }).click();
   const attacks = await nd.locator(".attack button").count();
-  report("6-10", "Onglet « Démo · Attaques » (regtest) avec les trois scénarios", attacks === 3, `${attacks} boutons`);
+  report("6-10", "Onglet « Démo » (regtest) avec les trois scénarios d\x27attaque", attacks === 3, `${attacks} boutons`);
 } finally {
   await browser.close();
   stopAll();

@@ -1,24 +1,24 @@
 [OK ] 6-1 Console : identité de tiers créée, phrase affichée une fois puis masquée, clé publique fournie
-       24 mots, puis 0 affiché(s) ; clé [e41fc2a4/48'/1'/0'/2']tpubDF7…
+       24 mots, puis 0 affiché(s) ; clé [2a3df695/48'/1'/0'/2']tpubDEo…
 [OK ] 6-2 Connexion e-banking simulée (mauvais mot de passe refusé), aperçu avec comptes CHF et tuile « Créer mon wallet »
        identifiant ou mot de passe incorrect ; aperçu affiché
 [OK ] 6-3 Wallet du client : 24 mots générés et affichés une fois ; la banque reçoit la clé publique, la politique est enregistrée dans le wallet
-       wallet aba235ab, politique : délai 6, tiers Marie Dupont ; mots=24, phrase stockée = phrase affichée : true, wallets stockés=1
+       wallet 809d09a7, politique : délai 6, tiers Marie Dupont ; mots=24, phrase stockée = phrase affichée : true, wallets stockés=1
 [OK ] 6-4 La phrase du client n'est ni dans l'appli (stockage, page), ni dans la base de Swissquote ; seule la clé publique y est
        phrase dans l'appli : false ; 4 premiers mots dans l'appli : false ; phrase chez Swissquote : false ; clé publique chez Swissquote : true
-[OK ] 6-5 Réception : 0,5 BTC visibles dans l'onglet Wallet crypto
-       bcrt1q3uzrsjxv4g4l8y8dyn0cpugj8d84mar394zsnv2eyc5kme4s4kqs5kyjws
+[OK ] 6-5 Réception : 0,5 BTC visibles dans l'onglet Crypto
+       bcrt1qjtq8jevhu3m27qvuy856k55pggugj5xncy77jy9ckyw87p909ftqadvege
 [OK ] 6-6 Envoi : refus dans le wallet remonté à l'appli ; écran de confirmation (chemin, sorties, montants, frais) ; signé, diffusé, confirmé
        refus : « refusé par le client » ; écran : Confirmer l'envoiDemande de http://localhost:5191 · wallet « Wallet Bitcoin Swissquote »Chemin de dépense votre clé seule (dépense normale, sans délai)Coins dépensés 1 · 0.50000000 BTCvers0.10000000 B… ; confirmations=1
 [OK ] 6-7 Depuis l'origine de la banque, l'API du wallet est inaccessible : lecture bloquée (CORS) et POST refusé avant exécution (403)
        navigateur : lecture bloquée ; POST avec Origin http://localhost:5191 : 403 origine refusée : http://localhost:5191
-[OK ] 6-8 Aperçu : la tuile « Wallet Bitcoin · self-custody » affiche le solde et sa contre-valeur
-       Wallet Bitcoin · self-custody0.39999656 BTC≈ 33 999.71 CHF · vous seul détenez la clé
+[OK ] 6-8 Accueil : la ligne / tuile Crypto affiche le solde du wallet (contre-valeur CHF)
+       Crypto · self-custodyWallet Bitcoin vous seul détenez la clé0.39999656 BTC · 33'999.71 CHF
 [OK ] 6-9 Recovery (nouvel appareil, wallet perdu) : re-KYC, nouveau Wallet du client, Swissquote + tiers ; refus réel avant D, succès à D, nouveau wallet actif
        ancien wallet effacé du Wallet du client : true ; avant D : Refusée par le réseau Bitcoin : « non-BIP68-final ». Le délai de 6 blocs n'est pas écoulé  ; nouveau solde visible
 [OK ] 6-12 Le Wallet du client refuse de signer un PSBT de recovery, même appelé directement
        400 ce PSBT utilise le chemin de recovery (Swissquote + tiers) : votre wallet n'a pas à le signer
-[OK ] 6-10 Onglet « Démo · Attaques » (regtest) avec les trois scénarios
+[OK ] 6-10 Onglet « Démo » (regtest) avec les trois scénarios d'attaque
        3 boutons
 [OK ] 6-11 Aucune erreur dans les consoles des navigateurs (hors refus volontaires : mauvais mot de passe en 6-2, appel interdit en 6-7)
        aucune
@@ -28,11 +28,11 @@ RÉSUMÉ
 6-2 fonctionne         Connexion e-banking simulée (mauvais mot de passe refusé), aperçu avec comptes CHF et tuile « Créer mon wallet »
 6-3 fonctionne         Wallet du client : 24 mots générés et affichés une fois ; la banque reçoit la clé publique, la politique est enregistrée dans le wallet
 6-4 fonctionne         La phrase du client n'est ni dans l'appli (stockage, page), ni dans la base de Swissquote ; seule la clé publique y est
-6-5 fonctionne         Réception : 0,5 BTC visibles dans l'onglet Wallet crypto
+6-5 fonctionne         Réception : 0,5 BTC visibles dans l'onglet Crypto
 6-6 fonctionne         Envoi : refus dans le wallet remonté à l'appli ; écran de confirmation (chemin, sorties, montants, frais) ; signé, diffusé, confirmé
 6-7 fonctionne         Depuis l'origine de la banque, l'API du wallet est inaccessible : lecture bloquée (CORS) et POST refusé avant exécution (403)
-6-8 fonctionne         Aperçu : la tuile « Wallet Bitcoin · self-custody » affiche le solde et sa contre-valeur
+6-8 fonctionne         Accueil : la ligne / tuile Crypto affiche le solde du wallet (contre-valeur CHF)
 6-9 fonctionne         Recovery (nouvel appareil, wallet perdu) : re-KYC, nouveau Wallet du client, Swissquote + tiers ; refus réel avant D, succès à D, nouveau wallet actif
 6-12 fonctionne         Le Wallet du client refuse de signer un PSBT de recovery, même appelé directement
-6-10 fonctionne         Onglet « Démo · Attaques » (regtest) avec les trois scénarios
+6-10 fonctionne         Onglet « Démo » (regtest) avec les trois scénarios d'attaque
 6-11 fonctionne         Aucune erreur dans les consoles des navigateurs (hors refus volontaires : mauvais mot de passe en 6-2, appel interdit en 6-7)

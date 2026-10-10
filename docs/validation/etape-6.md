@@ -59,3 +59,24 @@ Captures : `captures/etape-6-*.png` (connexion, aperçu, phrase du wallet, walle
 - Dans la démo, un même processus Wallet du client sert aux deux « appareils » : l'ancien wallet est effacé avant la création du nouveau.
 - Les tests Chrome des étapes 1 à 4 visaient l'interface précédente : leurs commandes npm sont retirées, les fichiers restent pour l'historique.
 - Le client CH-0001 de la base de démo `bank-mock/data` contient 12 comptes regtest créés par les tests précédents ; le test de l'étape 6 utilise une pile isolée et le client CH-0002.
+
+## Suite : interface au style Swissquote, ordinateur et téléphone
+
+À partir des deux captures de référence fournies par l'équipe (plateforme web et appli mobile Swissquote) :
+
+| Élément | Ordinateur | Téléphone (< 820 px) |
+| --- | --- | --- |
+| Navigation | En-tête blanc (marque, menu Accueil / Banque / Crypto / Démo avec soulignement rouge, compte, « Déconnexion » en rouge), rail d'icônes rouges à gauche, barre d'état en bas | Boutons ronds en haut, barre d'onglets en bas (onglet actif en rouge) |
+| Accueil | « Vue d'ensemble » : bandeau de chiffres, lignes Comptes / Crypto / Dernières opérations, graphique d'évolution avec sélecteur de période | Valeur totale centrée, carte avec montant, drapeau, variation, graphique, sélecteur 1S…Tout, tuiles 2×2 (Comptes, Crypto, Cash, Épargne), boutons ronds (Recevoir, Envoyer, Opérations) |
+| Crypto | Bandeau (solde, contre-valeur, prochaine ouverture de la recovery), cartes Recevoir / Sécurité / Coins / Envoyer | Solde centré, boutons ronds (Recevoir, Envoyer, Sécurité), cartes empilées |
+
+Choix : marque **redessinée** (rond rouge et mot-symbole), sans les fichiers officiels de Swissquote, à remplacer par le kit de marque s'il est fourni. Chiffres au format suisse (`36’309.84`). La variation du jour et la courbe de l'accueil sont **simulées** et étiquetées comme telles. Le Wallet du client garde son propre style. La console guardian a désormais sa propre feuille de style (`guardian-console/src/console.css`).
+
+| Vérification | Commande | Verdict |
+| --- | --- | --- |
+| Parcours complet, version ordinateur (1280×1000) | `CONSOLE_URL=http://localhost:5175 npm run validate:6:ui` | fonctionne, 12/12 (`etape-6-ui-sortie.txt`) |
+| Parcours complet, version téléphone (390×844, tactile) | `MOBILE=1 CONSOLE_URL=http://localhost:5175 npm run validate:6:ui` | fonctionne, 12/12 (`etape-6-ui-mobile-sortie.txt`) |
+| Invariant 5 après la refonte | `npm run validate:inv5` | fonctionne |
+| Typage des 7 projets | `npm run typecheck` | fonctionne |
+
+Captures : `captures/etape-6-desktop-*.png` et `captures/etape-6-mobile-*.png`. Les captures `captures/etape-6-[1-8]-*.png` montrent l'interface avant la refonte.

@@ -1,0 +1,66 @@
+:root { font-family: system-ui, sans-serif; color: #1d2433; background: #f4f6fa; }
+main { max-width: 920px; margin: 0 auto; padding: 24px; }
+header h1 { margin-bottom: 4px; }
+.badge { display: inline-block; background: #e3e8f2; padding: 4px 10px; border-radius: 12px; font-size: 13px; }
+section { background: #fff; border-radius: 10px; padding: 16px 20px; margin: 16px 0; box-shadow: 0 1px 3px #0001; }
+label { display: block; margin: 10px 0; }
+label span { display: block; font-weight: 600; margin-bottom: 4px; }
+label small { color: #667; }
+textarea, input { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #c8cfdc; border-radius: 6px; }
+.row { display: grid; grid-template-columns: 3fr 1fr 1fr; gap: 12px; }
+button { background: #c8102e; color: #fff; border: 0; border-radius: 6px; padding: 8px 14px; cursor: pointer; }
+button.secondary { background: #44546f; }
+button.small { padding: 4px 10px; font-size: 13px; }
+button.link { background: none; color: #44546f; text-decoration: underline; padding: 0; }
+button:disabled { opacity: .5; }
+.mono { font-family: ui-monospace, monospace; font-size: 13px; word-break: break-all; }
+.small-text { font-size: 11px; color: #667; }
+.address { font-size: 16px; background: #f4f6fa; padding: 10px; border-radius: 6px; }
+table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+th, td { text-align: left; padding: 6px; border-bottom: 1px solid #e3e8f2; font-size: 14px; }
+tr.external td:first-child { font-weight: 600; }
+.note { color: #44546f; font-size: 14px; }
+.error { color: #b00020; }
+.warning { background: #fff4d6; padding: 8px 12px; border-radius: 6px; }
+.danger { color: #b00020; font-weight: 600; }
+.success { background: #e3f6e8; padding: 8px 12px; border-radius: 6px; }
+.step { border-top: 1px solid #e3e8f2; margin-top: 16px; padding-top: 8px; }
+.summary { background: #f9fafc; padding: 8px 12px; border-radius: 6px; margin: 8px 0; }
+.attack .verdict { font-weight: 600; font-size: 16px; margin: 4px 0; }
+.attack ul { margin: 4px 0 0 18px; padding: 0; font-size: 13px; }
+.identity-words { columns: 3; background: #f4f6fa; padding: 10px 10px 10px 34px; border-radius: 6px; }
+
+/* --- Style e-banking (étape 6) --- */
+body { margin: 0; }
+.topbar { display: flex; align-items: center; gap: 24px; background: #1d2433; color: #fff; padding: 0 28px; height: 60px; position: sticky; top: 0; z-index: 2; }
+.topbar .logo { color: #fff; }
+.logo { font-weight: 800; font-size: 22px; letter-spacing: .5px; color: #c8102e; }
+.topbar nav { display: flex; gap: 4px; flex: 1; }
+.tab { background: none; color: #c9d2e3; border-radius: 0; padding: 20px 14px 17px; border-bottom: 3px solid transparent; font-size: 15px; }
+.tab.active { color: #fff; border-bottom-color: #c8102e; }
+.user { font-size: 14px; color: #c9d2e3; display: flex; gap: 12px; align-items: center; }
+button.link.light { color: #c9d2e3; }
+.hero { background: linear-gradient(135deg, #1d2433, #34425e); color: #fff; }
+.hero .label, .tile .label { text-transform: uppercase; font-size: 12px; letter-spacing: .6px; color: #9fb0c8; margin: 0; }
+.hero .big { font-size: 34px; font-weight: 700; margin: 6px 0; }
+.hero .note, .hero .small-text { color: #c9d2e3; }
+.hero button.link { color: #fff; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.grid.two { grid-template-columns: 1fr 1fr; }
+.grid section { margin: 0; }
+.tile .amount { font-size: 22px; font-weight: 600; margin: 8px 0 4px; }
+.tile.crypto { border: 2px solid #c8102e; cursor: pointer; }
+.amount-inline { float: right; font-weight: 600; }
+td.num, th.num { text-align: right; }
+td.neg { color: #b00020; } td.pos { color: #1b7f3b; }
+.promise { padding-left: 18px; line-height: 1.5; }
+.promise.compact { font-size: 14px; }
+.row.two { grid-template-columns: 1fr 2fr; }
+.banner { background: #e3e8f2; padding: 8px 12px; border-radius: 6px; }
+.center { text-align: center; }
+.login { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #1d2433, #34425e); }
+.login-card { background: #fff; border-radius: 12px; padding: 32px 36px; width: 380px; box-shadow: 0 10px 30px #0004; }
+.login-card h1 { font-size: 20px; margin: 10px 0 18px; }
+.login-card button[type=submit] { width: 100%; padding: 11px; margin-top: 8px; font-size: 15px; }
+details { margin-top: 10px; }
+summary { cursor: pointer; color: #44546f; font-size: 14px; }

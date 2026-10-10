@@ -46,15 +46,15 @@ export function Send({ cfg, utxos, onSent }: { cfg: WalletConfig; utxos: WalletU
     });
 
   return (
-    <section>
+    <section className="card" id="envoyer">
       <h2>Envoyer</h2>
       <div className="row">
         <label><span>Destinataire</span><input className="mono" value={to} onChange={(e) => setTo(e.target.value)} placeholder="tb1… / bcrt1…" /></label>
         <label><span>Montant (BTC)</span><input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.0001" /></label>
         <label><span>Frais (sat/vB)</span><input value={feeRate} onChange={(e) => setFeeRate(e.target.value)} /></label>
       </div>
-      <button disabled={busy} onClick={prepare(false)}>Préparer l'envoi</button>{" "}
-      <button disabled={busy} className="secondary" onClick={prepare(true)}>Rafraîchir mes coins (envoi à moi-même)</button>
+      <button disabled={busy} className="btn-primary" onClick={prepare(false)}>Préparer l'envoi</button>{" "}
+      <button disabled={busy} className="btn-secondary" onClick={prepare(true)}>Rafraîchir mes coins (envoi à moi-même)</button>
       {error && <p className="error">{error}</p>}
 
       {unsigned && !result?.txid && (
