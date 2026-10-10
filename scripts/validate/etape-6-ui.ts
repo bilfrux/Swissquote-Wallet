@@ -17,7 +17,8 @@ const typePin = (w: Page) => w.getByLabel("Code PIN du wallet").fill(PIN);
 const APP = "http://localhost:5191";
 const BANK = "http://localhost:4110";
 const WALLET = "http://localhost:5190";
-const CONSOLE = process.env.CONSOLE_URL ?? "http://localhost:5174";
+// Console du tiers : instance propre au test (elle doit joindre le bank-mock du test pour le relais).
+const CONSOLE = "http://localhost:5192";
 const DATA = `${process.cwd()}/.local/e2e-6`;
 const WALLET_FILE = `${DATA}/wallet/wallets.json`;
 const BANK_DB = `${DATA}/bank/bank-mock.sqlite`;
@@ -26,11 +27,12 @@ const BANK_DB = `${DATA}/bank/bank-mock.sqlite`;
 rmSync(DATA, { recursive: true, force: true });
 const procs: ChildProcess[] = [];
 const start = (cmd: string[], env: Record<string, string>, cwd = ".") => procs.push(spawn(cmd[0], cmd.slice(1), { cwd, env: { ...process.env, ...env }, stdio: "ignore", detached: true }));
-start(["npm", "run", "-s", "dev", "-w", "bank-mock"], { BANK_MOCK_PORT: "4110", BANK_MOCK_DATA: `${DATA}/bank`, BANK_MOCK_ORIGINS: APP });
+start(["npm", "run", "-s", "dev", "-w", "bank-mock"], { BANK_MOCK_PORT: "4110", BANK_MOCK_DATA: `${DATA}/bank`, BANK_MOCK_ORIGINS: `${APP},${CONSOLE}` });
 start(["npm", "run", "-s", "dev", "-w", "client-wallet"], { CLIENT_WALLET_PORT: "5190", CLIENT_WALLET_DATA: `${DATA}/wallet`, VITE_WALLET_ALLOWED_ORIGINS: APP });
 start(["npx", "vite", "--port", "5191", "--strictPort"], { VITE_BTC_NETWORK: "regtest", VITE_BANK_MOCK_URL: BANK, VITE_CLIENT_WALLET_URL: WALLET, VITE_GUARDIAN_CONSOLE_URL: CONSOLE }, "client");
+start(["npx", "vite", "--port", "5192", "--strictPort"], { VITE_BTC_NETWORK: "regtest", VITE_BANK_MOCK_URL: BANK }, "guardian-console");
 const stopAll = () => procs.forEach((p) => { try { process.kill(-p.pid!, "SIGTERM"); } catch {} });
-for (const u of [`${BANK}/health`, `${WALLET}/api/wallets`, APP]) {
+for (const u of [`${BANK}/health`, `${WALLET}/api/wallets`, APP, CONSOLE]) {
   for (let i = 0; i < 100; i++) { try { if ((await fetch(u)).ok) break; } catch {} await new Promise((r) => setTimeout(r, 200)); }
 }
 const CHROME = process.env.CHROME_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
@@ -283,12 +285,20 @@ try {
   await shot(app, "7b-alerte");
   report("6-15", "Alerte : dès que Swissquote signe la recovery, l'ancien appareil du client voit « Swissquote a signé une demande de recovery » dans la cloche",
     Number(bellCount) >= 1 && bellText.includes("Swissquote a signé une demande de recovery"), `non lues : ${bellCount} ; ${bellText.replace(/\s+/g, " ").slice(0, 160)}`);
-  await tiers.getByPlaceholder(/PSBT reçu du client/).fill(sqPsbt);
+  // A3 : la demande part au tiers par le relais Swissquote (lien), sans copier-coller de PSBT.
+  await nd.getByRole("button", { name: /^Envoyer la demande à/ }).click();
+  const link = (await nd.getByTestId("relay-link").textContent({ timeout: 10000 }))!;
+  await tiers.goto(link);
+  await tiers.waitForFunction(() => !!(document.querySelector("textarea[placeholder^='PSBT reçu']") as HTMLTextAreaElement | null)?.value, null, { timeout: 10000 });
+  const loaded = await tiers.getByPlaceholder(/PSBT reçu du client/).inputValue();
   await tiers.getByPlaceholder("mot1 mot2 … mot24").fill(tiersWords.join(" "));
   await tiers.getByRole("button", { name: "Signer en tant que tiers" }).click();
-  const tiersPsbt = await tiers.locator(".step textarea[readonly]").inputValue();
-  await nd.getByPlaceholder("PSBT signé par le tiers (cHNidP8…)").fill(tiersPsbt);
-  await nd.getByRole("button", { name: "Ajouter la signature du tiers" }).click();
+  await tiers.getByRole("button", { name: "Renvoyer au client via Swissquote" }).click();
+  await tiers.getByTestId("relay-sent").waitFor({ timeout: 10000 });
+  await nd.getByRole("button", { name: "Récupérer la signature du tiers" }).click();
+  await nd.getByRole("button", { name: "Diffuser la recovery" }).waitFor({ timeout: 10000 });
+  report("6-20", "Recovery sans copier-coller (A3) : demande envoyée au tiers par un lien relayé par Swissquote, PSBT chargé dans sa console, signature renvoyée et récupérée par le client",
+    loaded === sqPsbt && link.startsWith(`${CONSOLE}/?req=`), `lien ${link} ; PSBT chargé chez le tiers identique à celui signé par Swissquote : ${loaded === sqPsbt}`);
   await nd.getByRole("button", { name: "Diffuser la recovery" }).click();
   const early = await nd.locator(".step .error").last().textContent({ timeout: 15000 });
   await shot(nd, "7-recovery-refus");

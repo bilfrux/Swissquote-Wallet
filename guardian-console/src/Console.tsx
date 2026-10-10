@@ -1,13 +1,17 @@
 // Console du TIERS DE CONFIANCE : indépendante de l'app cliente et de Swissquote.
 // La phrase du tiers est lue dans le champ au moment du clic, utilisée, puis effacée : jamais mise dans l'état React,
 // jamais écrite dans localStorage/sessionStorage, jamais journalisée.
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { btc } from "@bitcoinerlab/descriptors-scure";
 import { base64 } from "@scure/base";
 import { type NetworkName, btcNetwork } from "@sq/bitcoin";
 import { accountKey, masterFromMnemonic, newMnemonic } from "@sq/bitcoin/keys";
 import { signPsbtWithMnemonic } from "@sq/bitcoin/sign";
 
+// Relais Swissquote (A3) : la demande arrive par un lien ?req=… ; la signature y est renvoyée. Swissquote transporte
+// seulement : la phrase du tiers ne quitte jamais cette console.
+const BANK_URL = import.meta.env.VITE_BANK_MOCK_URL ?? "http://localhost:4000";
+const REQ = new URLSearchParams(location.search).get("req");
 const NETWORK = (import.meta.env.VITE_BTC_NETWORK ?? "signet") as NetworkName;
 const fmt = (s: bigint) => `${s.toString().padStart(9, "0").replace(/(\d{8})$/, ".$1")} BTC`;
 
@@ -35,6 +39,12 @@ export function Console() {
   // Identité de tiers créée ici : phrase affichée une fois (jusqu'à « J'ai noté »), jamais stockée.
   const [identity, setIdentity] = useState<{ words: string[]; key: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sent, setSent] = useState(false);
+  useEffect(() => {
+    if (!REQ) return;
+    fetch(`${BANK_URL}/relay?id=${REQ}`).then(async (r) => { const j = await r.json(); if (!r.ok) throw new Error(j.error); setPsbt(j.psbt); })
+      .catch((e) => setError(`demande introuvable : ${e.message}`));
+  }, []);
 
   // Lit la phrase, l'utilise, l'efface du champ, quoi qu'il arrive.
   const withPhrase = <T,>(f: (phrase: string) => T): T | undefined => {
@@ -130,6 +140,12 @@ export function Console() {
             <p className="success">{signed.added} signature(s) ajoutée(s). Renvoyez ce PSBT au client.</p>
             <textarea readOnly rows={4} className="mono" value={signed.psbt} />
             <button className="small" onClick={() => navigator.clipboard.writeText(signed.psbt)}>Copier le PSBT signé</button>
+            {REQ && (sent ? <p className="success" data-testid="relay-sent">Signature renvoyée au client via Swissquote.</p> : (
+              <button onClick={async () => {
+                const r = await fetch(`${BANK_URL}/relay/signed`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: REQ, psbt: signed.psbt }) });
+                if (r.ok) setSent(true); else setError((await r.json()).error);
+              }}>Renvoyer au client via Swissquote</button>
+            ))}
           </div>
         )}
       </section>

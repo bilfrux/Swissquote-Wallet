@@ -93,3 +93,6 @@ export async function withdrawToWallet(address: string, amountSats: number) {
   catch (e: any) { if (/preuve de propriété requise/.test(e.message)) throw new NeedProof(e.message); throw e; }
 }
 export const ownershipStatus = async (address: string): Promise<boolean> => (await call(`/ownership/status?address=${encodeURIComponent(address)}`)).verified;
+// Relais vers le tiers (A3) : dépôt du PSBT signé par Swissquote, puis lecture de la signature du tiers.
+export const relayCreate = async (psbt: string): Promise<string> => (await call("/relay", { psbt })).id;
+export const relayGet = async (id: string): Promise<{ psbt: string; signed: string | null }> => call(`/relay?id=${id}`);

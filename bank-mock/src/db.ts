@@ -31,3 +31,9 @@ db.exec(`create table if not exists ownership_challenges (
   change integer not null, idx integer not null, address text not null, message text not null,
   expires_at integer not null, used_at integer, verified_at integer
 )`);
+
+// Relais des demandes de signature vers le tiers de confiance (A3).
+db.exec(`create table if not exists relay (
+  id text primary key, customer_id text not null, psbt text not null, signed text,
+  created_at text not null default (datetime('now'))
+)`);

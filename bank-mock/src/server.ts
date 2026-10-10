@@ -5,7 +5,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { randomBytes } from "node:crypto";
 import { Verifier } from "bip322-js";
-import { type NetworkName, type WalletConfig, addresses, clientKeyAddress, createWalletConfig, inputsBelongTo, outputAt, simulate } from "@sq/bitcoin";
+import { type NetworkName, type WalletConfig, addresses, clientKeyAddress, combinePsbts, createWalletConfig, inputsBelongTo, outputAt, simulate } from "@sq/bitcoin";
 import { db } from "./db.ts";
 import { signAsSwissquote, swissquoteAccountKey } from "./guardian.ts";
 import { TEST_CUSTOMERS, customerFromToken, verifyIdentity } from "./kyc.ts";
@@ -15,7 +15,7 @@ import { notify, runAlerts } from "./alerts.ts";
 import { CustodyError, balance, depositAddress, records, syncDeposits, withdraw } from "./custody.ts";
 
 const PORT = Number(process.env.BANK_MOCK_PORT ?? 4000);
-const ORIGINS = (process.env.BANK_MOCK_ORIGINS ?? "http://localhost:5173,http://localhost:5174").split(",");
+const ORIGINS = (process.env.BANK_MOCK_ORIGINS ?? "http://localhost:5173,http://localhost:5174,http://localhost:5175").split(",");
 const NETWORKS: NetworkName[] = ["regtest", "signet"];
 
 class HttpError extends Error {
@@ -208,6 +208,30 @@ async function route(req: IncomingMessage, body: any, url: URL) {
           ? `Le client détient la clé privée de sa clé client à l'index ${c.idx} (signature BIP-322 vérifiée pour ${keyAddress}). D'après la politique enregistrée, cette clé suffit seule à dépenser l'adresse ${c.address} (chemin client).`
           : "Aucune propriété démontrée : signature invalide pour la clé client attendue.",
       };
+    }
+
+    // Relais vers le tiers de confiance (A3) : le client dépose le PSBT déjà signé par Swissquote, le tiers l'ouvre par
+    // un lien (identifiant aléatoire de 128 bits) et y renvoie sa signature. Swissquote ne fait que transporter :
+    // la signature du tiers ne se fait que dans sa console.
+    case "POST /relay": {
+      const customerId = customerFromSession(req.headers.authorization);
+      if (!customerId) throw new HttpError(401, "session expirée : reconnectez-vous");
+      const id = randomBytes(16).toString("hex");
+      db.prepare("insert into relay (id, customer_id, psbt) values (?, ?, ?)").run(id, customerId, String(body.psbt ?? ""));
+      return { id };
+    }
+    case "GET /relay": {
+      const row = db.prepare("select psbt, signed from relay where id = ?").get(String(url.searchParams.get("id") ?? "")) as any;
+      if (!row) throw new HttpError(404, "demande inconnue");
+      return { psbt: row.psbt, signed: row.signed };
+    }
+    case "POST /relay/signed": {
+      const row = db.prepare("select psbt from relay where id = ?").get(String(body.id ?? "")) as any;
+      if (!row) throw new HttpError(404, "demande inconnue");
+      // Doit être la MÊME transaction (sinon combinePsbts échoue) : le tiers ne peut pas substituer une autre dépense.
+      try { combinePsbts([row.psbt, String(body.psbt ?? "")]); } catch { throw new HttpError(400, "PSBT signé sans rapport avec la demande"); }
+      db.prepare("update relay set signed = ? where id = ?").run(String(body.psbt), String(body.id));
+      return { ok: true };
     }
 
     case "GET /notifications": {

@@ -6,15 +6,17 @@ import {
   type PsbtSummary as Summary, type WalletConfig, type WalletUtxo,
   buildSpend, combinePsbts, createWalletConfig, finalizePsbt, outputAt, scan, simulate,
 } from "@sq/bitcoin";
-import { type KycForm, type RegisteredAccount, guardianSign, listAccounts, registerAccount, verifyIdentity } from "../lib/bank";
+import { type KycForm, type RegisteredAccount, guardianSign, listAccounts, registerAccount, relayCreate, relayGet, verifyIdentity } from "../lib/bank";
 import { chain, txLink } from "../lib/chain";
 import { type BtcAccount, NETWORK } from "../lib/config";
 import { walletRequest } from "../lib/walletBridge";
 import { btcFmt } from "../lib/format";
 import { PsbtSummary } from "../simulation/PsbtSummary";
 
+const CONSOLE_URL = import.meta.env.VITE_GUARDIAN_CONSOLE_URL ?? "http://localhost:5174";
+
 // État persistant (données publiques uniquement : clés publiques et PSBT), pour survivre aux D blocs d'attente.
-type Saved = { old?: RegisteredAccount; newClient?: string; newAccountId?: number; newWalletId?: string; psbt?: string; sqPsbt?: string; combined?: string; txid?: string };
+type Saved = { old?: RegisteredAccount; newClient?: string; newAccountId?: number; newWalletId?: string; psbt?: string; sqPsbt?: string; relayId?: string; combined?: string; txid?: string };
 const KEY = `sq-wallet:recovery:${NETWORK}`;
 const load = (): Saved => JSON.parse(localStorage.getItem(KEY) ?? "{}");
 
@@ -52,6 +54,13 @@ export function Recovery({ onDone, onCancel }: { onDone: (a: BtcAccount) => void
 
   const waitBlocks = utxos?.length ? Math.max(...utxos.map((u) => u.recoveryOpensIn)) : null;
   const labels = newCfg ? { [outputAt(newCfg, 0, 0).getAddress()]: "votre nouveau compte" } : {};
+  // Ajoute la signature du tiers (reçue par le relais Swissquote ou collée à la main) et vérifie qu'elle complète la recovery.
+  const addTiers = (signed: string) => {
+    const combined = combinePsbts([s.sqPsbt!, signed]);
+    const sum = simulate(oldCfg!, combined);
+    if (sum.path !== "recovery" || sum.inputs.some((i) => i.signatures < 2)) throw new Error("il manque une signature (Swissquote + tiers requis sur chaque coin)");
+    save({ combined });
+  };
   const combinedSummary: Summary | null = oldCfg && s.combined ? simulate(oldCfg, s.combined) : null;
 
   return (
@@ -148,19 +157,29 @@ export function Recovery({ onDone, onCancel }: { onDone: (a: BtcAccount) => void
         <div className="step">
           <h3>5. Signature de votre tiers de confiance</h3>
           <p className="note">Envoyez ce PSBT à {s.old?.tiersName || "votre tiers"}. Il le vérifie et le signe dans sa console guardian, puis vous le renvoie.</p>
+          {!s.relayId ? (
+            <button onClick={guard(async () => save({ relayId: await relayCreate(s.sqPsbt!) }))}>Envoyer la demande à {s.old?.tiersName || "mon tiers"}</button>
+          ) : (
+            <>
+              <p className="note">Lien à transmettre à votre tiers (il ouvre sa console avec la demande déjà chargée) :</p>
+              <p className="mono small" data-testid="relay-link">{`${CONSOLE_URL}/?req=${s.relayId}`}</p>
+              {!s.combined && <button onClick={guard(async () => {
+                const r = await relayGet(s.relayId!);
+                if (!r.signed) throw new Error("pas encore signé par votre tiers");
+                addTiers(r.signed);
+              })}>Récupérer la signature du tiers</button>}
+            </>
+          )}
+          <details><summary className="small">Sans Swissquote : échange manuel du PSBT</summary>
           <textarea readOnly rows={3} className="mono" value={s.sqPsbt} />
           <button className="small" onClick={() => navigator.clipboard.writeText(s.sqPsbt!)}>Copier pour le tiers</button>
           {!s.combined && (
             <>
               <textarea rows={3} className="mono" placeholder="PSBT signé par le tiers (cHNidP8…)" value={tiersText} onChange={(e) => setTiersText(e.target.value)} />
-              <button onClick={guard(() => {
-                const combined = combinePsbts([s.sqPsbt!, tiersText]);
-                const sum = simulate(oldCfg, combined);
-                if (sum.path !== "recovery" || sum.inputs.some((i) => i.signatures < 2)) throw new Error("il manque une signature (Swissquote + tiers requis sur chaque coin)");
-                save({ combined });
-              })}>Ajouter la signature du tiers</button>
+              <button onClick={guard(() => addTiers(tiersText))}>Ajouter la signature du tiers</button>
             </>
           )}
+          </details>
         </div>
       )}
 

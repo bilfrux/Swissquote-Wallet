@@ -152,6 +152,7 @@ try {
     await tiers.getByPlaceholder(/PSBT reçu du client/).fill(sqPsbt);
     await tiers.getByPlaceholder("mot1 mot2 … mot24").fill(state.tiersWords.join(" "));
     await tiers.getByRole("button", { name: "Signer en tant que tiers" }).click();
+    await nd.getByText("Sans Swissquote : échange manuel du PSBT").click();
     await nd.getByPlaceholder("PSBT signé par le tiers (cHNidP8…)").fill(await tiers.locator(".step textarea[readonly]").inputValue());
     await nd.getByRole("button", { name: "Ajouter la signature du tiers" }).click();
     await nd.getByRole("button", { name: "Diffuser la recovery" }).click();

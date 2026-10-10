@@ -1,0 +1,8 @@
+[OK ] 12-1 Le client dépose la demande (session requise) ; le tiers la lit par l'identifiant du lien, sans copier-coller
+       sans session : 401 ; identifiant 2dc22c82820458f1bb8dfa384483df00 (128 bits) ; PSBT relu identique : true
+[OK ] 12-2 Signature du tiers renvoyée par le relais et récupérée par le client ; PSBT d'une autre transaction refusé ; identifiant inconnu refusé
+       autre transaction : 400 « PSBT signé sans rapport avec la demande » ; inconnu : 404 ; renvoi : 200 ; signatures du tiers par coin : 1
+
+RÉSUMÉ
+12-1 fonctionne         Le client dépose la demande (session requise) ; le tiers la lit par l'identifiant du lien, sans copier-coller
+12-2 fonctionne         Signature du tiers renvoyée par le relais et récupérée par le client ; PSBT d'une autre transaction refusé ; identifiant inconnu refusé
