@@ -1,6 +1,6 @@
 /* Style inspiré de la plateforme et de l'appli Swissquote (captures de référence fournies par l'équipe). */
 :root {
-  --red: #e8312f; --red-soft: #fdecec; --blue: #2f64d8; --blue-soft: #e9effc; --green: #12805c;
+  --red: #fe5e3a; --red-soft: #fff0ec; --red-text: #d6401f; --blue: #2f64d8; --blue-soft: #e9effc; --green: #12805c;
   --bg: #eef1f7; --card: #fff; --line: #e2e7f0; --text: #1f2633; --muted: #6b7487; --dark: #22272f;
   font-family: "Inter", "Helvetica Neue", Arial, system-ui, sans-serif; color: var(--text); background: var(--bg);
   font-size: 14px;
@@ -14,11 +14,10 @@ a { color: var(--blue); }
 .muted { color: var(--muted); } .muted-strong { color: var(--text); font-size: 16px; margin: 0 0 8px; }
 .small, .small-text { font-size: 12px; } .center { text-align: center; }
 .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; word-break: break-all; }
-.neg { color: var(--red); } .pos, .up { color: var(--green); } .down { color: var(--red); }
+.neg { color: var(--red-text); } .pos, .up { color: var(--green); } .down { color: var(--red-text); }
 
 /* Marque */
 .brand { display: inline-flex; align-items: center; gap: 8px; }
-.brand-word { font-weight: 700; font-size: 21px; letter-spacing: -.2px; color: var(--text); }
 
 /* Boutons */
 button { font: inherit; cursor: pointer; border: 0; border-radius: 8px; padding: 8px 14px; background: var(--blue); color: #fff; font-weight: 500; }
@@ -54,11 +53,11 @@ td.num, th.num { text-align: right; white-space: nowrap; }
 .address { font-size: 14px; background: #f6f8fc; padding: 10px 12px; border-radius: 8px; }
 .promise { padding-left: 18px; line-height: 1.6; } .promise.compact { font-size: 13px; }
 .note { color: var(--muted); font-size: 13px; }
-.error { color: var(--red); background: var(--red-soft); padding: 8px 12px; border-radius: 8px; }
+.error { color: var(--red-text); background: var(--red-soft); padding: 8px 12px; border-radius: 8px; }
 .warning { background: #fff5dc; border: 1px solid #f3d27a; padding: 10px 14px; border-radius: 10px; }
 .success { background: #e5f5ee; color: #0d5b41; padding: 8px 12px; border-radius: 8px; }
 .banner { background: var(--blue-soft); padding: 9px 14px; border-radius: 10px; }
-.danger { color: var(--red); font-weight: 600; }
+.danger { color: var(--red-text); font-weight: 600; }
 
 /* Chiffres */
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; padding: 14px 6px; }

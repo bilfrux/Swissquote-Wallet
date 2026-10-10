@@ -70,7 +70,7 @@ Captures : `captures/etape-6-*.png` (connexion, aperçu, phrase du wallet, walle
 | Accueil | « Vue d'ensemble » : bandeau de chiffres, lignes Comptes / Crypto / Dernières opérations, graphique d'évolution avec sélecteur de période | Valeur totale centrée, carte avec montant, drapeau, variation, graphique, sélecteur 1S…Tout, tuiles 2×2 (Comptes, Crypto, Cash, Épargne), boutons ronds (Recevoir, Envoyer, Opérations) |
 | Crypto | Bandeau (solde, contre-valeur, prochaine ouverture de la recovery), cartes Recevoir / Sécurité / Coins / Envoyer | Solde centré, boutons ronds (Recevoir, Envoyer, Sécurité), cartes empilées |
 
-Choix : marque **redessinée** (rond rouge et mot-symbole), sans les fichiers officiels de Swissquote, à remplacer par le kit de marque s'il est fourni. Chiffres au format suisse (`36’309.84`). La variation du jour et la courbe de l'accueil sont **simulées** et étiquetées comme telles. Le Wallet du client garde son propre style. La console guardian a désormais sa propre feuille de style (`guardian-console/src/console.css`).
+Logo : **logo officiel Swissquote fourni par l'équipe**, recadré et rendu transparent (`client/public/swissquote-logo.png`, rond seul pour l'icône d'onglet : `swissquote-mark.png`) ; couleur d'accent alignée sur celle du logo (`#fe5e3a`). Chiffres au format suisse (`36’309.84`). La variation du jour et la courbe de l'accueil sont **simulées** et étiquetées comme telles. Le Wallet du client garde son propre style. La console guardian a désormais sa propre feuille de style (`guardian-console/src/console.css`).
 
 | Vérification | Commande | Verdict |
 | --- | --- | --- |

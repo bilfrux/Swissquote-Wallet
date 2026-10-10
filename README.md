@@ -49,7 +49,7 @@ Si un port de Vite est déjà pris, la console prend le suivant (affiché dans l
 6. **Perte du wallet** : dans le Wallet du client (http://localhost:5180), « Simuler la perte de cet appareil ». Puis, dans un autre profil de navigateur, se reconnecter et cliquer sur « J'ai perdu mon wallet ». Re-KYC mocké de CH-0002 : `Exemple`, `1985-06-15`, `654321`. Ensuite : nouveau wallet, signature Swissquote, signature du tiers dans sa console, diffusion. **Le réseau refuse** (`non-BIP68-final`) ; après `npm run regtest -- mine 6`, diffuser à nouveau : accepté.
 7. **Démo** : les trois boutons d'attaque.
 
-L'interface s'adapte à la largeur : version téléphone sous 820 px (barre d'onglets en bas), version ordinateur au-delà (menu, rail latéral, barre d'état).
+Le logo est le logo officiel fourni par l'équipe (`client/public/`). L'interface s'adapte à la largeur : version téléphone sous 820 px (barre d'onglets en bas), version ordinateur au-delà (menu, rail latéral, barre d'état).
 
 ## Preuves
 

@@ -31,7 +31,7 @@ export function Shell(p: Props) {
     return (
       <div className="m-app">
         <div className="m-top">
-          <Logo size={22} />
+          <Logo size={26} />
           <button className="round" aria-label="Mon compte" onClick={() => setSheet(!sheet)}><IconUser /></button>
         </div>
         {sheet && (

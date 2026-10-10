@@ -1,13 +1,13 @@
 [OK ] 6-1 Console : identité de tiers créée, phrase affichée une fois puis masquée, clé publique fournie
-       24 mots, puis 0 affiché(s) ; clé [2a3df695/48'/1'/0'/2']tpubDEo…
+       24 mots, puis 0 affiché(s) ; clé [44044226/48'/1'/0'/2']tpubDE2…
 [OK ] 6-2 Connexion e-banking simulée (mauvais mot de passe refusé), aperçu avec comptes CHF et tuile « Créer mon wallet »
        identifiant ou mot de passe incorrect ; aperçu affiché
 [OK ] 6-3 Wallet du client : 24 mots générés et affichés une fois ; la banque reçoit la clé publique, la politique est enregistrée dans le wallet
-       wallet 809d09a7, politique : délai 6, tiers Marie Dupont ; mots=24, phrase stockée = phrase affichée : true, wallets stockés=1
+       wallet 56921fe8, politique : délai 6, tiers Marie Dupont ; mots=24, phrase stockée = phrase affichée : true, wallets stockés=1
 [OK ] 6-4 La phrase du client n'est ni dans l'appli (stockage, page), ni dans la base de Swissquote ; seule la clé publique y est
        phrase dans l'appli : false ; 4 premiers mots dans l'appli : false ; phrase chez Swissquote : false ; clé publique chez Swissquote : true
 [OK ] 6-5 Réception : 0,5 BTC visibles dans l'onglet Crypto
-       bcrt1qjtq8jevhu3m27qvuy856k55pggugj5xncy77jy9ckyw87p909ftqadvege
+       bcrt1q2pfwh3m007hm5un5lfgh6u2sh3ggm0q272f3end497zszmrnu0rslj3xll
 [OK ] 6-6 Envoi : refus dans le wallet remonté à l'appli ; écran de confirmation (chemin, sorties, montants, frais) ; signé, diffusé, confirmé
        refus : « refusé par le client » ; écran : Confirmer l'envoiDemande de http://localhost:5191 · wallet « Wallet Bitcoin Swissquote »Chemin de dépense votre clé seule (dépense normale, sans délai)Coins dépensés 1 · 0.50000000 BTCvers0.10000000 B… ; confirmations=1
 [OK ] 6-7 Depuis l'origine de la banque, l'API du wallet est inaccessible : lecture bloquée (CORS) et POST refusé avant exécution (403)

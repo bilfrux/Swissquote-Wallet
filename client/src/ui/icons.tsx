@@ -17,15 +17,9 @@ export const IconChevron = () => <S size={18}><path d="m9 6 6 6-6 6" /></S>;
 export const IconCash = () => <S><rect x="3" y="7" width="18" height="10" rx="1.5" /><circle cx="12" cy="12" r="2.2" /></S>;
 export const IconSavings = () => <S><path d="M5 11c0-3 3-5 7-5s7 2 7 5-3 6-7 6-7-3-7-6Z" /><path d="M12 6V4M9 20l1-3M15 20l-1-3" /></S>;
 
-// Marque redessinée (rond rouge + mot-symbole). Remplaçable par le logo officiel du kit de marque.
-export const Logo = ({ size = 26 }: { size?: number }) => (
-  <span className="brand" aria-label="Swissquote">
-    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
-      <circle cx="16" cy="16" r="16" fill="#e8312f" />
-      <path d="M21 11.2C20.2 9.6 18.4 8.8 16 8.8c-3 0-5 1.4-5 3.4 0 4.6 10.2 2.6 10.2 7.4 0 2.1-2.2 3.6-5.3 3.6-2.6 0-4.5-1-5.4-2.7" stroke="#fff" strokeWidth="2.6" fill="none" strokeLinecap="round" />
-    </svg>
-    <span className="brand-word">Swissquote</span>
-  </span>
+// Logo officiel Swissquote (fichier fourni par l'équipe, recadré, fond rendu transparent : public/swissquote-logo.png).
+export const Logo = ({ size = 30 }: { size?: number }) => (
+  <span className="brand"><img src="/swissquote-logo.png" alt="Swissquote" height={size} style={{ height: size, width: "auto" }} /></span>
 );
 
 export const SwissFlag = () => (
