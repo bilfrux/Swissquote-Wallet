@@ -83,6 +83,72 @@ try {
       `rafraîchissement ${refreshTxid.slice(0, 16)}… ; recovery signée avant : ${vPending} ; nouvelle recovery à ${after[0].confirmations} conf du nouveau coin : ${vFresh}`);
   }
 
+  // 4. Après la recovery, la NOUVELLE clé du client dépense réellement ; l'ancienne clé ne signe rien sur le nouveau compte.
+  {
+    const lost = newMnemonic(), fresh = newMnemonic();
+    const A = await account(lost);
+    const B = await account(fresh);
+    await pay(outputAt(A, 0, 0).getAddress(), 0.1);
+    await mine(D);
+    const rec = await recoveryTx(A, B);
+    const recTxid = await rpc.broadcast(rec.hex);
+    await mine(1);
+    const spend = await buildSpend({ cfg: B, backend: rpc, utxos: await scan(B, rpc), path: "client", feeRate: 2, to: minerAddr });
+    let oldKey: string;
+    try { oldKey = `${signPsbtWithMnemonic(spend.psbt, lost, "regtest").added} signature(s)`; } catch (e) { oldKey = `refus : ${(e as Error).message}`; }
+    const v = await nodeVerdict(clientSign(B, spend.psbt, fresh).hex);
+    report("4", "Après la recovery, la nouvelle clé du client dépense seule le nouveau compte ; l'ancienne clé n'y signe aucune entrée",
+      v === "accepted" && (oldKey === "0 signature(s)" || oldKey.startsWith("refus")) && (await scan(A, rpc)).length === 0,
+      `recovery ${recTxid.slice(0, 16)}… ; ancienne clé sur le nouveau compte : ${oldKey} ; dépense par la nouvelle clé : ${v}`);
+  }
+
+  // 5 à 7. Course APRÈS D : les deux chemins sont valides ; la transaction confirmée la première l'emporte.
+  const raceSetup = async () => {
+    const seed = newMnemonic();
+    const A = await account(seed);
+    const B = await account(newMnemonic());
+    await pay(outputAt(A, 0, 0).getAddress(), 0.1);
+    await mine(D); // recovery ouverte
+    const rec = await recoveryTx(A, B);
+    const own = async (feeRate: number) => clientSign(A, (await buildSpend({ cfg: A, backend: rpc, utxos: await scan(A, rpc), path: "client", feeRate, to: outputAt(A, 1, 0).getAddress() })).psbt, seed);
+    return { A, B, rec, own };
+  };
+  {
+    const { B, rec, own } = await raceSetup();
+    const mineTx = await own(2);
+    const vRecOpen = await nodeVerdict(rec.hex);
+    await rpc.broadcast(mineTx.hex);
+    await mine(1);
+    const vRec = await nodeVerdict(rec.hex);
+    report("5", "Après D, le client dépense le premier (confirmé) : la recovery signée par Swissquote + tiers devient invalide",
+      vRecOpen === "accepted" && vRec === "missing-inputs" && (await scan(B, rpc)).length === 0,
+      `recovery valide avant le geste du client : ${vRecOpen} ; après la dépense confirmée du client : ${vRec}`);
+  }
+  {
+    const { A, B, rec, own } = await raceSetup();
+    const mineTx = await own(2);
+    await rpc.broadcast(rec.hex);
+    await mine(1);
+    const vMine = await nodeVerdict(mineTx.hex);
+    report("6", "Après D, Swissquote + tiers dépensent les premiers (confirmé) : le client ne peut plus rien sur ces coins (limite assumée)",
+      vMine === "missing-inputs" && (await scan(A, rpc)).length === 0 && (await scan(B, rpc)).length === 1,
+      `dépense du client après la recovery confirmée : ${vMine} ; fonds sur le compte de recovery`);
+  }
+  {
+    // Observation (politique de mempool, pas consensus) : recovery diffusée mais pas encore minée ;
+    // le client, alerté, diffuse une dépense concurrente avec des frais plus élevés.
+    const { A, B, rec, own } = await raceSetup();
+    await rpc.broadcast(rec.hex);
+    const mineTx = await own(20);
+    const vMine = await nodeVerdict(mineTx.hex);
+    if (vMine === "accepted") await rpc.broadcast(mineTx.hex);
+    await mine(1);
+    const [left, got, refreshed] = [await scan(A, rpc), await scan(B, rpc), (await scan(A, rpc)).filter((u) => u.address === outputAt(A, 1, 0).getAddress())];
+    report("7", "Observation : recovery dans la mempool, non minée ; le client diffuse une dépense concurrente à frais plus élevés",
+      true,
+      `verdict du nœud sur la dépense du client : ${vMine} ; après 1 bloc : compte de recovery ${got.length} coin, compte du client ${left.length} coin (rafraîchi : ${refreshed.length})`);
+  }
+
   // 3. Pendant tout ce temps, le client dépense seul, sans délai ni Swissquote.
   {
     const seed = newMnemonic();

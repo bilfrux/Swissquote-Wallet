@@ -1,0 +1,24 @@
+$ npm run -s validate:3   (bitcoind 29 regtest, Docker)
+[OK ] 1 Recovery Swissquote + tiers : refusée par le consensus avant D, acceptée à D pour le coin le plus récent ; fonds sur le nouveau compte
+       confirmations des coins au départ=1,4 ; à 1 conf : non-BIP68-final ; à 4/7 conf : non-BIP68-final ; plus récent à 5 : non-BIP68-final ; à 6 : accepted ; txid=9cdcb5a0c68c89da16d87076d1f5e3fc371cf3dc22cbf331e3b9b0c64f60bef9 ; ancien compte : 0 coin, nouveau : 49999470 sats
+[OK ] 2 Rafraîchissement avant D : la recovery déjà signée devient invalide ; sur le nouveau coin le délai repart de zéro
+       avertissement à 4 conf (recovery dans 2 blocs) : affiché ; rafraîchissement cd6598d479123667… ; recovery signée avant : missing-inputs ; nouvelle recovery à 4 conf du nouveau coin : non-BIP68-final
+[OK ] 4 Après la recovery, la nouvelle clé du client dépense seule le nouveau compte ; l'ancienne clé n'y signe aucune entrée
+       recovery 8de539080aa6917c… ; ancienne clé sur le nouveau compte : refus : No inputs were signed ; dépense par la nouvelle clé : accepted
+[OK ] 5 Après D, le client dépense le premier (confirmé) : la recovery signée par Swissquote + tiers devient invalide
+       recovery valide avant le geste du client : accepted ; après la dépense confirmée du client : missing-inputs
+[OK ] 6 Après D, Swissquote + tiers dépensent les premiers (confirmé) : le client ne peut plus rien sur ces coins (limite assumée)
+       dépense du client après la recovery confirmée : missing-inputs ; fonds sur le compte de recovery
+[OK ] 7 Observation : recovery dans la mempool, non minée ; le client diffuse une dépense concurrente à frais plus élevés
+       verdict du nœud sur la dépense du client : accepted ; après 1 bloc : compte de recovery 0 coin, compte du client 1 coin (rafraîchi : 1)
+[OK ] 3 Client seul, 1 confirmation, Swissquote arrêtée : dépense acceptée
+       verdict du nœud : accepted
+
+RÉSUMÉ
+1   fonctionne         Recovery Swissquote + tiers : refusée par le consensus avant D, acceptée à D pour le coin le plus récent ; fonds sur le nouveau compte
+2   fonctionne         Rafraîchissement avant D : la recovery déjà signée devient invalide ; sur le nouveau coin le délai repart de zéro
+4   fonctionne         Après la recovery, la nouvelle clé du client dépense seule le nouveau compte ; l'ancienne clé n'y signe aucune entrée
+5   fonctionne         Après D, le client dépense le premier (confirmé) : la recovery signée par Swissquote + tiers devient invalide
+6   fonctionne         Après D, Swissquote + tiers dépensent les premiers (confirmé) : le client ne peut plus rien sur ces coins (limite assumée)
+7   fonctionne         Observation : recovery dans la mempool, non minée ; le client diffuse une dépense concurrente à frais plus élevés
+3   fonctionne         Client seul, 1 confirmation, Swissquote arrêtée : dépense acceptée
