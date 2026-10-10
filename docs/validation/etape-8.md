@@ -2,14 +2,21 @@
 
 ## No. 1: the interface on the real signet network
 
-`npm run demo:signet` starts the app, the console and the Client Wallet on signet (reading and broadcasting through the blockstream.info Esplora API). Test: `npm run validate:8:signet -- create | spend | recover` (headless Chrome; test state in `.local/signet-ui/`, ignored by git).
+`npm run demo:signet` starts the app, the console and the Client Wallet on signet (reading and broadcasting through the blockstream.info Esplora API). Test: `APP_URL=… CONSOLE_URL=… npm run validate:8:signet -- create | spend | recover` (headless Chrome; test state in `.local/signet-ui/`, ignored by git).
 
 | # | Criterion | Verdict |
 | --- | --- | --- |
 | 8-1 | Signet, interface: wallet CH-0003 created through the Client Wallet, balance read on signet, address `tb1qsd8naqffu8q4460kjvwd3nmu4svzw5tmg3xdv06q0nh6zeyl2xuq9m06j6` | works (`etape-8-signet-create-sortie.txt`) |
 | 8-2 | Signet, interface: ownership proof verified by Swissquote | works |
-| 8-3 | Signet, interface: send signed in the Client Wallet, broadcast, visible on the explorer | **not tested**: waiting for signet BTC on the address above (faucet) |
-| 8-4 | Signet, interface: Swissquote + contact recovery from a new device | **not tested**: after 8-3 and 6 confirmations |
+| 8-3 | Signet, interface: send signed in the Client Wallet after the confirmation screen, broadcast, visible on the explorer | works (11 Oct): 600 sats, [tx f7ce359c…2447](https://blockstream.info/signet/tx/f7ce359c68ffe37673e52209d8dbb7cf9f9f8df156b0af803c238acf5d362447), confirmed in block 325811 (`etape-8-signet-spend-sortie.txt`, captures `etape-8-2`, `etape-8-3`) |
+| 8-4 | Signet, interface: wallet erased from the Client Wallet, then Swissquote + contact recovery from a new device, request sent to the contact through the Swissquote relay (A3), broadcast, new wallet opened | works (11 Oct) at 6 confirmations of the change coin: 9,216 sats spent through the recovery path (nSequence 6), 8,898 sats to the new account, [tx c5ca6873…e400](https://blockstream.info/signet/tx/c5ca687307c29ac6eced03694aa56f41f34f35d42e8956dcbe05ec9001c4e400), not yet confirmed when read (`etape-8-signet-recover-sortie.txt`, captures `etape-8-4`, `etape-8-5`) |
+
+**What blocked 8-3 in the handoff, and the fixes (11 Oct).**
+- The script targeted `localhost:5173`, which was taken by another project's dev server (the Stellar app). The app, the wallet and the backend were not at fault. `APP_URL` and `WALLET_URL` are now configurable. The run used the app on 5183 and the console on 5184.
+- The `recover` phase still targeted the pre-A3, French interface. It now follows the relay (link sent to the contact) and the English texts. A guard stops it, **without erasing anything**, while the coin has fewer than 6 confirmations (observed: exit 2, wallet intact).
+- Recover attempt 1 waited for "No wallet on this device.", which never appears because the Client Wallet also holds two regtest wallets. The signet wallet **was** erased (the intended loss). The script now waits for the card to disappear and does not redo the loss if it already happened.
+- Recover attempt 2: the relay link pointed to the console's default URL (`5174`) instead of 5184. The demo was restarted with `VITE_GUARDIAN_CONSOLE_URL`.
+- Attempt 3: all criteria met, no error in the browser consoles.
 
 This signet wallet was created before the PIN was added: it is "not protected" (seed in clear), which the Client Wallet flags.
 

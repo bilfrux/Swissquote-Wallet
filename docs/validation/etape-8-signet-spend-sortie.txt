@@ -1,0 +1,16 @@
+$ APP_URL=http://localhost:5183 CONSOLE_URL=http://localhost:5184 npm run -s validate:8:signet -- spend
+[OK ] 8-3 Signet, interface : envoi signé dans le Wallet du client après confirmation, diffusé, visible sur l'explorateur public
+       coins avant : 10000 sats ; https://blockstream.info/signet/tx/f7ce359c68ffe37673e52209d8dbb7cf9f9f8df156b0af803c238acf5d362447
+[OK ] 8-x Aucune erreur dans les consoles des navigateurs
+       aucune
+
+RÉSUMÉ
+8-3 fonctionne         Signet, interface : envoi signé dans le Wallet du client après confirmation, diffusé, visible sur l'explorateur public
+8-x fonctionne         Aucune erreur dans les consoles des navigateurs
+
+$ curl -s https://blockstream.info/signet/api/tx/f7ce359c…2447   (lu juste après)
+status {'confirmed': False}
+fee 184
+vin 8a34bfcdca7c 2 10000 tb1qsd8naqffu8q4460kjvwd3nmu4svzw5tmg3xdv06q0nh6zeyl2xuq9m06j6
+vout 600 tb1q3k5tcmxvna60ah7uxhhp7zxaec72rf4qpjel7ds86zcayzpx6ecskfuraj
+vout 9216 tb1qryhx8x6muflez5whr3nv89pagdrr9s74gp9ye53dv3vjsec3rgwqfq2vcs

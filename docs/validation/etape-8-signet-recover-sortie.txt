@@ -1,0 +1,42 @@
+$ APP_URL=http://localhost:5183 CONSOLE_URL=http://localhost:5184 npm run -s validate:8:signet -- recover   # essai 0, avant 6 confirmations (garde)
+Rendu de f7ce359c68ffe37673e52209d8dbb7cf9f9f8df156b0af803c238acf5d362447 : 0 confirmation(s) sur 6. Relancer plus tard.
+(sortie 2, wallet signet intact)
+
+$ … -- recover   # essai 1, à 6 confirmations
+    triggerUncaughtException(
+    ^
+
+locator.waitFor: Timeout 10000ms exceeded.
+Call log:
+[2m  - waiting for getByText('No wallet on this device.') to be visible[22m
+
+    at <anonymous> (/Users/f8114/Florian_Travail/ESILV/A4/DVB/Hackathons/EPFL_Hack/Swissquote-Wallet/scripts/validate/etape-8-signet-ui.ts:133:55) {
+  log: [
+    "  - waiting for getByText('No wallet on this device.') to be visible"
+  ],
+  name: 'TimeoutError'
+}
+
+Node.js v24.10.0
+
+$ … -- recover   # essai 2 (script corrigé : attente de la disparition de la carte)
+    triggerUncaughtException(
+    ^
+
+page.waitForFunction: Timeout 10000ms exceeded.
+    at <anonymous> (/Users/f8114/Florian_Travail/ESILV/A4/DVB/Hackathons/EPFL_Hack/Swissquote-Wallet/scripts/validate/etape-8-signet-ui.ts:166:17) {
+  log: [],
+  name: 'TimeoutError'
+}
+
+Node.js v24.10.0
+
+$ VITE_GUARDIAN_CONSOLE_URL=http://localhost:5184 (démo relancée) ; … -- recover   # essai 3
+[OK ] 8-4 Signet, interface : recovery Swissquote + tiers depuis un nouvel appareil (relais A3), diffusée sur le réseau signet, nouveau wallet ouvert
+       ancien wallet absent du Wallet du client : true ; 1 coin(s), 0.00009216 BTC · delay elapsed for all coins Reload ; rendu à 6 conf. ; PSBT relayé identique : true ; https://blockstream.info/signet/tx/c5ca687307c29ac6eced03694aa56f41f34f35d42e8956dcbe05ec9001c4e400
+[OK ] 8-x Aucune erreur dans les consoles des navigateurs
+       aucune
+
+RÉSUMÉ
+8-4 fonctionne         Signet, interface : recovery Swissquote + tiers depuis un nouvel appareil (relais A3), diffusée sur le réseau signet, nouveau wallet ouvert
+8-x fonctionne         Aucune erreur dans les consoles des navigateurs

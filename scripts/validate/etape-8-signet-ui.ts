@@ -2,14 +2,14 @@
 //   npm run validate:8:signet -- create    wallet CH-0003 créé via le Wallet du client + preuve de propriété (sans fonds)
 //   npm run validate:8:signet -- spend     après financement (faucet) : envoi signé dans le Wallet du client, diffusé
 //   npm run validate:8:signet -- recover   après D = 6 confirmations : perte du wallet, recovery Swissquote + tiers
-// Prérequis : npm run demo:signet (appli :5173, bank-mock :4000, console CONSOLE_URL, wallet :5180).
+// Prérequis : npm run demo:signet (appli APP_URL, bank-mock :4000, console CONSOLE_URL, wallet WALLET_URL).
 // État de test (phrase du tiers incluse) : .local/signet-ui/state.json (ignoré par git).
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { type BrowserContext, type Page, chromium } from "playwright-core";
 import { EsploraBackend, createWalletConfig, outputAt } from "@sq/bitcoin";
 import { makeReport } from "./lib.ts";
 
-const APP = "http://localhost:5173", WALLET = "http://localhost:5180";
+const APP = process.env.APP_URL ?? "http://localhost:5173", WALLET = process.env.WALLET_URL ?? "http://localhost:5180";
 const CONSOLE = process.env.CONSOLE_URL ?? "http://localhost:5174";
 const EXPLORER = "https://blockstream.info/signet";
 const chain = new EsploraBackend("https://blockstream.info/signet/api");
@@ -79,7 +79,7 @@ try {
     saveState();
     report("8-1", "Signet, interface : wallet CH-0003 créé via le Wallet du client, solde lu sur le réseau signet (Esplora), adresse tb1q affichée",
       state.address.startsWith("tb1q"), `adresse ${state.address}`);
-    report("8-2", "Signet, interface : preuve de propriété vérifiée par Swissquote", proof.startsWith("Propriété vérifiée"), proof.slice(0, 200));
+    report("8-2", "Signet, interface : preuve de propriété vérifiée par Swissquote", proof.startsWith("Ownership verified"), proof.slice(0, 200));
   }
 
   if (phase === "spend") {
@@ -115,27 +115,38 @@ try {
   }
 
   if (phase === "recover") {
+    // Garde : rien n'est effacé tant que le coin à récupérer n'a pas D = 6 confirmations.
+    const spent = await (await fetch(`https://blockstream.info/signet/api/tx/${state.spendTxid}`)).json();
+    const confs = spent.status?.confirmed ? (await chain.tipHeight()) - spent.status.block_height + 1 : 0;
+    if (confs < 6) { console.log(`Rendu de ${state.spendTxid} : ${confs} confirmation(s) sur 6. Relancer plus tard.`); process.exit(2); }
     // Perte du wallet : effacé du Wallet du client
     const ctxA = await device();
     const lost = await ctxA.newPage();
     await lost.goto(WALLET);
-    const accountKey = JSON.parse(readFileSync("client-wallet/data/wallets.json", "utf8")).find((w: any) => w.policy?.network === "signet" && w.policy?.tiers === state.tiersKey)?.id;
-    if (accountKey) {
-      const card = lost.locator(".card", { hasText: accountKey });
+    const entry = JSON.parse(readFileSync("client-wallet/data/wallets.json", "utf8")).find((w: any) => w.policy?.network === "signet" && w.policy?.tiers === state.tiersKey);
+    if (entry) {
+      state.lostAccountKey = entry.accountKey;
+      saveState();
+      const card = lost.locator(".card", { hasText: entry.id });
       await card.getByRole("button", { name: "Simulate losing this device" }).click();
       await card.getByRole("button", { name: "Erase permanently" }).click();
-    }
+      await card.waitFor({ state: "detached", timeout: 10000 });
+    } else if (!state.lostAccountKey) throw new Error("wallet signet de CH-0003 introuvable dans le Wallet du client");
+    // (sinon : déjà effacé lors d'un essai précédent ; sa clé publique est dans l'état du test)
+    const lostKey: string = state.lostAccountKey;
+    const gone = !JSON.parse(readFileSync("client-wallet/data/wallets.json", "utf8")).some((w: any) => w.accountKey === lostKey);
+    // Nouvel appareil
     const ctx = await device();
     const nd = await login(ctx);
     await nd.getByTestId("btc-balance").waitFor({ timeout: 30000 });
     await nd.locator(".crypto-tabs").getByRole("button", { name: "Security" }).click();
-  await nd.getByRole("button", { name: /I lost my wallet/ }).click();
+    await nd.getByRole("button", { name: /I lost my wallet/ }).click();
     const kyc = nd.locator(".step").first().locator("input");
     await kyc.nth(0).fill("Martin");
     await kyc.nth(1).fill("1992-03-21");
     await kyc.nth(2).fill("246810");
     await nd.getByRole("button", { name: "Verify my identity" }).click();
-    await nd.getByRole("button", { name: "Select" }).last().click();
+    await nd.locator("p", { hasText: lostKey.slice(0, 22) }).getByRole("button", { name: "Select" }).click();
     const coins = (await nd.getByText(/coin\(s\),/).textContent({ timeout: 30000 })) ?? "";
     const w2 = await popupOf(ctx, () => nd.getByRole("button", { name: "Create a new wallet with the Client Wallet" }).click());
     await choosePin(w2);
@@ -146,23 +157,36 @@ try {
     await nd.getByRole("button", { name: "Prepare the request" }).click({ timeout: 30000 });
     await nd.getByRole("button", { name: "Request Swissquote's signature" }).click();
     const sqPsbt = await nd.locator(".step textarea[readonly]").inputValue({ timeout: 20000 });
+    // A3 : la demande part au tiers par le relais Swissquote (lien), sans copier-coller de PSBT.
+    await nd.getByRole("button", { name: /^Send the request to/ }).click();
+    const link = (await nd.getByTestId("relay-link").textContent({ timeout: 10000 }))!;
     const tiersCtx = await device();
     const tiers = await tiersCtx.newPage();
-    await tiers.goto(CONSOLE);
-    await tiers.getByPlaceholder(/PSBT received from the client/).fill(sqPsbt);
+    await tiers.goto(link);
+    await tiers.waitForFunction(() => !!(document.querySelector("textarea[placeholder^='PSBT received']") as HTMLTextAreaElement | null)?.value, null, { timeout: 10000 });
+    const loaded = await tiers.getByPlaceholder(/PSBT received from the client/).inputValue();
     await tiers.getByPlaceholder("word1 word2 … word24").fill(state.tiersWords.join(" "));
     await tiers.getByRole("button", { name: "Sign as trusted contact" }).click();
-    await nd.getByText("Sans Swissquote : échange manuel du PSBT").click();
-    await nd.getByPlaceholder("PSBT signed by the trusted contact (cHNidP8…)").fill(await tiers.locator(".step textarea[readonly]").inputValue());
-    await nd.getByRole("button", { name: "Ajouter la signature du tiers" }).click();
-    await nd.getByRole("button", { name: "Broadcast the recovery" }).click();
+    await tiers.getByRole("button", { name: "Send back to the client via Swissquote" }).click();
+    await tiers.getByTestId("relay-sent").waitFor({ timeout: 10000 });
+    await nd.getByRole("button", { name: "Fetch the trusted contact's signature" }).click();
+    await nd.getByRole("button", { name: "Broadcast the recovery" }).click({ timeout: 10000 });
     const out = (await nd.locator(".step .success, .step .error").last().textContent({ timeout: 30000 })) ?? "";
     await shot(nd, "4-recovery-signet");
-    const txid = out.match(/[0-9a-f]{64}/)?.[0];
+    const txid = out.includes("Recovery broadcast") ? out.match(/[0-9a-f]{64}/)?.[0] : undefined;
     state.recoveryTxid = txid ?? null;
     saveState();
-    report("8-4", "Signet, interface : recovery Swissquote + tiers depuis un nouvel appareil, diffusée sur le réseau signet",
-      !!txid, `${coins.trim()} ; ${txid ? `${EXPLORER}/tx/${txid}` : out.trim()}`);
+    let opened = false;
+    if (txid) {
+      await nd.getByRole("button", { name: "Open my new account" }).click();
+      await nd.getByText("Recovery complete").waitFor({ timeout: 30000 });
+      await shot(nd, "5-nouveau-wallet-signet");
+      opened = true;
+    }
+    const onChain = txid ? await (await fetch(`https://blockstream.info/signet/api/tx/${txid}`)).json() : null;
+    report("8-4", "Signet, interface : recovery Swissquote + tiers depuis un nouvel appareil (relais A3), diffusée sur le réseau signet, nouveau wallet ouvert",
+      gone && !!txid && onChain?.txid === txid && loaded === sqPsbt && opened,
+      `ancien wallet absent du Wallet du client : ${gone} ; ${coins.trim()} ; rendu à ${confs} conf. ; PSBT relayé identique : ${loaded === sqPsbt} ; ${txid ? `${EXPLORER}/tx/${txid}` : out.trim()}`);
   }
 } finally {
   await browser.close();
