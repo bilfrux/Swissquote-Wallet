@@ -7,6 +7,8 @@ import { btcFmt } from "../lib/format";
 import { num } from "../ui/format";
 import { IconCrypto, IconReceive, IconRefresh, IconSend, IconShield } from "../ui/icons";
 import { useIsMobile } from "../ui/useIsMobile";
+import { ownershipChallenge, ownershipVerify } from "../lib/bank";
+import { walletRequest } from "../lib/walletBridge";
 import { Send } from "./Send";
 
 const RECEIVE_KEY = (cfg: WalletConfig) => `sq-wallet:receive-index:${cfg.network}:${cfg.client.fingerprint}`;
@@ -15,6 +17,17 @@ const jump = (id: string) => document.getElementById(id)?.scrollIntoView({ behav
 export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig; account: BtcAccount; onLost: () => void; onBalance: (s: bigint) => void }) {
   const [utxos, setUtxos] = useState<WalletUtxo[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [proof, setProof] = useState<{ ok: boolean; text: string } | null>(null);
+  // Preuve de propriété : défi Swissquote -> signature dans le Wallet du client (après confirmation) -> vérification Swissquote.
+  const prove = async () => {
+    setProof(null);
+    try {
+      const ch = await ownershipChallenge(cfg.client.raw, 0, receiveIndex);
+      const sig = await walletRequest<{ signature: string }>("prove", { accountKey: cfg.client.raw, change: 0, index: receiveIndex, message: ch.message });
+      const v = await ownershipVerify(ch.challengeId, sig.signature);
+      setProof({ ok: v.verified, text: v.proves });
+    } catch (e: any) { setProof({ ok: false, text: e.message }); }
+  };
   const [receiveIndex, setReceiveIndex] = useState(() => Number(localStorage.getItem(RECEIVE_KEY(cfg)) ?? 0));
   const address = outputAt(cfg, 0, receiveIndex).getAddress();
 
@@ -82,8 +95,10 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
             Adresse n°{receiveIndex}
             {link && <> · <a href={link} target="_blank" rel="noreferrer">explorateur</a></>}
             {" · "}
-            <button className="link" onClick={() => { const n = receiveIndex + 1; localStorage.setItem(RECEIVE_KEY(cfg), String(n)); setReceiveIndex(n); }}>Nouvelle adresse</button>
+            <button className="link" onClick={() => { const n = receiveIndex + 1; localStorage.setItem(RECEIVE_KEY(cfg), String(n)); setReceiveIndex(n); setProof(null); }}>Nouvelle adresse</button>
           </p>
+          <button className="btn-secondary" onClick={prove}>Prouver à Swissquote que je contrôle cette adresse</button>
+          {proof && <p className={proof.ok ? "success" : "error"} data-testid="ownership-result">{proof.ok ? "Propriété vérifiée. " : ""}{proof.text}</p>}
         </section>
         <section className="card" id="securite">
           <h2>Sécurité de votre wallet</h2>

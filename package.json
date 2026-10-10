@@ -28,9 +28,11 @@
     "validate:inv5": "tsx scripts/validate/invariant-5.ts",
     "demo": "concurrently -n appli,bank,console,wallet,attaques -c blue,red,green,yellow,magenta \"VITE_BTC_NETWORK=regtest npm run dev -w client\" \"npm run dev -w bank-mock\" \"VITE_BTC_NETWORK=regtest npm run dev -w guardian-console\" \"npm run dev -w client-wallet\" \"npm run attacks:server\"",
     "regtest": "tsx scripts/demo/regtest.ts",
-    "validate:6:ui": "tsx scripts/validate/etape-6-ui.ts"
+    "validate:6:ui": "tsx scripts/validate/etape-6-ui.ts",
+    "validate:7": "tsx scripts/validate/etape-7.ts"
   },
   "devDependencies": {
+    "bip322-js": "^4.0.0",
     "concurrently": "^10.0.6",
     "playwright-core": "^1.64.0",
     "tsx": "^4.20.0",

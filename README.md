@@ -24,8 +24,9 @@ Démo : D = 6 blocs. Valeur visée en production (hypothèse, paramètre) : envi
 | Backend Swissquote (guardian) | **Mocké**, processus séparé | `bank-mock/` : clé propre dans son stockage, re-KYC mocké (dossiers de test), signature limitée aux recoveries vers un compte du même client |
 | Connexion e-banking, comptes et opérations CHF, re-KYC, cours BTC/CHF | **Mocké** | Clients de test codés en dur (`bank-mock/src/bank.ts`, `kyc.ts`) |
 | Console du tiers de confiance | **Réel** (logique), démo | `guardian-console/` : création de l'identité du tiers (phrase affichée une fois), décodage et signature ; la phrase n'est jamais conservée |
+| Preuve de propriété d'adresse | **Réel** | Défi émis par bank-mock, signé par le Wallet du client (BIP-322 « simple », `bip322-js`), vérifié en mode strict. Ce qui est prouvé est détaillé ci-dessous |
 | Panneau « Attaques » | **Réel**, démo regtest | Scénarios exécutés contre bitcoind avec des graines jetables (`scripts/attacks/`) |
-| Ethereum, gasless, dApp, DeFi | **Hors périmètre** | Non développés |
+| Ethereum, Taproot, gasless, dApp, DeFi | **Hors périmètre** | Non développés (voir « Perspectives ») |
 
 ## Lancer la démo (trois commandes)
 
@@ -42,11 +43,12 @@ Si un port de Vite est déjà pris, la console prend le suivant (affiché dans l
 ### Parcours de démo
 
 1. **Le tiers** ouvre la console (http://localhost:5174), clique sur « Créer mon identité de tiers », note sa phrase et transmet sa clé publique au client.
-2. **Le client** se connecte à la banque (http://localhost:5173) : identifiant `CH-0002`, mot de passe `demo5678` (client sans wallet ; `CH-0001` / `demo1234` contient des comptes de test).
+2. **Le client** se connecte à la banque (http://localhost:5173) : identifiant `CH-0003`, mot de passe `demo0003`. C'est le client de démo **vierge**, sans aucun compte Bitcoin. `CH-0001` et `CH-0002` contiennent des comptes créés par les tests.
 3. **Crypto → Créer mon wallet** : saisir le nom et la clé du tiers, puis « Créer mon wallet avec le Wallet du client ». La fenêtre du Wallet du client génère et affiche la phrase une fois ; le client confirme l'avoir notée ; seule la clé publique revient à la banque.
 4. **Recevoir** : `npm run regtest -- fund <adresse affichée> 0.5`, puis « Actualiser ».
+   **Preuve de propriété** : « Prouver à Swissquote que je contrôle cette adresse ». Le Wallet du client affiche le défi en entier, le client signe, Swissquote vérifie.
 5. **Envoyer** : préparer l'envoi (simulation en clair), « Signer avec mon Wallet du client », vérifier l'écran de confirmation du wallet, signer, puis diffuser. `npm run regtest -- mine 1` confirme la transaction.
-6. **Perte du wallet** : dans le Wallet du client (http://localhost:5180), « Simuler la perte de cet appareil ». Puis, dans un autre profil de navigateur, se reconnecter et cliquer sur « J'ai perdu mon wallet ». Re-KYC mocké de CH-0002 : `Exemple`, `1985-06-15`, `654321`. Ensuite : nouveau wallet, signature Swissquote, signature du tiers dans sa console, diffusion. **Le réseau refuse** (`non-BIP68-final`) ; après `npm run regtest -- mine 6`, diffuser à nouveau : accepté.
+6. **Perte du wallet** : dans le Wallet du client (http://localhost:5180), « Simuler la perte de cet appareil ». Puis, dans un autre profil de navigateur, se reconnecter et cliquer sur « J'ai perdu mon wallet ». Re-KYC mocké de CH-0003 : `Martin`, `1992-03-21`, `246810`. Ensuite : nouveau wallet, signature Swissquote, signature du tiers dans sa console, diffusion. **Le réseau refuse** (`non-BIP68-final`) ; après `npm run regtest -- mine 6`, diffuser à nouveau : accepté.
 7. **Démo** : les trois boutons d'attaque.
 
 Le logo est le logo officiel fourni par l'équipe (`client/public/`). L'interface s'adapte à la largeur : version téléphone sous 820 px (barre d'onglets en bas), version ordinateur au-delà (menu, rail latéral, barre d'état).
@@ -62,11 +64,19 @@ Toutes les affirmations de ce dépôt renvoient à une exécution consignée dan
 | `npm run validate:3` / `validate:3:signet` | Recovery refusée avant D et acceptée à D, rafraîchissement, recovery réelle sur signet |
 | `npm run test:attacks` | Les trois attaques et l'invariant 1 contre le consensus |
 | `npm run validate:6:ui` (et `MOBILE=1 npm run validate:6:ui`) | Parcours complet dans Chrome sur une pile isolée, en version ordinateur et téléphone : connexion, création du wallet via le Wallet du client, envoi confirmé dans le wallet, API du wallet fermée à la banque, perte du wallet et recovery |
+| `npm run validate:7` | Preuve de propriété (valide, et refus : rejeu, message altéré, autre clé, format BIP-137, autre client) ; client vierge CH-0003 |
 | `npm run validate:inv5` | Aucune clé privée ni graine dans `client/` et son bundle (avec témoin positif) |
 
 Les tests Chrome des étapes 1 à 4 visaient l'interface précédente (commit `779a5bd`) ; ils sont remplacés par `validate:6:ui`.
 
 Voir aussi : [docs/threat-model.md](docs/threat-model.md), [docs/architecture.md](docs/architecture.md), [docs/ia.md](docs/ia.md).
+
+## Ce que prouve la preuve de propriété (et ce qu'elle ne prouve pas)
+
+Swissquote émet un défi à usage unique (10 min) qui nomme le client et l'adresse n°i de son compte. Le Wallet du client le signe avec sa **clé client** à l'index i. Swissquote recalcule cette clé depuis le xpub enregistré, sans faire confiance à l'appli, et vérifie la signature en mode strict.
+
+- **Prouvé** : le client détient la clé privée de sa clé client à l'index i (signature BIP-322 « simple », vérifiée pour l'adresse P2WPKH de cette clé). D'après la politique enregistrée par Swissquote, cette clé suffit **seule** à dépenser l'adresse n°i (chemin client).
+- **Pas prouvé** : ce n'est **pas** une signature BIP-322 de l'adresse P2WSH du compte elle-même, car `bip322-js` ne gère pas P2WSH. Le lien entre la clé et l'adresse repose sur le descripteur que Swissquote connaît, pas sur une preuve produite par le script de l'adresse. La preuve ne dit rien de l'identité de la personne qui tient la clé : elle est rattachée au client par la session bancaire.
 
 ## Limites assumées
 
@@ -75,9 +85,14 @@ Voir aussi : [docs/threat-model.md](docs/threat-model.md), [docs/architecture.md
 - **Zone grise de custody.** Swissquote + tiers peuvent dépenser, **vers n'importe quelle destination**, tout coin resté immobile D blocs. Observé dans `npm run test:attacks` (attaque 2, ligne « zone grise »). Atténuations : tiers choisi par le client et sans lien avec Swissquote, avertissement dans l'appli avant l'échéance, rafraîchissement par le client. Bitcoin ne permet pas de contraindre la destination.
 - **Rafraîchissement obligatoire.** Pour bloquer toute recovery, le client doit déplacer chaque coin avant D : c'est un coût en frais, et l'activité devient visible sur la chaîne.
 - **Peu de wallets externes signent ce type de script** (Miniscript avec délai) : Bitcoin Core (vérifié), Liana et certains wallets matériels (annoncés, non vérifiés). Sparrow ne le gère très probablement pas (issues GitHub #1700 ouverte et #1757 refusée ; non vérifié en lançant Sparrow).
-- **Confidentialité.** En P2WSH, chaque dépense révèle la politique, donc l'existence du délai. Taproot est une perspective, non implémentée.
-- **Pas d'Ethereum, pas de gasless, pas de dApp conforme.** L'exploration Ethereum (Safe + module Candide) est conservée sur la branche `archive/exploration-etape-0`, non intégrée.
-- Re-KYC et session bancaire mockés ; `node:sqlite` est expérimental dans Node 24 ; la preuve de propriété d'adresse n'est pas faite.
+- **Confidentialité.** En P2WSH, chaque dépense révèle la politique, donc l'existence du délai.
+- **Pas d'Ethereum, pas de Taproot, pas de gasless, pas de dApp conforme** : voir « Perspectives ».
+- Re-KYC et session bancaire mockés ; `node:sqlite` est expérimental dans Node 24.
+
+## Perspectives (non implémentées)
+
+- **Ethereum.** Un Safe dont le propriétaire est le compte EVM du client, avec le module de recovery de Candide (Swissquote + tiers, seuil 2, un délai). L'exploration sur fork Sepolia est conservée sur la branche `archive/exploration-etape-0`. Elle a montré le fonctionnement, et deux pièges de la version 0.0.1 déployée : après une recovery, il faut appeler `cancelRecovery` **et** `invalidateNonce` ; retirer un guardian n'annule pas une recovery en cours. La sémantique diffère de Bitcoin : le propriétaire **annule** une recovery en cours, au lieu de rafraîchir ses coins.
+- **Taproot.** `tr(CLIENT, {and(SWISSQUOTE, TIERS, older(D))})` : la dépense du client passe par le chemin de clé et ressemble à un paiement ordinaire à signature unique. Elle coûte moins cher et ne révèle jamais l'existence du délai. La preuve de propriété pourrait alors porter sur l'adresse du compte elle-même. C'est à vérifier : la clé Taproot dépend de l'arbre de scripts, et `bip322-js` n'annonce que la dépense par clé simple.
 
 ## Structure
 

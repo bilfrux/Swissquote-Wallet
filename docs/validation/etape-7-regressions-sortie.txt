@@ -1,0 +1,30 @@
+=== npm run validate:1
+[OK ] 1 Politique à un délai compilée, descripteur à plage
+[OK ] 2 Réception sur les adresses 0 et 1 du compte, retrouvées par le scan
+[OK ] 3a PSBT préparé par l'appli et simulé en clair (chemin, sorties, frais)
+[OK ] 3b Signé par tools/client-signer, finalisé et diffusé par l'appli, confirmé
+[OK ] 4 Signataire externe réel : Bitcoin Core 29 signe le PSBT Miniscript (walletprocesspsbt), l'appli finalise et diffuse
+[OK ] 5 Après envoi total, plus aucun UTXO sur le compte
+=== npm run validate:2
+[OK ] 1 Clé Swissquote générée au premier lancement, dans le stockage de bank-mock (mode 600) ; seule la clé publique est exposée
+[OK ] 2 Enregistrement des comptes : A (ancienne clé) et B (nouvelle clé) pour CH-0001, un compte pour CH-0002 ; client inconnu refusé
+[OK ] 3 Identité non vérifiée : /guardian/sign refuse (sans jeton, jeton inventé) ; re-KYC avec un mauvais code refusé
+[OK ] 4 Après re-KYC mocké : Swissquote signe la recovery du compte A vers le compte B du même client, avec SA clé
+[OK ] 5 Swissquote refuse : dépense courante du client, recovery vers une adresse étrangère, coins d'un autre client
+[OK ] 6 Tiers signe (code de la console guardian) ; PSBT combiné finalisable ; refusé par le nœud avant D, accepté à D (aperçu étape 3)
+[OK ] 7 bank-mock arrêté : /guardian/sign injoignable, mais le client dépense seul (signature externe, diffusion)
+[OK ] 8 Aucune clé privée, graine ou import de signature dans client/src et client/dist ; graine Swissquote absente
+=== npm run validate:3
+[OK ] 1 Recovery Swissquote + tiers : refusée par le consensus avant D, acceptée à D pour le coin le plus récent ; fonds sur le nouveau compte
+[OK ] 2 Rafraîchissement avant D : la recovery déjà signée devient invalide ; sur le nouveau coin le délai repart de zéro
+[OK ] 3 Client seul, 1 confirmation, Swissquote arrêtée : dépense acceptée
+=== npm run test:attacks
+[OK ] attaque-1 — Attaquant avec téléphone et email, sans les clés des guardians
+[OK ] attaque-2 — Collusion Swissquote + tiers avant D
+[OK ] attaque-3 — Swissquote arrêtée : le client dépense seul
+[OK ] invariant-1 — Swissquote seule tente de dépenser (après D, par les deux chemins)
+=== npm run validate:inv5
+[OK ] Témoin : la même recherche retrouve bien les graines là où elles sont stockées
+[OK ] Aucune des 22 graines de la machine (y compris celles du Wallet du client), ni leurs clés privées de compte, dans client/
+[OK ] Aucune clé privée étendue (xprv/tprv), aucune clé WIF dans les sources, pas de liste BIP39 dans le bundle
+[OK ] client/src n'importe ni signature, ni graine, ni dérivation de clé privée

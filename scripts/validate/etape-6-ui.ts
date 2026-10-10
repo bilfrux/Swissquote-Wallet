@@ -1,7 +1,7 @@
 // Étape 6 : interface bancaire + « Wallet du client » (appli séparée), de bout en bout dans Chrome headless (regtest).
 // Prérequis : npm run regtest:up ; console guardian lancée (CONSOLE_URL, défaut 5174).
 // Le test lance SA PROPRE pile isolée (stockages neufs) : bank-mock :4110, Wallet du client :5190, appli :5191.
-// Client de test : CH-0002.
+// Client de test : CH-0003 (client de démo vierge).
 import { type ChildProcess, spawn } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync } from "node:fs";
 import { type BrowserContext, type Page, chromium } from "playwright-core";
@@ -52,8 +52,8 @@ const login = async (p: Page) => {
   await p.goto(APP);
   await p.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
   await p.reload();
-  await p.getByLabel("Identifiant client").fill("CH-0002");
-  await p.getByLabel("Mot de passe").fill("demo5678");
+  await p.getByLabel("Identifiant client").fill("CH-0003");
+  await p.getByLabel("Mot de passe").fill("demo0003");
   await p.getByRole("button", { name: "Se connecter" }).click();
 };
 
@@ -76,17 +76,17 @@ try {
   await app.goto(APP);
   await app.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
   await app.reload();
-  await app.getByLabel("Identifiant client").fill("CH-0002");
+  await app.getByLabel("Identifiant client").fill("CH-0003");
   await app.getByLabel("Mot de passe").fill("faux");
   const errorsBeforeLogin = errors.length;
   await app.getByRole("button", { name: "Se connecter" }).click();
   const badLogin = await app.locator(".error").textContent();
   errors.splice(errorsBeforeLogin); // le 403 du mauvais mot de passe, volontaire, est attendu
   await shot(app, "1-connexion");
-  await app.getByLabel("Mot de passe").fill("demo5678");
+  await app.getByLabel("Mot de passe").fill("demo0003");
   await app.getByRole("button", { name: "Se connecter" }).click();
   await app.getByText(MOBILE ? "Épargne" : "Compte privé").first().waitFor();
-  await app.getByText(/2[’']310\.40/).first().waitFor(); // comptes CHF chargés
+  await app.getByText(/8[’']420\.15/).first().waitFor(); // comptes CHF chargés
   const overview = await app.locator("main").textContent();
   report("6-2", "Connexion e-banking simulée (mauvais mot de passe refusé), aperçu avec comptes CHF et tuile « Créer mon wallet »",
     !!badLogin?.includes("incorrect") && (MOBILE ? !!overview?.includes("Valeur totale") && !!overview?.includes("Cash") && !!overview?.includes("Créer") : !!overview?.includes("Compte privé") && !!overview?.includes("Créer mon wallet")), `${badLogin} ; aperçu affiché`);
@@ -126,6 +126,22 @@ try {
   await app.getByText("0.50000000 BTC").first().waitFor({ timeout: 15000 });
   await shot(app, "4-wallet");
   report("6-5", "Réception : 0,5 BTC visibles dans l'onglet Crypto", true, address);
+
+  // --- Preuve de propriété : défi Swissquote, signature dans le Wallet du client, vérification ---
+  await app.getByRole("button", { name: "Prouver à Swissquote que je contrôle cette adresse" }).click();
+  await wallet.getByRole("heading", { name: "Prouver la propriété d'une adresse" }).waitFor({ timeout: 15000 });
+  const challengeShown = (await wallet.locator(".message").textContent()) ?? "";
+  await shot(wallet, "4b-wallet-preuve");
+  await wallet.getByRole("button", { name: "Signer la preuve" }).click();
+  const proofText = (await app.getByTestId("ownership-result").textContent({ timeout: 15000 })) ?? "";
+  report("6-13", "Preuve de propriété depuis l'interface : défi affiché en entier dans le wallet, signé après confirmation, vérifié par Swissquote",
+    challengeShown.includes("Swissquote · preuve de propriété") && challengeShown.includes(address) && proofText.startsWith("Propriété vérifiée") && proofText.includes(address),
+    proofText.slice(0, 220));
+
+  if (MOBILE) {
+    const width = await app.evaluate(() => ({ inner: innerWidth, doc: document.documentElement.scrollWidth }));
+    report("6-14", "Téléphone : aucune page plus large que l'écran (390 px), même avec les adresses longues affichées", width.inner === 390 && width.doc <= 390, JSON.stringify(width));
+  }
 
   // --- Envoi : refus, puis confirmation dans le Wallet du client ---
   await app.getByPlaceholder("tb1… / bcrt1…").fill(minerAddr);
@@ -184,9 +200,9 @@ try {
   await nd.getByTestId("btc-balance").waitFor({ timeout: 20000 });
   await nd.getByRole("button", { name: /J'ai perdu mon wallet/ }).click();
   const kyc = nd.locator(".step").first().locator("input");
-  await kyc.nth(0).fill("Exemple");
-  await kyc.nth(1).fill("1985-06-15");
-  await kyc.nth(2).fill("654321");
+  await kyc.nth(0).fill("Martin");
+  await kyc.nth(1).fill("1992-03-21");
+  await kyc.nth(2).fill("246810");
   await nd.getByRole("button", { name: "Vérifier mon identité" }).click();
   await nd.locator("p", { hasText: mine_.accountKey.slice(0, 22) }).getByRole("button", { name: "Choisir" }).click();
   const newWallet = await popupOf(ctxB, () => nd.getByRole("button", { name: "Créer un nouveau wallet avec le Wallet du client" }).click());

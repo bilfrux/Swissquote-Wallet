@@ -11,7 +11,8 @@ import react from "@vitejs/plugin-react";
 import { createServer as createVite } from "vite";
 import { btc } from "@bitcoinerlab/descriptors-scure";
 import { base64 } from "@scure/base";
-import { type NetworkName, btcNetwork, createWalletConfig, simulate } from "@sq/bitcoin";
+import { Signer } from "bip322-js";
+import { type NetworkName, btcNetwork, createWalletConfig, keyAddressOf, simulate } from "@sq/bitcoin";
 import { accountKey, masterFromMnemonic, newMnemonic } from "@sq/bitcoin/keys";
 import { signPsbtWithMnemonic } from "@sq/bitcoin/sign";
 import { type Policy, type StoredWallet, load, publicView, save } from "./store.ts";
@@ -91,6 +92,21 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
 
     case "POST /api/describe":
       return describe(body.psbt, body.network);
+
+    case "POST /api/prove": {
+      // Preuve de propriété : signature BIP-322 « simple » d'un défi par la clé CLIENT à (change, index),
+      // pour l'adresse P2WPKH de cette clé (bip322-js ne gère pas P2WSH). Ne déplace aucun fonds.
+      const w = wallets.find((x) => x.accountKey === body.accountKey);
+      if (!w) throw new HttpError(404, "aucun wallet de cet appareil ne correspond à ce compte");
+      const change = Number(body.change), index = Number(body.index);
+      if (![0, 1].includes(change) || !Number.isInteger(index) || index < 0 || index > 1_000_000) throw new HttpError(400, "chemin de clé invalide");
+      if (typeof body.message !== "string" || body.message.length > 1000) throw new HttpError(400, "message invalide");
+      const network: NetworkName = body.network === "signet" ? "signet" : "regtest";
+      const child = masterFromMnemonic(w.mnemonic, network).derive(`m/48'/1'/0'/2'/${change}/${index}`);
+      const keyAddress = keyAddressOf(child.publicKey!, network);
+      const wif = btc.WIF(btcNetwork(network)).encode(child.privateKey!);
+      return { signature: Signer.sign(wif, keyAddress, body.message), keyAddress };
+    }
 
     case "POST /api/sign": {
       const d = await describe(body.psbt, body.network);

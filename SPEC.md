@@ -357,3 +357,10 @@ Cette section complète le « Modèle 2 guardians », sans le modifier.
   - L'appli de la banque lui parle par fenêtre (`postMessage`, avec contrôle de l'origine). Son API refuse toute requête d'une autre origine.
 - **Tiers** : il crée son identité dans la console guardian (phrase affichée une fois) et transmet sa clé publique au client, qui la saisit avec son nom à la création du wallet.
 - L'appli de la banque **ne reçoit jamais** ni la graine ni une clé privée du client.
+
+## Preuve de propriété et client de démo vierge (étape 7, 10 octobre 2026)
+
+- Preuve de propriété **faite**. bank-mock émet un défi à usage unique (10 min) pour l'adresse n°i d'un compte du client connecté. Le Wallet du client le signe (BIP-322 « simple », `bip322-js`) avec sa clé client à l'index i, pour l'adresse P2WPKH de cette clé. bank-mock recalcule la clé depuis le xpub enregistré et vérifie en mode strict.
+- Portée exacte : détention de la clé client, qui suffit seule à dépenser l'adresse d'après la politique enregistrée. Ce n'est pas une signature de l'adresse P2WSH elle-même (non gérée par `bip322-js`).
+- Client de démo vierge `CH-0003` (Léa Martin, `demo0003`, re-KYC `Martin` / `1992-03-21` / `246810`).
+- Ethereum et Taproot : perspectives, non implémentées (README).

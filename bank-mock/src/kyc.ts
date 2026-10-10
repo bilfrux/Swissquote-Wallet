@@ -7,6 +7,7 @@ import { db } from "./db.ts";
 export const TEST_CUSTOMERS: Record<string, { lastName: string; birthDate: string; otp: string }> = {
   "CH-0001": { lastName: "Muster", birthDate: "1990-01-01", otp: "123456" },
   "CH-0002": { lastName: "Exemple", birthDate: "1985-06-15", otp: "654321" },
+  "CH-0003": { lastName: "Martin", birthDate: "1992-03-21", otp: "246810" },
 };
 const TTL_MS = 10 * 60 * 1000;
 

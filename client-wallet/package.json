@@ -6,9 +6,10 @@
     "dev": "node --import tsx src/server.ts"
   },
   "dependencies": {
-    "@sq/bitcoin": "*",
     "@bitcoinerlab/descriptors-scure": "3.2.0",
     "@scure/base": "2.4.0",
+    "@sq/bitcoin": "*",
+    "bip322-js": "^4.0.0",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },

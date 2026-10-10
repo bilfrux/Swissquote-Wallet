@@ -3,7 +3,9 @@
 // pour un compte enregistré du client, et vers un autre compte enregistré du MÊME client.
 // Ces contrôles sont une couche en plus : seul le consensus Bitcoin impose les deux signatures et le délai D.
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { type NetworkName, type WalletConfig, addresses, createWalletConfig, inputsBelongTo, simulate } from "@sq/bitcoin";
+import { randomBytes } from "node:crypto";
+import { Verifier } from "bip322-js";
+import { type NetworkName, type WalletConfig, addresses, clientKeyAddress, createWalletConfig, inputsBelongTo, outputAt, simulate } from "@sq/bitcoin";
 import { db } from "./db.ts";
 import { signAsSwissquote, swissquoteAccountKey } from "./guardian.ts";
 import { TEST_CUSTOMERS, customerFromToken, verifyIdentity } from "./kyc.ts";
@@ -87,6 +89,49 @@ async function route(req: IncomingMessage, body: any, url: URL) {
       if (!id) throw new HttpError(401, "session expirée : reconnectez-vous");
       const rows = db.prepare("select * from accounts where customer_id = ? and network = ? order by id").all(id, network(url.searchParams.get("network"))) as AccountRow[];
       return { accounts: rows.map(publicAccount) };
+    }
+
+    case "POST /ownership/challenge": {
+      // Défi de preuve de propriété pour une adresse d'un compte du client connecté (usage unique, 10 min).
+      const customerId = customerFromSession(req.headers.authorization);
+      if (!customerId) throw new HttpError(401, "session expirée : reconnectez-vous");
+      const net = network(body.network);
+      const row = db.prepare("select * from accounts where customer_id = ? and network = ? and client_key = ?").get(customerId, net, String(body.client ?? "")) as AccountRow | undefined;
+      if (!row) throw new HttpError(403, "ce compte n'appartient pas au client connecté");
+      const change = Number(body.change ?? 0), index = Number(body.index);
+      if (![0, 1].includes(change) || !Number.isInteger(index) || index < 0 || index > 1_000_000) throw new HttpError(400, "index d'adresse invalide");
+      const address = outputAt(await configOf(row), change as 0 | 1, index).getAddress();
+      const id = randomBytes(16).toString("hex");
+      const message = `Swissquote · preuve de propriété\nClient : ${customerId}\nAdresse : ${address}\nDéfi : ${id}\nÉmis le : ${new Date().toISOString()}`;
+      db.prepare("insert into ownership_challenges (id, customer_id, account_id, network, change, idx, address, message, expires_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        .run(id, customerId, row.id, net, change, index, address, message, Date.now() + 10 * 60 * 1000);
+      return { challengeId: id, message, address, change, index };
+    }
+
+    case "POST /ownership/verify": {
+      const customerId = customerFromSession(req.headers.authorization);
+      if (!customerId) throw new HttpError(401, "session expirée : reconnectez-vous");
+      const c = db.prepare("select * from ownership_challenges where id = ? and customer_id = ?").get(String(body.challengeId ?? ""), customerId) as any;
+      if (!c) throw new HttpError(404, "défi inconnu");
+      if (c.used_at) throw new HttpError(409, "défi déjà utilisé");
+      if (c.expires_at < Date.now()) throw new HttpError(410, "défi expiré");
+      db.prepare("update ownership_challenges set used_at = ? where id = ?").run(Date.now(), c.id); // usage unique, même en cas d'échec
+      const row = db.prepare("select * from accounts where id = ?").get(c.account_id) as AccountRow;
+      const cfg = await configOf(row);
+      // Swissquote recalcule elle-même la clé du client depuis son xpub enregistré : elle ne fait pas confiance à l'appli.
+      const keyAddress = clientKeyAddress(cfg, c.change, c.idx);
+      let verified = false;
+      try { verified = Verifier.verifySignature(keyAddress, c.message, String(body.signature ?? ""), true); } catch { verified = false; }
+      const sameAddress = outputAt(cfg, c.change, c.idx).getAddress() === c.address;
+      if (verified && sameAddress) db.prepare("update ownership_challenges set verified_at = ? where id = ?").run(Date.now(), c.id);
+      return {
+        verified: verified && sameAddress,
+        address: c.address,
+        keyAddress,
+        proves: verified && sameAddress
+          ? `Le client détient la clé privée de sa clé client à l'index ${c.idx} (signature BIP-322 vérifiée pour ${keyAddress}). D'après la politique enregistrée, cette clé suffit seule à dépenser l'adresse ${c.address} (chemin client).`
+          : "Aucune propriété démontrée : signature invalide pour la clé client attendue.",
+      };
     }
 
     case "POST /identity/verify": {

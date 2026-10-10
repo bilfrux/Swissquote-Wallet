@@ -5,6 +5,11 @@
   "scripts": {
     "dev": "node --disable-warning=ExperimentalWarning --import tsx src/server.ts"
   },
-  "dependencies": { "@sq/bitcoin": "*" },
-  "devDependencies": { "@types/node": "^24.0.0" }
+  "dependencies": {
+    "@sq/bitcoin": "*",
+    "bip322-js": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0"
+  }
 }

@@ -24,3 +24,10 @@ db.exec(`
 
 // Migration : nom du tiers (ajouté à l'étape 6).
 if (!(db.prepare("pragma table_info(accounts)").all() as any[]).some((c) => c.name === "tiers_name")) db.exec("alter table accounts add column tiers_name text");
+
+// Défis de preuve de propriété (étape 7).
+db.exec(`create table if not exists ownership_challenges (
+  id text primary key, customer_id text not null, account_id integer not null, network text not null,
+  change integer not null, idx integer not null, address text not null, message text not null,
+  expires_at integer not null, used_at integer, verified_at integer
+)`);

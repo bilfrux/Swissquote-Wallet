@@ -6,7 +6,7 @@ import { NETWORK } from "./config";
 export const WALLET_URL = import.meta.env.VITE_CLIENT_WALLET_URL ?? "http://localhost:5180";
 const WALLET_ORIGIN = new URL(WALLET_URL).origin;
 
-export function walletRequest<T>(action: "create" | "sign" | "policy", payload: unknown): Promise<T> {
+export function walletRequest<T>(action: "create" | "sign" | "policy" | "prove", payload: unknown): Promise<T> {
   return new Promise((resolve, reject) => {
     const id = crypto.randomUUID();
     let sent = false;

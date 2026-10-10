@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from "react";
 
 const ALLOWED = (import.meta.env.VITE_WALLET_ALLOWED_ORIGINS ?? "http://localhost:5173").split(",");
-type Req = { id: string; action: "create" | "sign" | "policy"; network: "regtest" | "signet"; payload: any; origin: string; source: Window };
+type Req = { id: string; action: "create" | "sign" | "policy" | "prove"; network: "regtest" | "signet"; payload: any; origin: string; source: Window };
 type WalletView = { id: string; label: string; accountKey: string; createdAt: string; policy?: { delay: number; tiersName?: string; network: string } };
 type Description = {
   wallet: WalletView | null; path: "client" | "recovery" | "mixte"; delay: number | null;
@@ -57,6 +57,14 @@ export function App() {
           req={req}
           onDone={(d) => { reply(true, d); setDone("Transaction signée et renvoyée à l'appli. Vous pouvez fermer cette fenêtre."); }}
           onRefuse={() => { reply(false, "refusé par le client"); setDone("Signature refusée."); }}
+          onError={setError}
+        />
+      )}
+      {req?.action === "prove" && !done && (
+        <Prove
+          req={req}
+          onDone={(d) => { reply(true, d); setDone("Preuve signée et renvoyée à l'appli. Aucun fonds n'a été déplacé."); }}
+          onRefuse={() => { reply(false, "refusé par le client"); setDone("Preuve refusée."); }}
           onError={setError}
         />
       )}
@@ -129,6 +137,23 @@ function Sign({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unknow
         <button className="secondary" onClick={onRefuse}>Refuser</button>
         <button disabled={d.path !== "client" || !d.wallet} onClick={async () => { try { onDone(await api("/api/sign", { psbt: req.payload.psbt, network: req.network })); } catch (e: any) { onError(e.message); } }}>
           Confirmer et signer
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function Prove({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unknown) => void; onRefuse: () => void; onError: (e: string) => void }) {
+  const p = req.payload;
+  return (
+    <section>
+      <h2>Prouver la propriété d'une adresse</h2>
+      <p>Demande de <strong>{req.origin}</strong>. Votre wallet va signer ce message avec votre clé (adresse n°{p.index}{p.change ? ", change" : ""}). <strong>Cette signature ne déplace aucun fonds</strong> et ne peut pas servir à dépenser.</p>
+      <pre className="card mono message">{p.message}</pre>
+      <div className="row">
+        <button className="secondary" onClick={onRefuse}>Refuser</button>
+        <button onClick={async () => { try { onDone(await api("/api/prove", { accountKey: p.accountKey, change: p.change, index: p.index, message: p.message, network: req.network })); } catch (e: any) { onError(e.message); } }}>
+          Signer la preuve
         </button>
       </div>
     </section>

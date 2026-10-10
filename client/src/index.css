@@ -6,6 +6,8 @@
   font-size: 14px;
 }
 * { box-sizing: border-box; }
+/* Adresses, PSBT et clés sont des « mots » très longs : on autorise leur coupure, sinon la page déborde sur mobile. */
+p, li, td, th, h1, h2, h3, pre, label { overflow-wrap: anywhere; }
 body { margin: 0; }
 h1 { font-size: 22px; margin: 0; font-weight: 600; }
 h2 { font-size: 16px; margin: 0 0 12px; font-weight: 600; }
@@ -98,7 +100,7 @@ td.num, th.num { text-align: right; white-space: nowrap; }
 .d-status strong { color: var(--text); font-weight: 600; } .d-status .sim { margin-left: auto; }
 
 /* ---------- Téléphone ---------- */
-.m-app { min-height: 100vh; background: var(--bg); padding-bottom: 84px; }
+.m-app { min-height: 100vh; background: var(--bg); padding-bottom: 84px; overflow-x: clip; }
 .m-top { display: flex; justify-content: space-between; align-items: center; padding: 16px 18px 4px; }
 .round { width: 44px; height: 44px; border-radius: 50%; background: #fff; color: var(--text); display: inline-flex; align-items: center; justify-content: center; padding: 0; box-shadow: 0 1px 3px #0001; }
 .round.dark { background: var(--dark); color: #fff; width: 50px; height: 50px; }

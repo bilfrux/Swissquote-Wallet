@@ -19,6 +19,18 @@ export const CUSTOMERS: Record<string, Customer> = {
       ] },
     ],
   },
+  // Client de démo VIERGE : aucun compte Bitcoin, pour montrer une création de wallet depuis zéro.
+  "CH-0003": {
+    firstName: "Léa", lastName: "Martin", password: "demo0003",
+    accounts: [
+      { iban: "CH44 0076 2011 6238 0003 1", label: "Compte privé", currency: "CHF", balance: 8420.15, transactions: [
+        { date: "2026-10-09", label: "Salaire octobre", amount: 5200 },
+        { date: "2026-10-06", label: "Coop Genève", amount: -63.45 },
+        { date: "2026-10-01", label: "Loyer", amount: -1680 },
+      ] },
+      { iban: "CH72 0483 5012 3456 0003 2", label: "Compte épargne", currency: "CHF", balance: 15000, transactions: [{ date: "2026-09-30", label: "Intérêts", amount: 21.4 }] },
+    ],
+  },
   "CH-0002": {
     firstName: "Paul", lastName: "Exemple", password: "demo5678",
     accounts: [{ iban: "CH12 0900 0000 1234 5678 9", label: "Compte privé", currency: "CHF", balance: 2310.4, transactions: [{ date: "2026-10-02", label: "Virement reçu", amount: 500 }] }],

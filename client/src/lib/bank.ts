@@ -39,3 +39,9 @@ export type KycForm = { lastName: string; birthDate: string; otp: string };
 export const verifyIdentity = (f: KycForm) => call("/identity/verify", { customerId: loadSession()?.customer.id, ...f }) as Promise<{ token: string; expiresAt: string }>;
 export const listAccounts = async (token: string): Promise<RegisteredAccount[]> => (await call("/accounts/list", { token, network: NETWORK })).accounts;
 export const guardianSign = (token: string, psbt: string) => call("/guardian/sign", { token, network: NETWORK, psbt }) as Promise<{ psbt: string; added: number }>;
+
+// --- Preuve de propriété ---
+export const ownershipChallenge = (client: string, change: number, index: number) =>
+  call("/ownership/challenge", { network: NETWORK, client, change, index }) as Promise<{ challengeId: string; message: string; address: string; change: number; index: number }>;
+export const ownershipVerify = (challengeId: string, signature: string) =>
+  call("/ownership/verify", { challengeId, signature }) as Promise<{ verified: boolean; address: string; keyAddress: string; proves: string }>;
