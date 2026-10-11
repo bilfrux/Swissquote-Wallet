@@ -74,12 +74,15 @@ export function Console() {
   return (
     <main>
       <header>
-        <h1>Guardian console · trusted contact</h1>
+        <div className="brand">
+          <img src="/swissquote-logo.png" alt="Swissquote" />
+          <div><strong>Trusted Contact</strong><span>Guardian console</span></div>
+        </div>
         <p className="badge">Independent of Swissquote and the client app · {NETWORK} network · no data stored</p>
       </header>
 
       <section>
-        <h2>Become a trusted contact</h2>
+        <div className="section-title"><span className="eyebrow">SETUP</span><h2>Become a trusted contact</h2></div>
         <p className="note">Create your guardian key. The phrase is shown only once: write it down, it will be required to sign a recovery.</p>
         {!identity ? (
           <button className="secondary small" onClick={() => { const m = newMnemonic(); setIdentity({ words: m.split(" "), key: accountKey(masterFromMnemonic(m, NETWORK)), evm: evmAddressFromMnemonic(m) }); setPubKey(null); }}>
