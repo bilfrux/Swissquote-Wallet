@@ -41,7 +41,12 @@ function UnlockAction({ wallet, label, disabled, allowPin = false, onAuth, onRef
     <>
       {mode === "pin" && <PinInput value={pin} onChange={setPin} />}
       {mode === "bio" && <p className="small bio-hint" data-testid="bio-hint"><span aria-hidden="true">◉</span> Your device will ask for your fingerprint or face (Touch ID, Face ID…).</p>}
-      {mode === "unavailable" && <p className="small error">Biometrics must be enabled before this wallet can be used. Open the wallet settings below to enable them.</p>}
+      {mode === "unavailable" && (
+        <>
+          <p className="small error">Biometrics must be enabled before this wallet can be used. Enable them in the wallet settings, then come back to this request.</p>
+          <p><button className="secondary" onClick={() => window.dispatchEvent(new Event("open-wallet-settings"))}>Open wallet settings</button></p>
+        </>
+      )}
       <div className="row">
         {onRefuse && <button className="secondary" onClick={onRefuse}>Refuse</button>}
         {mode !== "unavailable" && <button disabled={disabled || busy || (mode === "pin" && !pinOk(pin))} onClick={go}>{busy && mode === "bio" ? "Waiting for biometrics…" : label}</button>}
@@ -67,7 +72,14 @@ export function App() {
   const [req, setReq] = useState<Req | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const reply = (ok: boolean, data: unknown) => {
+  // Réglages (liste des wallets) ouverts pendant une demande, pour activer la biométrie d'un ancien wallet.
+  const [settings, setSettings] = useState(false);
+  useEffect(() => {
+    const open = () => setSettings(true);
+    window.addEventListener("open-wallet-settings", open);
+    return () => window.removeEventListener("open-wallet-settings", open);
+  }, []);
+  const reply =(ok: boolean, data: unknown) => {
     req!.source.postMessage({ type: "wallet-response", id: req!.id, ok, ...(ok ? { data } : { error: data }) }, req!.origin);
   };
 
@@ -129,7 +141,7 @@ export function App() {
           onError={setError}
         />
       )}
-      {(!req || done) && <Wallets />}
+      {(!req || done || settings) && <Wallets />}
     </main>
   );
 }
