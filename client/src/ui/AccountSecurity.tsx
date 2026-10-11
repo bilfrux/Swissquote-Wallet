@@ -11,7 +11,7 @@ export function AccountSecurity() {
   return (
     <div className="acct-sec">
       <p className="small"><strong>Passkey</strong> : {count === null ? "…" : count > 0 ? `${tr("enabled")} (${count})` : tr("not enabled")}</p>
-      <p className="muted small">{tr("Passkey used only to confirm high-value transfers.")}</p>
+      <p className="muted small">{tr("Passkey allows signing high-value transfers.")}</p>
       {count === 0 && <button className="btn-secondary" onClick={async () => { setMsg(null); try { const r = await registerPasskey(); setCount(r.count); setMsg(tr("Passkey enabled.")); } catch (e: any) { setMsg(e.message); } }}>
         {tr("Enable a passkey")}
       </button>}
