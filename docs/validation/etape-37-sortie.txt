@@ -1,0 +1,26 @@
+[OK ] 37-1 Création sans biométrie, avec un PIN seul ou avec une clé biométrique invalide : refusée
+       biometrics required | biometrics required | invalid biometric key (passkey with the PRF extension required)
+[OK ] 37-2 Graine chiffrée sur le disque par le secret biométrique : ni la phrase ni ses mots en clair, pas de PIN ; HKDF + AES-256-GCM ; le bon secret la redonne
+       paires ou mots en clair : 0 ; champs stockés : id, label, bio, accountKey, evmAddress, createdAt ; secret PRF sur le disque : false
+[OK ] 37-3 Vue publique : identifiant de la passkey et sel PRF seulement (ni phrase, ni texte chiffré, ni secret)
+       {"pin":false,"bio":{"credentialId":"O5e49LSSMOxyCSHK5e1lr55n1O0waSN8AvSecXW5GvU","prfSalt":"VFMrg6aRruHK6M1pnSKwbGzJol_xZtpK1T0q0gG9e0Y"}}
+[OK ] 37-4 Signature avec un autre secret biométrique, sans rien, ou avec un PIN : refusée
+       biometric unlock failed (4 attempt(s) left) | no PIN for this wallet: use biometrics (3 attempt(s) left) | no PIN for this wallet: use biometrics (2 attempt(s) left)
+[OK ] 37-5 Signature avec le bon secret biométrique : PSBT signé (une signature ajoutée)
+       200 ajoutées=1
+[OK ] 37-6 Après 5 échecs : wallet bloqué, même le bon secret est refusé pendant 60 s
+       429 wallet locked after 5 failed unlocks: try again in 60 s
+[OK ] 37-7 Ancien wallet PIN : signalé PIN sans biométrie ; migration refusée avec un PIN faux, acceptée avec le bon ; ensuite le PIN est supprimé et seule la biométrie signe
+       avant : {"pin":true,"bio":null} ; PIN faux : 403 ; migration : 200 ; champs stockés : id, label, accountKey, createdAt, bio ; preuve par biométrie : 200 ; par l'ancien PIN : 403 no PIN for this wallet: use biometrics (4 attempt(s) left)
+[OK ] 37-8 Ancien wallet en clair : protection par PIN refusée, protection biométrique acceptée ; la phrase en clair disparaît du disque
+       PIN : 400 invalid biometric key (passkey with the PRF extension required) ; biométrie : 200 protected=true ; phrase encore sur le disque : false
+
+RÉSUMÉ
+37-1 fonctionne         Création sans biométrie, avec un PIN seul ou avec une clé biométrique invalide : refusée
+37-2 fonctionne         Graine chiffrée sur le disque par le secret biométrique : ni la phrase ni ses mots en clair, pas de PIN ; HKDF + AES-256-GCM ; le bon secret la redonne
+37-3 fonctionne         Vue publique : identifiant de la passkey et sel PRF seulement (ni phrase, ni texte chiffré, ni secret)
+37-4 fonctionne         Signature avec un autre secret biométrique, sans rien, ou avec un PIN : refusée
+37-5 fonctionne         Signature avec le bon secret biométrique : PSBT signé (une signature ajoutée)
+37-6 fonctionne         Après 5 échecs : wallet bloqué, même le bon secret est refusé pendant 60 s
+37-7 fonctionne         Ancien wallet PIN : signalé PIN sans biométrie ; migration refusée avec un PIN faux, acceptée avec le bon ; ensuite le PIN est supprimé et seule la biométrie signe
+37-8 fonctionne         Ancien wallet en clair : protection par PIN refusée, protection biométrique acceptée ; la phrase en clair disparaît du disque
