@@ -50,6 +50,10 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
   const lastScan = useRef(0);
   // API Esplora publique limitée : données servies depuis le cache si elle refuse (date affichée), erreurs lisibles.
   const [stale, setStale] = useState<number | null>(null);
+  // Compte à rebours du délai de recovery : estimé à partir du dernier scan (≈ 10 min par bloc sur signet).
+  const [scannedAt, setScannedAt] = useState(Date.now());
+  const [clock, setClock] = useState(Date.now());
+  useEffect(() => { const t = setInterval(() => setClock(Date.now()), 1000); return () => clearInterval(t); }, []);
   const [histError, setHistError] = useState<string | null>(null);
   const esplora = chain as { staleSince?: number | null; resetStale?: () => void; invalidate?: () => void };
   const refresh = useCallback(async () => {
@@ -60,6 +64,7 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
       const u = await scan(cfg, chain);
       if (n !== lastScan.current) return;
       setUtxos(u);
+      setScannedAt(Date.now());
       onBalance(u.reduce((s, x) => s + x.value, 0n));
       setStale(esplora.staleSince ?? null);
       history(cfg, chain).then(
@@ -96,8 +101,15 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
   const balanceChf = (Number(balance) / 1e8) * priceOf(market, "bitcoin");
   const nextOpen = utxos?.length ? Math.min(...utxos.map((u) => u.recoveryOpensIn)) : null;
   const soon = (utxos ?? []).filter((u) => u.recoveryOpensIn <= Math.ceil(cfg.delay / 3));
+  const opened = soon.filter((u) => u.recoveryOpensIn === 0);
+  // Estimation : blocs restants × 10 min (cadence cible de Bitcoin et de signet). Regtest : blocs minés à la demande.
+  const timed = cfg.network !== "regtest";
+  const BLOCK_MS = 600_000;
+  const left = (blocks: number) => Math.max(0, scannedAt + blocks * BLOCK_MS - clock);
+  const hms = (ms: number) => { const t = Math.ceil(ms / 1000), h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60; return `${h ? `${h} h ` : ""}${String(m).padStart(h ? 2 : 1, "0")} min ${String(sec).padStart(2, "0")} s`; };
+  const at = (blocks: number) => new Date(scannedAt + blocks * BLOCK_MS).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
   const link = addrLink(address);
-  const status = nextOpen === null ? null : nextOpen === 0 ? { cls: "bad", text: "Recovery open on a coin" } : nextOpen <= Math.ceil(cfg.delay / 3) ? { cls: "warn", text: `Recovery possible in ${nextOpen} block(s)` } : { cls: "ok", text: `Recovery possible in ${nextOpen} block(s)` };
+  const status = nextOpen === null ? null : nextOpen === 0 ? { cls: "bad", text: "Recovery open on a coin" } : nextOpen <= Math.ceil(cfg.delay / 3) ? { cls: "warn", text: `Recovery possible in ${nextOpen} block(s)${timed ? ` (≈ ${hms(left(nextOpen))})` : ""}` } : { cls: "ok", text: `Recovery possible in ${nextOpen} block(s)${timed ? ` (≈ ${hms(left(nextOpen))})` : ""}` };
 
   const header = (
     <section className="card asset-head">
@@ -201,7 +213,7 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
                     <td className="mono hide-m">{u.txid.slice(0, 12)}…:{u.vout} {u.change ? "(change)" : ""}</td>
                     <td>{btcFmt(u.value)}</td>
                     <td>{u.confirmations || "pending"}</td>
-                    <td className={u.recoveryOpensIn === 0 ? "danger" : ""}>{u.recoveryOpensIn === 0 ? "open" : `in ${u.recoveryOpensIn} block(s)`}</td>
+                    <td className={u.recoveryOpensIn === 0 ? "danger" : ""}>{u.recoveryOpensIn === 0 ? "open" : `in ${u.recoveryOpensIn} block(s)${timed ? ` (≈ ${hms(left(u.recoveryOpensIn))})` : ""}`}</td>
                   </tr>
                 ))}
               </tbody>
@@ -226,9 +238,17 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
     <div className={mobile ? "crypto m" : "d-page crypto"} id="crypto-top">
       {error && <p className="error">{error}</p>}
       {stale && <p className="note banner" data-testid="btc-stale">The public Bitcoin API is rate-limited (700 requests/hour): balance and activity as of {new Date(stale).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}. Your coins are not affected.</p>}
-      {soon.length > 0 && (
-        <p className="warning">
-          {soon.length} coin(s) soon spendable by Swissquote + {tiers}. If this is not a recovery you asked for, use “Refresh” to reset the delay.
+      {opened.length > 0 && (
+        <p className="warning danger-line" data-testid="recovery-countdown">
+          <strong>{opened.length} coin(s) can already be moved by Swissquote + {tiers}</strong>: the {cfg.delay}-block delay has elapsed. If you did not ask for a recovery, use “Refresh” now: it resets the delay.
+        </p>
+      )}
+      {soon.length > opened.length && (
+        <p className="warning" data-testid={opened.length ? undefined : "recovery-countdown"}>
+          {(() => { const b = Math.min(...soon.filter((u) => u.recoveryOpensIn > 0).map((u) => u.recoveryOpensIn)); return (
+            <><strong>{soon.length - opened.length} coin(s) soon spendable by Swissquote + {tiers}</strong>: in {b} block(s){timed && <>, about <strong className="countdown">{hms(left(b))}</strong> (around {at(b)}, estimated at ~10 min per block)</>}. </>
+          ); })()}
+          If this is not a recovery you asked for, use “Refresh” to reset the delay.
         </p>
       )}
       {mobile ? (

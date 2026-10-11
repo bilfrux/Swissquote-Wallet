@@ -392,3 +392,5 @@ button.account-pill { background: none; color: var(--text); padding: 6px 8px; fo
   .mk-panel-head h2 { font-size: 21px; }
   .pub-actions { gap: 8px; }
 }
+.warning.danger-line { background: var(--red-soft); border-color: #f3a593; }
+.countdown { font-variant-numeric: tabular-nums; }
