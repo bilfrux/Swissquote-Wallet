@@ -176,15 +176,6 @@ async function route(req: IncomingMessage, body: any, url: URL) {
       if (!id) throw new HttpError(401, "session expired: please log in again");
       return verifyRegistration(id, body.response).catch((e) => { throw new HttpError(403, e.message); });
     }
-    case "POST /auth/passkey/login/options": {
-      if (!CUSTOMERS[body.customerId]) throw new HttpError(403, "unknown client");
-      return authenticationOptions(body.customerId, "login").catch((e) => { throw new HttpError(404, e.message); });
-    }
-    case "POST /auth/passkey/login/verify": {
-      if (!CUSTOMERS[body.customerId]) throw new HttpError(403, "unknown client");
-      await verifyAuthentication(body.customerId, "login", body.response).catch((e) => { throw new HttpError(403, e.message); });
-      return createSession(body.customerId);
-    }
     // Ré-authentification avant un envoi de montant élevé : enregistrée et signalée au client (alerte).
     case "POST /auth/stepup/options": {
       const id = customerFromSession(req.headers.authorization);

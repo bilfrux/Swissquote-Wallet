@@ -52,17 +52,11 @@ export type Notification = { id: number; accountId: number | null; kind: string;
 export const notifications = () => call("/notifications") as Promise<{ unread: number; items: Notification[] }>;
 export const markNotificationsRead = () => call("/notifications/read", {}) as Promise<{ ok: boolean }>;
 
-// --- Passkeys (WebAuthn) : connexion et ré-authentification « step-up » ---
+// --- Passkeys (WebAuthn) : ré-authentification « step-up » ---
 export const passkeyStatus = () => call("/auth/passkey") as Promise<{ count: number }>;
 export async function registerPasskey() {
   const optionsJSON = await call("/auth/passkey/register/options", {});
   return call("/auth/passkey/register/verify", { response: await startRegistration({ optionsJSON }) }) as Promise<{ registered: boolean; count: number }>;
-}
-export async function loginWithPasskey(customerId: string): Promise<Session> {
-  const optionsJSON = await call("/auth/passkey/login/options", { customerId });
-  const s = await call("/auth/passkey/login/verify", { customerId, response: await startAuthentication({ optionsJSON }) });
-  sessionStorage.setItem(SESSION, JSON.stringify(s));
-  return s;
 }
 // Seuil « montant élevé » (sats) : ré-authentification par passkey avant de faire signer le wallet.
 export const HIGH_VALUE_SATS = BigInt(import.meta.env.VITE_HIGH_VALUE_SATS ?? 20_000_000);

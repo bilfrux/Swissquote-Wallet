@@ -1,7 +1,7 @@
 // Site public (avant connexion), sur le modèle de swissquote.com : page « Marchés » (aperçu du jour, données SIMULÉES)
 // et page de connexion. Seule la connexion est fonctionnelle (banque simulée, bank-mock).
 import { useMemo, useState } from "react";
-import { type Session, login, loginWithPasskey } from "../lib/bank";
+import { type Session, login } from "../lib/bank";
 import { LangSelect, useT } from "../i18n";
 import { Logo } from "../ui/icons";
 
@@ -192,9 +192,6 @@ function LoginPage({ onLogin, onHome }: { onLogin: (s: Session) => void; onHome:
             {hint && <p className="note banner">{t("login.forgotDemo")}</p>}
             <button type="submit" className="lg-submit">{t("login.submit")}</button>
           </form>
-          <button className="lg-passkey" onClick={async () => { setError(null); try { onLogin(await loginWithPasskey(id.trim())); } catch (err: any) { setError(err instanceof TypeError ? t("login.unreachable") : err.message); } }}>
-            {t("login.passkey")}
-          </button>
           <p className="lg-link"><button type="button" className="link" onClick={() => setHint(true)}>{t("login.help")}</button></p>
           <div className="lg-sep" />
           <p className="lg-new">{t("login.new")}<br /><button type="button" className="link" onClick={() => setHint(true)}>{t("login.become")}</button></p>
