@@ -19,29 +19,35 @@ import { type JsonOp, describeOp, ownersOf, safeAddressOf, signOp } from "@sq/ev
 import { evmAccountFromMnemonic, evmAddressFromMnemonic } from "@sq/evm/keys";
 import { getAddress, type Address } from "viem";
 import { type Policy, type StoredWallet, load, publicView, save } from "./store.ts";
-import { open, seal, validPin } from "./vault.ts";
+import { open, openBio, seal, sealBio, validBio, validPin, validPrf } from "./vault.ts";
 
-// Déverrouillage par code PIN : 5 essais, puis blocage de 60 s (compteur en mémoire du processus).
+// Déverrouillage par code PIN (`pin`) ou par biométrie (`prf` : secret rendu par la passkey du wallet après Touch ID,
+// Face ID…), selon ce que le client a activé. 5 échecs, puis blocage de 60 s (compteur en mémoire du processus).
+type Auth = { pin?: unknown; prf?: unknown };
 const attempts = new Map<string, { fails: number; until: number }>();
-function unlock(w: StoredWallet, pin: unknown): string {
-  if (!w.sealed) return w.mnemonic!; // wallet « non protégé » (créé avant l'étape 8)
+function unlock(w: StoredWallet, auth: Auth): string {
+  if (!w.sealed && !w.bio) return w.mnemonic!; // wallet « non protégé » (créé avant l'étape 8)
   const a = attempts.get(w.id) ?? { fails: 0, until: 0 };
-  if (a.until > Date.now()) throw new HttpError(429, `wallet locked after 5 incorrect PINs: try again in ${Math.ceil((a.until - Date.now()) / 1000)} s`);
+  if (a.until > Date.now()) throw new HttpError(429, `wallet locked after 5 failed unlocks: try again in ${Math.ceil((a.until - Date.now()) / 1000)} s`);
+  const bio = auth?.prf !== undefined;
   try {
-    if (!validPin(pin)) throw new Error("format");
-    const m = open(w.sealed, pin);
+    let m: string;
+    if (bio) { if (!w.bio || !validPrf(auth.prf)) throw new Error("bio"); m = openBio(w.bio, auth.prf); }
+    else { if (!w.sealed || !validPin(auth?.pin)) throw new Error("pin"); m = open(w.sealed, auth.pin); }
     attempts.delete(w.id);
     return m;
   } catch {
     a.fails += 1;
     if (a.fails >= 5) { a.fails = 0; a.until = Date.now() + 60_000; }
     attempts.set(w.id, a);
-    throw new HttpError(403, a.until > Date.now() ? "incorrect PIN: wallet locked for 60 s" : `incorrect PIN (${5 - a.fails} attempt(s) left)`);
+    const what = bio ? (w.bio ? "biometric unlock failed" : "biometrics not enabled for this wallet") : w.sealed ? "incorrect PIN" : "no PIN for this wallet: use biometrics";
+    throw new HttpError(403, a.until > Date.now() ? `${what}: wallet locked for 60 s` : `${what} (${5 - a.fails} attempt(s) left)`);
   }
 }
+const authOf = (body: any): Auth => ({ pin: body?.pin, prf: body?.prf });
 
 const PORT = Number(process.env.CLIENT_WALLET_PORT ?? 5180);
-// Au-delà de ce montant envoyé vers l'extérieur, le wallet exige une confirmation renforcée (en plus du PIN).
+// Au-delà de ce montant envoyé vers l'extérieur, le wallet exige une confirmation renforcée (en plus du PIN ou de la biométrie).
 const HIGH_VALUE_SATS = BigInt(process.env.CLIENT_WALLET_HIGH_VALUE_SATS ?? 20_000_000);
 const SELF = `http://localhost:${PORT}`;
 const root = new URL("..", import.meta.url).pathname;
@@ -111,11 +117,17 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
 
     case "POST /api/wallets": {
       const network: NetworkName = body.network === "signet" ? "signet" : "regtest";
-      if (!validPin(body.pin)) throw new HttpError(400, "PIN required: 6 to 12 digits");
+      // Les nouveaux wallets sont toujours protégés par la biométrie du device.
+      if (body.bio === undefined) throw new HttpError(400, "biometrics required");
+      if (!validBio(body.bio)) throw new HttpError(400, "invalid biometric key (passkey with the PRF extension required)");
       const mnemonic = newMnemonic(); // @scure/bip39, 256 bits d'entropie
       const master = masterFromMnemonic(mnemonic, network);
-      // Seule la version chiffrée par le PIN est écrite sur le disque.
-      const w: StoredWallet = { id: fp(master.fingerprint), label: String(body.label ?? "Mon wallet Bitcoin"), sealed: seal(mnemonic, body.pin), accountKey: accountKey(master), evmAddress: evmAddressFromMnemonic(mnemonic), createdAt: new Date().toISOString() };
+      // Seules les versions chiffrées (PIN et/ou biométrie) sont écrites sur le disque.
+      const w: StoredWallet = {
+        id: fp(master.fingerprint), label: String(body.label ?? "Mon wallet Bitcoin"),
+        bio: sealBio(mnemonic, body.bio),
+        accountKey: accountKey(master), evmAddress: evmAddressFromMnemonic(mnemonic), createdAt: new Date().toISOString(),
+      };
       save([...wallets, w]);
       // Seule réponse qui contienne la phrase : elle est affichée une fois à l'écran du wallet, puis plus jamais.
       return { wallet: publicView(w), mnemonic };
@@ -128,13 +140,33 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
     }
 
     case "POST /api/wallets/:id/protect": {
-      // Ancien wallet en clair : chiffrement par un code PIN, puis suppression de la phrase en clair.
+      // Ancien wallet en clair : chiffrement biométrique, puis suppression de la phrase en clair.
       const w = wallets.find((x) => x.id === id);
       if (!w) throw new HttpError(404, "unknown wallet");
-      if (w.sealed) throw new HttpError(409, "wallet already protected by a PIN");
-      if (!validPin(body.pin)) throw new HttpError(400, "PIN required: 6 to 12 digits");
-      w.sealed = seal(w.mnemonic!, body.pin);
+      if (w.sealed || w.bio) throw new HttpError(409, "wallet already protected");
+      if (!validBio(body.bio)) throw new HttpError(400, "invalid biometric key (passkey with the PRF extension required)");
+      w.bio = sealBio(w.mnemonic!, body.bio);
       delete w.mnemonic;
+      save(wallets);
+      return publicView(w);
+    }
+
+    case "POST /api/wallets/:id/unlock": {
+      // Changer de façon de déverrouiller, après déverrouillage par une façon déjà active (`auth`) :
+      // activer ou retirer la biométrie, choisir ou retirer le PIN. Il en reste toujours au moins une.
+      const w = wallets.find((x) => x.id === id);
+      if (!w) throw new HttpError(404, "unknown wallet");
+      if (!w.sealed && !w.bio) throw new HttpError(409, "wallet not protected: protect it with a PIN first");
+      const op = String(body.op);
+      if (op === "set-pin" && !validPin(body.newPin)) throw new HttpError(400, "PIN required: 6 to 12 digits");
+      if (op === "set-bio" && !validBio(body.bio)) throw new HttpError(400, "invalid biometric key (passkey with the PRF extension required)");
+      if (!["set-pin", "set-bio", "remove-pin", "remove-bio"].includes(op)) throw new HttpError(400, "unknown operation");
+      if ((op === "remove-pin" && !w.bio) || (op === "remove-bio" && !w.sealed)) throw new HttpError(409, "this is your only way to unlock the wallet: enable the other one first");
+      const mnemonic = unlock(w, authOf(body.auth));
+      if (op === "set-pin") w.sealed = seal(mnemonic, body.newPin);
+      if (op === "set-bio") { w.bio = sealBio(mnemonic, body.bio); delete w.sealed; }
+      if (op === "remove-pin") delete w.sealed;
+      if (op === "remove-bio") delete w.bio;
       save(wallets);
       return publicView(w);
     }
@@ -150,10 +182,10 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
     }
 
     case "POST /api/wallets/:id/evm": {
-      // Wallet créé avant l'étape 17 : calcul de l'adresse Ethereum (la phrase est déchiffrée par le PIN, en mémoire).
+      // Wallet créé avant l'étape 17 : calcul de l'adresse Ethereum (la phrase est déchiffrée, en mémoire).
       const w = wallets.find((x) => x.id === id);
       if (!w) throw new HttpError(404, "unknown wallet");
-      if (!w.evmAddress) { w.evmAddress = evmAddressFromMnemonic(unlock(w, body.pin)); save(wallets); }
+      if (!w.evmAddress) { w.evmAddress = evmAddressFromMnemonic(unlock(w, authOf(body))); save(wallets); }
       return { evmAddress: w.evmAddress };
     }
 
@@ -165,7 +197,7 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
       const unknown = d.calls.filter((c) => c.kind === "unknown" || c.risk);
       if (unknown.length) throw new HttpError(400, `refused: ${unknown.map((c) => c.risk ?? c.text).join("; ")}`);
       const w = wallets.find((x) => x.id === d.wallet.id)!;
-      const { privateKey, account } = evmAccountFromMnemonic(unlock(w, body.pin));
+      const { privateKey, account } = evmAccountFromMnemonic(unlock(w, authOf(body)));
       if (getAddress(account.address) !== getAddress(w.evmAddress!)) throw new HttpError(500, "derived key does not match the wallet's address");
       return { signature: signOp(body.op as JsonOp, privateKey) };
     }
@@ -182,7 +214,7 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
       if (![0, 1].includes(change) || !Number.isInteger(index) || index < 0 || index > 1_000_000) throw new HttpError(400, "invalid key path");
       if (typeof body.message !== "string" || body.message.length > 1000) throw new HttpError(400, "invalid message");
       const network: NetworkName = body.network === "signet" ? "signet" : "regtest";
-      const child = masterFromMnemonic(unlock(w, body.pin), network).derive(`m/48'/1'/0'/2'/${change}/${index}`);
+      const child = masterFromMnemonic(unlock(w, authOf(body)), network).derive(`m/48'/1'/0'/2'/${change}/${index}`);
       const keyAddress = keyAddressOf(child.publicKey!, network);
       const wif = btc.WIF(btcNetwork(network)).encode(child.privateKey!);
       return { signature: Signer.sign(wif, keyAddress, body.message), keyAddress };
@@ -196,7 +228,7 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
       // Montant élevé : le client ressaisit les 6 derniers caractères de l'adresse de destination (contre une adresse substituée).
       if (d.high && String(body.confirmDest ?? "").trim().toLowerCase() !== d.confirmTarget!.slice(-6).toLowerCase())
         throw new HttpError(400, "high-value amount: enter the last 6 characters of the destination address");
-      const r = signPsbtWithMnemonic(body.psbt, unlock(w, body.pin), body.network);
+      const r = signPsbtWithMnemonic(body.psbt, unlock(w, authOf(body)), body.network);
       if (r.added === 0) throw new HttpError(400, "no input signable by this wallet");
       return r;
     }
