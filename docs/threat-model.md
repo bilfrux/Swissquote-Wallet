@@ -1,18 +1,28 @@
 # Threat model
 
-Bitcoin policy (P2WSH, Miniscript): `or(pk(CLIENT), and(pk(SWISSQUOTE), and(pk(TRUSTED), older(D))))`. Demo: D = 6 blocks.
+One wallet, two accounts from the same secret phrase (kept in the Client Wallet), with **two different recovery mechanisms**:
+
+| | Bitcoin (signet) | Ethereum (Sepolia) |
+| --- | --- | --- |
+| Account | P2WSH script (Miniscript): `or(pk(CLIENT), and(pk(SWISSQUOTE), and(pk(TRUSTED), older(D))))` | Safe owned by the client's key + Candide recovery module v0.0.1 (guardians Swissquote and trusted contact, threshold 2) |
+| When can Swissquote + contact act? | **Automatically opens** on any coin that has **not moved for D blocks** (demo D = 6 blocks; target ≈ 6 months) | Only if they **actively start** a recovery; it then waits a delay enforced by the contract (demo 3 minutes; target 7 or 14 days) |
+| How the client keeps control | Be active: any spend resets the coins it moves; **"Refresh" resets all coins in one transaction** | Nothing to do while nobody starts a recovery; **if one starts, cancel it** during the delay ("Cancel this recovery") |
+| Scope | Per coin (UTXO) | The whole account at once (USDC and any other token): the recovery changes the Safe's owner |
+| Who enforces the rule | Bitcoin consensus (BIP68/112) | The recovery module contract |
+
+The two chains are independent: a transaction on one never affects the other's delay or recovery.
 
 The "Observed result" column only reports what was executed and recorded in `docs/validation/`. Without evidence, the cell says **not tested**. The recorded outputs keep the language they were produced in (French before the interface was translated to English).
 
 ## The three questions of the track document
 
-| Question | Answer | Evidence |
-| --- | --- | --- |
-| Who could steal the funds? | The client alone, at any time. Swissquote + trusted contact **together**, only on coins that have not moved for D blocks (grey zone below). Nobody else. | Invariant 1, attacks 1 and 2 (`etape-4-attaques-sortie.txt`) |
-| Who could block the client? | Nobody: the client's spend needs neither Swissquote, nor the trusted contact, nor the Swissquote app (any Bitcoin node or explorer is enough). | Attack 3, step 2 test 7 |
-| Can Swissquote, alone or with a partner, move the funds without the client? | Alone: no, consensus rejects both paths. With the trusted contact: yes, after D, if the client has not refreshed their coins. | Invariant 1; attack 2 ("grey zone" line) |
+| Question | Bitcoin | Ethereum | Evidence |
+| --- | --- | --- | --- |
+| Who could steal the funds? | The client alone, at any time. Swissquote + trusted contact **together**, only on coins that have not moved for D blocks (grey zone below). Nobody else. | The client alone, at any time. Swissquote + trusted contact **together**, by starting a recovery that the client **does not cancel** within the delay. Nobody else. | Bitcoin: invariant 1, attacks 1 and 2 (`etape-4-attaques-sortie.txt`). Ethereum: steps 16 and 18 (real Sepolia) |
+| Who could block the client? | Nobody: the client's spend needs neither Swissquote, nor the trusted contact, nor the Swissquote app (any Bitcoin node or explorer is enough). | Nobody can block the owner's key. Without the paymaster (a third party, not Swissquote), the client pays gas in ETH or uses another bundler. | Bitcoin: attack 3, step 2 test 7. Ethereum: owner-only actions proven in steps 16-18; spending without paymaster **not tested** |
+| Can Swissquote, alone or with a partner, move the funds without the client? | Alone: no, consensus rejects both paths. With the trusted contact: yes, after D, if the client has not refreshed their coins. | Alone: no, the module requires 2 guardians. With the trusted contact: yes, after the delay, if the client has not cancelled. | Bitcoin: invariant 1; attack 2 ("grey zone" line). Ethereum: 16-2, 18-1; 16-3 to 16-5 |
 
-## Threats
+## Threats: Bitcoin
 
 | Threat | Defence | Test | Observed result |
 | --- | --- | --- | --- |
@@ -47,14 +57,45 @@ The "Observed result" column only reports what was executed and recorded in `doc
 | Physical attack ("wrench attack") targeting the deadline | None; with P2WSH, every spend reveals the policy and the delay | — | **Not tested**: residual risk; Taproot as a perspective |
 | Griefing: repeated recovery requests | A request that cannot be broadcast before D has no on-chain effect; the client refreshes | — | **Not tested** |
 
+## Threats: Ethereum (Sepolia)
+
+| Threat | Defence | Test | Observed result |
+| --- | --- | --- | --- |
+| Swissquote alone starts a recovery | Threshold 2 in the module: one guardian signature is not enough | Step 16, 16-2 (real Sepolia) | Refused: `SM: confirmed signatures less than threshold` |
+| Swissquote alone adds an accomplice guardian, or finalizes, or acts outside its instance | Only the Safe (owner) changes guardians; finalization needs a pending recovery whose delay has elapsed | Step 0, 4a-e (Sepolia fork) | All refused |
+| Swissquote signs without identity check, or to an address of its choice | bank-mock signs only after re-KYC, for a Safe of the verified client, to a key that is neither the current owner nor a guardian (extra layer; the contract remains the defence) | Step 18, 18-1 | `403 identity not verified` ; `403 the new owner must be a new key of the client` |
+| Swissquote + trusted contact finalize too early | Delay enforced by the contract | Step 16, 16-3; step 18 | Refused: `SM: recovery period still pending` |
+| **Swissquote + trusted contact start a recovery the client did not ask for** | The current owner cancels during the delay (`cancelRecovery` + `invalidateNonce`); the app shows "Recovery in progress on this account… cancel it now" | Step 16, 16-5 (script); cancel button in the interface (step 17) | Cancelled; finalization afterwards refused: `SM: no ongoing recovery`. **Cancellation from the interface not tested by an automated run** |
+| The old (lost or stolen) key keeps control after a recovery | The recovery replaces the owner | Step 16, 16-4 | Old key refused: `INVALID_SIGNATURE: Invalid account signature`; new key signs |
+| Leftover guardian signatures reused later | The new owner invalidates the module nonce right after the recovery (project rule) | Step 18, 18-5 | Nonce advanced by 2 (start + invalidation) |
+| The trusted contact's signature is replaced in the relay | Swissquote checks it is the registered contact's EIP-712 signature of this request | Step 18, 18-2 | Accepted only from the registered contact; the console checks on-chain that the contact is a guardian |
+| The same signature counted twice, or replayed on another module instance | Sorted, distinct signers; the EIP-712 domain includes the chain and the module address | Step 0, 3b and 3c (fork) | Refused (`duplicate signers`, `Invalid guardian signature`) |
+| The bank app asks the wallet to sign a malicious operation (compromised app) | The Client Wallet decodes the operation itself (single call or batch) and **refuses** any call it cannot explain; unlimited approvals flagged | Step 17, 17-3 | `400 refused: not decoded` |
+| The app reads a stale state (public node) and misleads the client | All reads after an operation pinned to the inclusion block, with retries; Swissquote syncs the owner at the finalization block | Steps 16, 18, 20 | Defects found and fixed (stale nonce, stale owner); runs recorded |
+| Sponsorship abused (many free operations) | The paymaster is a **third party** (Candide public policy); Swissquote does not operate it | — | **Not covered**: limits of the public policy unknown to us; a private policy would let Swissquote set limits |
+| High-value USDC transfer without the client's knowledge | Client Wallet confirmation screen with the decoded transfer | Step 17, 17-4 | **No enhanced confirmation by amount on Ethereum** (Bitcoin has one) |
+| Swissquote disappears | The owner's key still controls the Safe; operations can go through any bundler, or as plain transactions paid in ETH | — | **Not tested** for Ethereum |
+
 ## Residual risks (to be argued, not denied)
 
-1. **Custody grey zone**: after D without refresh, Swissquote + trusted contact can spend to any destination. Bitcoin cannot restrict the destination (no covenant).
+**Both networks**
+
+1. **Custody grey zone**: Swissquote + trusted contact together can take the funds, to any destination, if the client does not react (Bitcoin: no refresh before D; Ethereum: no cancellation during the delay).
 2. **Swissquote closed + client key lost = funds lost.**
 3. **Trusted contact who loses their key = recovery impossible**, as long as the client has not replaced them.
-4. **Cost of refreshing**: moving each coin before D, in fees and on-chain traces.
-5. **Few compatible external wallets**: Bitcoin Core verified; Liana and hardware wallets announced, not verified; Sparrow most likely not.
-6. **Privacy**: the policy is revealed at every spend with P2WSH.
-7. **Reference Client Wallet**: seed encrypted by a PIN, but a 6-digit PIN does not withstand an offline exhaustive search if the file is stolen. A secure element (hardware wallet, phone enclave) is required in production.
-8. **Mocked components**: re-KYC, bank session. Re-KYC is only an extra layer: the real defence is on-chain.
-9. **Out of scope**: Ethereum, gasless, dApp, DeFi.
+4. **Reference Client Wallet**: seed encrypted by a PIN, but a 6-digit PIN does not withstand an offline exhaustive search if the file is stolen. A secure element (hardware wallet, phone enclave) is required in production.
+5. **Mocked components**: re-KYC, bank session. Re-KYC is only an extra layer: the real defence is on-chain.
+
+**Bitcoin**
+
+6. **Cost of refreshing**: moving the coins before D, in fees and on-chain traces (one transaction for all coins).
+7. **Few compatible external wallets**: Bitcoin Core verified; Liana and hardware wallets announced, not verified; Sparrow most likely not.
+8. **Privacy**: the policy is revealed at every spend with P2WSH.
+
+**Ethereum**
+
+9. **The client must notice a hostile recovery within the delay.** Unlike Bitcoin, an active but inattentive client is exposed: alerts (bank-mock notifies when Swissquote signs an Ethereum recovery: **not tested by an automated run**) depend on Swissquote; hence a long target delay (7 or 14 days).
+10. **Griefing**: Swissquote + contact can start recoveries repeatedly; each one must be cancelled (gas currently sponsored by the paymaster).
+11. **Module v0.0.1** (deployed version): removing a guardian does not cancel a recovery they started; new owners are not validated before finalization (audit M-01). Fixes exist in 0.2.0, not deployed at the SDK's addresses (step 0).
+12. **Dependence on third parties** for gasless: bundler and paymaster (Candide public endpoints), public Sepolia node (rate limits, stale reads seen).
+13. **Out of scope**: compliant dApp interaction, DeFi, Taproot.
