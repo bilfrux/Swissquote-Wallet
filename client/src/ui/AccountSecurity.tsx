@@ -10,7 +10,7 @@ export function AccountSecurity() {
   useEffect(() => { passkeyStatus().then((s) => setCount(s.count), () => setCount(null)); }, []);
   return (
     <div className="acct-sec">
-      <p className="small"><strong>Passkey</strong> {count === null ? "…" : count > 0 ? tr("enabled") : tr("not enabled")}</p>
+      <p className="small"><strong>Passkey</strong> {count === null ? "…" : count > 0 ? <strong>{tr("enabled")}</strong> : tr("not enabled")}</p>
       <p className="muted small">{tr("Passkey allows signing important amounts:")}</p>
       <ul className="muted small">
         <li>{tr("Bitcoin: above 0.2 BTC")}</li>
