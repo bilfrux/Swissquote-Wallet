@@ -6,7 +6,7 @@ import {
   type PsbtSummary as Summary, type WalletConfig, type WalletUtxo,
   buildSpend, combinePsbts, createWalletConfig, finalizePsbt, outputAt, scan, simulate,
 } from "@sq/bitcoin";
-import { type KycForm, type RegisteredAccount, guardianSign, listAccounts, registerAccount, relayCreate, relayGet, verifyIdentity } from "../lib/bank";
+import { type KycForm, type RegisteredAccount, cryptoUnlockKyc, guardianSign, listAccounts, registerAccount, relayCreate, relayGet, verifyIdentity } from "../lib/bank";
 import { chain, txLink } from "../lib/chain";
 import { type BtcAccount, NETWORK } from "../lib/config";
 import { walletRequest } from "../lib/walletBridge";
@@ -82,7 +82,7 @@ export function Recovery({ onDone, onCancel }: { onDone: (a: BtcAccount) => void
               <label><span>{tr("Date of birth")}</span><input placeholder={tr("YYYY-MM-DD")} value={kyc.birthDate} onChange={(e) => setKyc({ ...kyc, birthDate: e.target.value })} /></label>
               <label><span>{tr("Code received by SMS (mock)")}</span><input value={kyc.otp} onChange={(e) => setKyc({ ...kyc, otp: e.target.value })} /></label>
             </div>
-            <button onClick={guard(async () => { const t = (await verifyIdentity(kyc)).token; setToken(t); setAccounts(await listAccounts(t)); })}>{tr("Verify my identity")}</button>
+            <button onClick={guard(async () => { const t = (await verifyIdentity(kyc)).token; await cryptoUnlockKyc(t); setToken(t); setAccounts(await listAccounts(t)); })}>{tr("Verify my identity")}</button>
           </>
         )}
       </div>

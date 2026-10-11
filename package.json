@@ -46,7 +46,8 @@
     "validate:10": "tsx scripts/validate/etape-10-auth.ts",
     "validate:11": "tsx scripts/validate/etape-11-transfers.ts",
     "validate:12": "tsx scripts/validate/etape-12-relay.ts",
-    "validate:37": "tsx scripts/validate/etape-37-bio.ts"
+    "validate:37": "tsx scripts/validate/etape-37-bio.ts",
+    "validate:38": "tsx scripts/validate/etape-38-crypto-lock.ts"
   },
   "devDependencies": {
     "bip322-js": "^4.0.0",

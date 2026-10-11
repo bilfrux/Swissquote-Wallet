@@ -2,19 +2,24 @@
 // Le compte actif (clés publiques) vient de Swissquote si elle répond, sinon du cache local : la dépense ne dépend pas d'elle.
 import { useEffect, useState } from "react";
 import { type WalletConfig, createWalletConfig } from "@sq/bitcoin";
-import { type Session, walletAccounts } from "../lib/bank";
+import { type Session, registerPasskey, walletAccounts } from "../lib/bank";
 import { type BtcAccount, NETWORK, loadActiveAccount, saveActiveAccount } from "../lib/config";
 import { Recovery } from "../recovery/Recovery";
 import { CreateWallet } from "./CreateWallet";
 import { WalletHome } from "./WalletHome";
 import { useT } from "../i18n";
 
-export function CryptoTab({ session, onBalance, custodySats = 0, onUsdc }: { session: Session; onBalance: (s: bigint | null) => void; custodySats?: number; onUsdc?: (u: bigint) => void }) {
+export function CryptoTab({ session, onBalance, custodySats = 0, onUsdc, startInRecovery = false, onRecovered, onLeave }: {
+  session: Session; onBalance: (s: bigint | null) => void; custodySats?: number; onUsdc?: (u: bigint) => void;
+  // Arrivée par « j'ai perdu mon wallet » depuis l'écran verrouillé ; `onRecovered` : la recovery est finie (le verrou est relu) ;
+  // `onLeave` : abandon de la recovery sans être déverrouillé.
+  startInRecovery?: boolean; onRecovered?: () => void; onLeave?: () => void;
+}) {
   const cid = session.customer.id;
   const { tr } = useT();
   const [account, setAccount] = useState<BtcAccount | null | undefined>(undefined);
   const [cfg, setCfg] = useState<WalletConfig | null>(null);
-  const [recovering, setRecovering] = useState(() => localStorage.getItem(`sq-wallet:recovery:${NETWORK}`) !== null);
+  const [recovering, setRecovering] = useState(() => startInRecovery || localStorage.getItem(`sq-wallet:recovery:${NETWORK}`) !== null);
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
@@ -40,7 +45,19 @@ export function CryptoTab({ session, onBalance, custodySats = 0, onUsdc }: { ses
   const activate = (a: BtcAccount) => { saveActiveAccount(cid, a); setAccount(a); };
   if (account === undefined) return <section><p>{tr("Loading…")}</p></section>;
   if (recovering)
-    return <Recovery onCancel={() => setRecovering(false)} onDone={(a) => { activate(a); setRecovering(false); setNotice(tr("Recovery complete: here is your new wallet.")); }} />;
+    return <Recovery
+      onCancel={() => { setRecovering(false); onLeave?.(); }}
+      onDone={async (a) => {
+        activate(a);
+        setRecovering(false);
+        setNotice(tr("Recovery complete: here is your new wallet."));
+        // L'ancienne passkey a pu être perdue avec l'appareil : on en enregistre une nouvelle ici (biométrie de cet appareil).
+        // C'est elle qui redonne l'accès complet ; la recovery seule n'ouvre que ses propres écrans.
+        if (onRecovered) {
+          try { await registerPasskey(); } catch (e: any) { setNotice(`${tr("Recovery complete: here is your new wallet.")} ${tr("Biometrics could not be enabled on this device:")} ${e.message}`); }
+          onRecovered();
+        }
+      }} />;
   return (
     <>
       {notice && <p className="note banner">{notice}</p>}

@@ -1,0 +1,23 @@
+[OK ] 38-1 Session mot de passe seule : 8 routes crypto refusées (403), enregistrement par simple identifiant sans session refusé (401), /me reste accessible
+       GET /custody 403 ; POST /custody/withdraw 403 ; GET /wallet/accounts 403 ; POST /accounts/register 403 ; POST /ownership/challenge 403 ; POST /relay 403 ; GET /evm/accounts 403 ; POST /evm/accounts/register 403 ; sans session 401 ; /me 200
+[OK ] 38-2 Interface : écran verrouillé sans contenu crypto ; activation de la biométrie (passkey) puis accès au wallet ; la même session est acceptée par le serveur
+       contenu crypto avant : 0 ; /wallet/accounts après : 200
+[OK ] 38-3 Autre session par mot de passe seul (client déjà doté d'une passkey) : routes crypto refusées et ajout d'une passkey refusé
+       /wallet/accounts 403 ; passkey/register/options 403 (unlock the crypto part first (biometrics or identity check))
+[OK ] 38-4 Le serveur reverrouille la session après 8 s d'inactivité (durée raccourcie pour le test ; 10 min par défaut)
+       avant 200 ; après 403 (crypto locked: confirm with your biometrics or verify your identity)
+[OK ] 38-5 Nouvelle connexion : verrouillée, déverrouillée par la passkey existante (assertion vérifiée par le serveur)
+       /wallet/accounts 200 ; /custody/withdraw 400 (refus métier, plus de verrou : invalid amount (minimum 10,000 sats))
+[OK ] 38-6 Appareil perdu : le re-KYC ouvre la recovery (comptes, enregistrement) mais ni le compte crypto Swissquote ni la preuve de propriété
+       /wallet/accounts 200 ; /custody 403 ; /custody/withdraw 403 ; /ownership/challenge 403
+[OK ] 38-7 Aucune erreur JavaScript dans l'interface
+       aucune
+
+RÉSUMÉ
+38-1 fonctionne         Session mot de passe seule : 8 routes crypto refusées (403), enregistrement par simple identifiant sans session refusé (401), /me reste accessible
+38-2 fonctionne         Interface : écran verrouillé sans contenu crypto ; activation de la biométrie (passkey) puis accès au wallet ; la même session est acceptée par le serveur
+38-3 fonctionne         Autre session par mot de passe seul (client déjà doté d'une passkey) : routes crypto refusées et ajout d'une passkey refusé
+38-4 fonctionne         Le serveur reverrouille la session après 8 s d'inactivité (durée raccourcie pour le test ; 10 min par défaut)
+38-5 fonctionne         Nouvelle connexion : verrouillée, déverrouillée par la passkey existante (assertion vérifiée par le serveur)
+38-6 fonctionne         Appareil perdu : le re-KYC ouvre la recovery (comptes, enregistrement) mais ni le compte crypto Swissquote ni la preuve de propriété
+38-7 fonctionne         Aucune erreur JavaScript dans l'interface

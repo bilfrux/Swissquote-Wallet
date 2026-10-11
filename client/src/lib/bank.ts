@@ -58,6 +58,17 @@ export async function registerPasskey() {
   const optionsJSON = await call("/auth/passkey/register/options", {});
   return call("/auth/passkey/register/verify", { response: await startRegistration({ optionsJSON }) }) as Promise<{ registered: boolean; count: number }>;
 }
+// --- Verrou de la partie crypto : passkey vérifiée par bank-mock (pas seulement par l'interface) ---
+export type CryptoLock = { enabled: boolean; passkeys: number; scope: "full" | "recovery" | null; expiresAt: number | null };
+export const cryptoLockStatus = () => call("/auth/crypto-unlock") as Promise<CryptoLock>;
+export async function cryptoUnlock() {
+  const optionsJSON = await call("/auth/crypto-unlock/options", {});
+  return call("/auth/crypto-unlock/verify", { response: await startAuthentication({ optionsJSON }) }) as Promise<{ scope: "full" }>;
+}
+// Appareil ou passkey perdus : re-KYC, qui n'ouvre que les écrans de recovery.
+export const cryptoUnlockKyc = (token: string) => call("/auth/crypto-unlock/kyc", { token }) as Promise<{ scope: "recovery" }>;
+export const cryptoLock = () => call("/auth/crypto-unlock/lock", {}).catch(() => undefined);
+
 // Seuil « montant élevé » (sats) : ré-authentification par passkey avant de faire signer le wallet.
 export const HIGH_VALUE_SATS = BigInt(import.meta.env.VITE_HIGH_VALUE_SATS ?? 20_000_000);
 export type StepUp = { status: "approuvé" } | { status: "swissquote-injoignable" };

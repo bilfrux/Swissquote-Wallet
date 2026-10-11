@@ -41,7 +41,7 @@ export function makeReport() {
 export async function startBankMock(port: number, dataDir: string) {
   rmSync(dataDir, { recursive: true, force: true });
   const child: ChildProcess = spawn("npm", ["run", "-s", "dev", "-w", "bank-mock"], {
-    env: { ...process.env, BANK_MOCK_PORT: String(port), BANK_MOCK_DATA: `${process.cwd()}/${dataDir}` },
+    env: { ...process.env, BANK_MOCK_CRYPTO_LOCK: "off", BANK_MOCK_PORT: String(port), BANK_MOCK_DATA: `${process.cwd()}/${dataDir}` },
     stdio: "ignore",
     detached: true,
   });

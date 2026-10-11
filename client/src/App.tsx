@@ -1,12 +1,13 @@
 // Appli Swissquote (banque SIMULÉE) : connexion, accueil, banque, crypto self-custody, démo.
 import { useEffect, useState } from "react";
-import { type BankAccount, type Session, clearSession, custody, loadSession, me } from "./lib/bank";
+import { type BankAccount, type Session, clearSession, cryptoLock, custody, loadSession, me } from "./lib/bank";
 import { priceOf, usePrices } from "./lib/market";
 import { num } from "./ui/format";
 import { PublicSite } from "./public/PublicSite";
 import { Overview } from "./bank/Overview";
 import { Accounts } from "./bank/Accounts";
 import { CryptoTab } from "./wallet/CryptoTab";
+import { CryptoGate } from "./wallet/CryptoGate";
 import { openCrypto } from "./wallet/Account";
 import { AttackPanel } from "./attacks/AttackPanel";
 import { Shell, type Tab } from "./ui/Shell";
@@ -22,9 +23,15 @@ export function App() {
   const market = usePrices();
   const [error, setError] = useState<string | null>(null);
 
+  // Solde du compte crypto Swissquote : bank-mock ne le donne qu'une fois la partie crypto déverrouillée par la biométrie.
+  const [cryptoOpen, setCryptoOpen] = useState<"full" | null>(null);
   useEffect(() => {
     if (!session) return;
-    custody().then((c) => setCustodySats(c.balanceSats), () => setCustodySats(0));
+    if (cryptoOpen) custody().then((c) => setCustodySats(c.balanceSats), () => setCustodySats(0));
+    else { setCustodySats(0); setBtcSats(undefined); setUsdc(null); }
+  }, [session, cryptoOpen]);
+  useEffect(() => {
+    if (!session) return;
     me().then((m) => setAccounts(m.accounts), (e) => { setError(e.message); if (/session/.test(e.message)) { clearSession(); setSession(null); } });
   }, [session]);
 
@@ -47,14 +54,18 @@ export function App() {
       tab={tab}
       onTab={go}
       user={session.customer}
-      onLogout={() => { clearSession(); setSession(null); setAccounts(null); setBtcSats(undefined); setUsdc(null); }}
+      onLogout={() => { cryptoLock().finally(clearSession); setSession(null); setCryptoOpen(null); setAccounts(null); setBtcSats(undefined); setUsdc(null); }}
       totals={{ totalChf: cash + cryptoChf, cashChf: cash, crypto: btcSats === undefined ? "…" : btcSats === null ? null : `${num(cryptoChf)} CHF` }}
     >
       {error && <p className="error">{error}</p>}
       {tab === "accueil" && <Overview accounts={accounts} btcSats={btcSats} custodySats={custodySats} usdc={usdc} customerId={session.customer.id} onTab={go} />}
       {tab === "banque" && <Accounts accounts={accounts} />}
       {/* L'onglet crypto reste monté (masqué) pour que le solde BTC de l'accueil soit à jour. */}
-      <div hidden={tab !== "crypto"}><CryptoTab session={session} onBalance={setBtcSats} custodySats={custodySats} onUsdc={setUsdc} /></div>
+      <div hidden={tab !== "crypto"}>
+        <CryptoGate onScope={setCryptoOpen}>
+          {({ recovery, onRecovered, onLeave }) => <CryptoTab session={session} onBalance={setBtcSats} custodySats={custodySats} onUsdc={setUsdc} startInRecovery={recovery} onRecovered={recovery ? onRecovered : undefined} onLeave={onLeave} />}
+        </CryptoGate>
+      </div>
       {tab === "demo" && <AttackPanel />}
     </Shell>
   );

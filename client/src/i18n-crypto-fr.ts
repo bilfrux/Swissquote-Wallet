@@ -323,4 +323,15 @@ export const CRYPTO_FR: Record<string, string> = {
   "~1 day": "~1 jour",
   "~10 min": "~10 min",
   "~30 min": "~30 min",
+  // Verrou biométrique de la partie crypto (étape 38)
+  "Crypto is locked": "La partie crypto est verrouillée",
+  "Your password is not enough to reach your crypto: confirm with your biometrics (Touch ID, Face ID, Windows Hello). Swissquote's servers check it, so nobody who only has your password can use this part.":
+    "Votre mot de passe ne suffit pas pour accéder à vos cryptos : confirmez avec votre biométrie (Touch ID, Face ID, Windows Hello). Les serveurs de Swissquote la vérifient : personne qui ne connaît que votre mot de passe ne peut utiliser cette partie.",
+  "No biometrics are enabled for your account yet: enable them on this device to continue.": "Aucune biométrie n'est encore activée pour votre compte : activez-la sur cet appareil pour continuer.",
+  "Enable biometrics": "Activer la biométrie",
+  "Unlock with biometrics": "Déverrouiller avec la biométrie",
+  "I lost my device or my biometrics: recover my wallet": "J'ai perdu mon appareil ou ma biométrie : récupérer mon wallet",
+  "Swissquote is unreachable: the biometric lock cannot be checked. Spending still requires your Client Wallet's biometrics.":
+    "Swissquote est injoignable : le verrou biométrique ne peut pas être vérifié. Toute dépense exige quand même la biométrie de votre Client Wallet.",
+  "Biometrics could not be enabled on this device:": "La biométrie n'a pas pu être activée sur cet appareil :",
 };

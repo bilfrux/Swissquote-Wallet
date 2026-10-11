@@ -16,7 +16,7 @@ const DATA = `${process.cwd()}/.local/e2e-7`;
 rmSync(DATA, { recursive: true, force: true });
 const procs: ChildProcess[] = [];
 const start = (cmd: string[], env: Record<string, string>) => procs.push(spawn(cmd[0], cmd.slice(1), { env: { ...process.env, ...env }, stdio: "ignore", detached: true }));
-start(["npm", "run", "-s", "dev", "-w", "bank-mock"], { BANK_MOCK_PORT: "4120", BANK_MOCK_DATA: `${DATA}/bank` });
+start(["npm", "run", "-s", "dev", "-w", "bank-mock"], { BANK_MOCK_CRYPTO_LOCK: "off", BANK_MOCK_PORT: "4120", BANK_MOCK_DATA: `${DATA}/bank` });
 start(["npm", "run", "-s", "dev", "-w", "client-wallet"], { CLIENT_WALLET_PORT: "5195", CLIENT_WALLET_DATA: `${DATA}/wallet` });
 for (const u of [`${BANK}/health`, `${WALLET}/api/wallets`]) for (let i = 0; i < 100; i++) { try { if ((await fetch(u)).ok) break; } catch {} await new Promise((r) => setTimeout(r, 200)); }
 const stopAll = () => procs.forEach((p) => { try { process.kill(-p.pid!, "SIGTERM"); } catch {} });
