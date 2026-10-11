@@ -13,7 +13,7 @@ import { makeReport, miner, rpc } from "./lib.ts";
 const BANK = "http://localhost:4150";
 const DATA = `${process.cwd()}/.local/e2e-11`;
 rmSync(DATA, { recursive: true, force: true });
-const proc: ChildProcess = spawn("npm", ["run", "-s", "dev", "-w", "bank-mock"], { env: { ...process.env, BANK_MOCK_PORT: "4150", BANK_MOCK_DATA: DATA, ALERT_INTERVAL_MS: "0", ALERT_SIGNET_INTERVAL_MS: "0" }, stdio: "ignore", detached: true });
+const proc: ChildProcess = spawn("npm", ["run", "-s", "dev", "-w", "bank-mock"], { env: { ...process.env, BANK_MOCK_CRYPTO_LOCK: "off", BANK_MOCK_PORT: "4150", BANK_MOCK_DATA: DATA, ALERT_INTERVAL_MS: "0", ALERT_SIGNET_INTERVAL_MS: "0" }, stdio: "ignore", detached: true });
 for (let i = 0; i < 100; i++) { try { if ((await fetch(`${BANK}/health`)).ok) break; } catch {} await new Promise((r) => setTimeout(r, 200)); }
 const call = async (method: string, path: string, token: string, body?: unknown) => {
   const r = await fetch(BANK + path, { method, headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: body ? JSON.stringify(body) : undefined });

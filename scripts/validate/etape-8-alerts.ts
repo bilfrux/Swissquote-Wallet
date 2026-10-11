@@ -10,7 +10,7 @@ const BANK = "http://localhost:4130";
 const DATA = `${process.cwd()}/.local/e2e-8-alerts`;
 rmSync(DATA, { recursive: true, force: true });
 const proc: ChildProcess = spawn("npm", ["run", "-s", "dev", "-w", "bank-mock"], {
-  env: { ...process.env, BANK_MOCK_PORT: "4130", BANK_MOCK_DATA: DATA, ALERT_INTERVAL_MS: "0", ALERT_SIGNET_INTERVAL_MS: "0" }, stdio: "ignore", detached: true,
+  env: { ...process.env, BANK_MOCK_CRYPTO_LOCK: "off", BANK_MOCK_PORT: "4130", BANK_MOCK_DATA: DATA, ALERT_INTERVAL_MS: "0", ALERT_SIGNET_INTERVAL_MS: "0" }, stdio: "ignore", detached: true,
 });
 for (let i = 0; i < 100; i++) { try { if ((await fetch(`${BANK}/health`)).ok) break; } catch {} await new Promise((r) => setTimeout(r, 200)); }
 const call = async (path: string, token?: string, body?: unknown) => {

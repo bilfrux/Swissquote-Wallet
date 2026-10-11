@@ -27,7 +27,7 @@ async function api(path: string, body?: unknown) {
 // --- bank-mock dans son propre processus, stockage vierge ---
 rmSync(DATA, { recursive: true, force: true });
 mkdirSync(".local", { recursive: true });
-let bank: ChildProcess = spawn("npm", ["run", "-s", "dev", "-w", "bank-mock"], { env: { ...process.env, BANK_MOCK_PORT: String(PORT), BANK_MOCK_DATA: `${process.cwd()}/${DATA}` }, stdio: "ignore", detached: true });
+let bank: ChildProcess = spawn("npm", ["run", "-s", "dev", "-w", "bank-mock"], { env: { ...process.env, BANK_MOCK_CRYPTO_LOCK: "off", BANK_MOCK_PORT: String(PORT), BANK_MOCK_DATA: `${process.cwd()}/${DATA}` }, stdio: "ignore", detached: true });
 for (let i = 0; i < 50; i++) { try { if ((await fetch(`${BANK}/health`)).ok) break; } catch {} await new Promise((r) => setTimeout(r, 200)); }
 
 try {

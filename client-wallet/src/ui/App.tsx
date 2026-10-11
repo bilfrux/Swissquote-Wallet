@@ -41,7 +41,12 @@ function UnlockAction({ wallet, label, disabled, allowPin = false, onAuth, onRef
     <>
       {mode === "pin" && <PinInput value={pin} onChange={setPin} />}
       {mode === "bio" && <p className="small bio-hint" data-testid="bio-hint"><span aria-hidden="true">◉</span> Your device will ask for your fingerprint or face (Touch ID, Face ID…).</p>}
-      {mode === "unavailable" && <p className="small error">Biometrics must be enabled before this wallet can be used. Open the wallet settings below to enable them.</p>}
+      {mode === "unavailable" && (
+        <>
+          <p className="small error">Biometrics must be enabled before this wallet can be used. Enable them in the wallet settings, then come back to this request.</p>
+          <p><button className="secondary" onClick={() => window.dispatchEvent(new Event("open-wallet-settings"))}>Open wallet settings</button></p>
+        </>
+      )}
       <div className="row">
         {onRefuse && <button className="secondary" onClick={onRefuse}>Refuse</button>}
         {mode !== "unavailable" && <button disabled={disabled || busy || (mode === "pin" && !pinOk(pin))} onClick={go}>{busy && mode === "bio" ? "Waiting for biometrics…" : label}</button>}
@@ -53,6 +58,7 @@ type Description = {
   wallet: WalletView | null; path: "client" | "recovery" | "mixte"; delay: number | null;
   inputs: { value: string }[]; outputs: { address: string; value: string; mine: string | null }[]; fee: string;
   sent: string; high: boolean; highValueSats: string; confirmTarget: string | null;
+  contactChange: { from: string | null; to: string | null; key: string; delay: number } | null;
 };
 
 async function api(path: string, body?: unknown, method = body ? "POST" : "GET") {
@@ -67,7 +73,14 @@ export function App() {
   const [req, setReq] = useState<Req | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const reply = (ok: boolean, data: unknown) => {
+  // Réglages (liste des wallets) ouverts pendant une demande, pour activer la biométrie d'un ancien wallet.
+  const [settings, setSettings] = useState(false);
+  useEffect(() => {
+    const open = () => setSettings(true);
+    window.addEventListener("open-wallet-settings", open);
+    return () => window.removeEventListener("open-wallet-settings", open);
+  }, []);
+  const reply =(ok: boolean, data: unknown) => {
     req!.source.postMessage({ type: "wallet-response", id: req!.id, ok, ...(ok ? { data } : { error: data }) }, req!.origin);
   };
 
@@ -129,7 +142,7 @@ export function App() {
           onError={setError}
         />
       )}
-      {(!req || done) && <Wallets />}
+      {(!req || done || settings) && <Wallets />}
     </main>
   );
 }
@@ -184,15 +197,22 @@ function PolicyReq({ req, onDone, onError }: { req: Req; onDone: (d: unknown) =>
 function Sign({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unknown) => void; onRefuse: () => void; onError: (e: string) => void }) {
   const [d, setD] = useState<Description | null>(null);
   const [confirmDest, setConfirmDest] = useState("");
-  useEffect(() => { api("/api/describe", { psbt: req.payload.psbt, network: req.network }).then(setD, (e) => onError(e.message)); }, [req]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { api("/api/describe", { psbt: req.payload.psbt, network: req.network, nextPolicy: req.payload.nextPolicy }).then(setD, (e) => onError(e.message)); }, [req]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!d) return <section><p>Reading the transaction…</p></section>;
   const total = d.inputs.reduce((s, i) => s + BigInt(i.value), 0n);
   const ext = d.outputs.filter((o) => !o.mine);
   const sent = ext.reduce((s, o) => s + BigInt(o.value), 0n);
   return (
     <section>
-      <h2>Confirm the transfer</h2>
+      <h2>{d.contactChange ? "Confirm the change of trusted contact" : "Confirm the transfer"}</h2>
       <p className="small muted">Request from <strong>{req.origin}</strong> · wallet “{d.wallet?.label ?? "unknown"}”</p>
+      {d.contactChange && (
+        <div className="card" data-testid="contact-change">
+          <p><strong>Your trusted contact changes</strong> from {d.contactChange.from ?? "the current contact"} to <strong>{d.contactChange.to ?? "a new contact"}</strong>.</p>
+          <p className="small">New contact's public key: <span className="mono">{d.contactChange.key}</span></p>
+          <p className="small">All your coins move to a new address of your account. You alone can still spend them. Swissquote and the <strong>new</strong> contact together will be able to move them after {d.contactChange.delay} blocks without movement (the delay restarts). Check the key with your contact by another means.</p>
+        </div>
+      )}
       <div className="hero">
         <p className="hero-label">{ext.length ? "You are sending" : "Transfer to yourself"}</p>
         <p className="hero-amount">{btc(ext.length ? sent : total - BigInt(d.fee))}</p>
@@ -226,7 +246,7 @@ function Sign({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unknow
       )}
       <UnlockAction wallet={d.wallet} label="Confirm and sign" onRefuse={onRefuse} onError={onError}
         disabled={d.path !== "client" || !d.wallet || (d.high && confirmDest.length !== 6)}
-        onAuth={async (a) => onDone(await api("/api/sign", { psbt: req.payload.psbt, network: req.network, confirmDest, ...a }))} />
+        onAuth={async (a) => onDone(await api("/api/sign", { psbt: req.payload.psbt, network: req.network, nextPolicy: req.payload.nextPolicy, confirmDest, ...a }))} />
     </section>
   );
 }
@@ -246,7 +266,56 @@ function Prove({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unkno
   );
 }
 
+// Kit de sortie : envoie TOUS les coins du wallet vers une adresse choisie, sans le site Swissquote, sans bank-mock et sans
+// compte Swissquote. Même écran de confirmation et même signature biométrique que tout envoi.
+function Exit({ wallet, onClose }: { wallet: WalletView; onClose: () => void }) {
+  const [to, setTo] = useState("");
+  const [fee, setFee] = useState("");
+  const [prepared, setPrepared] = useState<{ psbt: string; network: "regtest" | "signet"; coins: number; total: string } | null>(null);
+  const [txid, setTxid] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const fail = (e: string) => { setError(e); setBusy(false); };
+  if (txid) return (
+    <section>
+      <h2>Emergency exit</h2>
+      <p className="done">Transaction broadcast: <span className="mono">{txid}</span></p>
+      <p className="small muted">All coins of this wallet were sent to the address you chose. No Swissquote service was used.</p>
+      <button className="secondary" onClick={onClose}>Close</button>
+    </section>
+  );
+  if (prepared) return (
+    <>
+      {error && <p className="error">{error}</p>}
+      <p className="small muted">{prepared.coins} coin(s), {btc(prepared.total)} in total, found on the {prepared.network} network.</p>
+      <Sign
+        req={{ id: "exit", action: "sign", network: prepared.network, payload: { psbt: prepared.psbt }, origin: "Emergency exit (this wallet, no Swissquote service)", source: window }}
+        onDone={async (signed: any) => { try { setTxid((await api("/api/exit/broadcast", { walletId: wallet.id, psbt: signed.psbt })).txid); } catch (e: any) { fail(e.message); } }}
+        onRefuse={() => { setPrepared(null); setError(null); }}
+        onError={fail}
+      />
+    </>
+  );
+  return (
+    <section>
+      <h2>Emergency exit</h2>
+      <p>Sends <strong>all</strong> the coins of “{wallet.label}” to an address you choose, with your key alone. It works without the Swissquote site, its servers or your Swissquote account: it only needs this wallet and access to the Bitcoin network.</p>
+      <label><span>Destination address</span><input className="mono" value={to} onChange={(e) => setTo(e.target.value)} placeholder="tb1… / bcrt1…" /></label>
+      <label><span>Fee (sat/vB, empty = network estimate)</span><input value={fee} onChange={(e) => setFee(e.target.value.replace(/[^\d.]/g, ""))} /></label>
+      {error && <p className="error">{error}</p>}
+      <div className="row">
+        <button className="secondary" onClick={onClose}>Back</button>
+        <button disabled={busy || !to.trim()} onClick={async () => {
+          setBusy(true); setError(null);
+          try { setPrepared(await api("/api/exit/prepare", { walletId: wallet.id, to, ...(fee ? { feeRate: Number(fee) } : {}) })); setBusy(false); } catch (e: any) { fail(e.message); }
+        }}>{busy ? "Reading the network…" : "Prepare the exit"}</button>
+      </div>
+    </section>
+  );
+}
+
 function Wallets() {
+  const [exiting, setExiting] = useState<WalletView | null>(null);
   const [list, setList] = useState<WalletView[] | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -254,6 +323,7 @@ function Wallets() {
   const refresh = () => api("/api/wallets").then(setList, (e) => setErr(e.message));
   useEffect(() => { refresh(); }, []);
   if (!list) return null;
+  if (exiting) return <Exit wallet={exiting} onClose={() => { setExiting(null); refresh(); }} />;
   return (
     <section>
       <h2>My wallets</h2>
@@ -275,6 +345,7 @@ function Wallets() {
               <p className="small warnline">Not protected: phrase stored in clear. <button className="secondary" onClick={() => setProtecting(w.id)}>Protect with biometrics</button></p>
             )
           )}
+          {w.policy && w.protected && <p><button className="secondary" onClick={() => setExiting(w)}>Emergency exit (works without Swissquote)</button></p>}
           {confirming === w.id ? (
             <div className="row">
               <button className="secondary" onClick={() => setConfirming(null)}>Cancel</button>

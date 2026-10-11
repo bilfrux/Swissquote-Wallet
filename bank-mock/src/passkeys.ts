@@ -28,7 +28,7 @@ db.exec(`
   );
 `);
 
-type Purpose = "register" | "login" | "stepup";
+type Purpose = "register" | "login" | "stepup" | "crypto";
 const saveChallenge = (c: string, p: Purpose, challenge: string) =>
   db.prepare("insert or replace into webauthn_challenges (customer_id, purpose, challenge, expires_at) values (?, ?, ?, ?)").run(c, p, challenge, Date.now() + TTL);
 function takeChallenge(c: string, p: Purpose): string {
@@ -65,7 +65,7 @@ export async function verifyRegistration(customerId: string, response: any) {
   return { registered: true, count: passkeyCount(customerId) };
 }
 
-export async function authenticationOptions(customerId: string, purpose: "login" | "stepup") {
+export async function authenticationOptions(customerId: string, purpose: "login" | "stepup" | "crypto") {
   const creds = credentialsOf(customerId);
   if (!creds.length) throw new Error("no passkey registered for this client");
   const opts = await generateAuthenticationOptions({
@@ -77,7 +77,7 @@ export async function authenticationOptions(customerId: string, purpose: "login"
 }
 
 // Vérifie une assertion (connexion ou step-up) ; met à jour le compteur anti-clonage.
-export async function verifyAuthentication(customerId: string, purpose: "login" | "stepup", response: any) {
+export async function verifyAuthentication(customerId: string, purpose: "login" | "stepup" | "crypto", response: any) {
   const k = db.prepare("select * from passkeys where id = ? and customer_id = ?").get(String(response?.id ?? ""), customerId) as any;
   if (!k) throw new Error("unknown passkey for this client");
   const v = await verifyAuthenticationResponse({

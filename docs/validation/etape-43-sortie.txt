@@ -1,0 +1,21 @@
+[OK ] 43-1 Client Wallet : sans la nouvelle politique, le transfert est un paiement externe de montant élevé ; avec elle, c'est « new account (new trusted contact) », pas de montant élevé, contact affiché ; Swissquote ou délai modifiés : refusé
+       sans : mine=null high=true ; avec : mine=new account (new trusted contact) high=false contact Marie Dupont→Bob ; autre clé Swissquote 400 ; autre délai 400
+[OK ] 43-2 Signature (secret biométrique) et diffusion : les coins quittent l'ancienne règle et arrivent sous la nouvelle (≈ 0,4 BTC en 1 coin)
+       signature 200 ; txid 02afc5558ed93491… ; ancienne règle : 0 coin ; nouvelle règle : 1 coin de 39999542 sats
+[OK ] 43-3 Registre Swissquote : refus verrou (403), même contact (409), contact = soi (400), clé invalide (400), nom vide (400), compte d'un autre client (403) ; puis mise à jour réussie (contact Bob)
+       verrou 403 ; même 409 ; soi 400 ; invalide 400 ; nom 400 ; autre client 403 ; ok 200 (Bob)
+[OK ] 43-4 Recovery de la nouvelle règle : refusée par Swissquote avant la mise à jour du registre, signée après
+       avant 403 (the spent coins do not belong to any registered account of this client…) ; après 200, signatures ajoutées : 1
+[OK ] 43-5 Après la mise à jour de la politique : le client dépense seul sous la nouvelle règle (rendu reconnu, signature, diffusion)
+       politique 200 ; chemin client ; rendu reconnu : true ; txid 6f41f33e8b761c6b…
+[OK ] 43-6 Interface : onglet Sécurité → formulaire → préparation (coins déplacés vers « votre nouveau compte ») → Client Wallet affiche « Confirm the change of trusted contact » avec le nouveau contact et sa clé
+       titre : true ; Bob : true ; clé : true ; étiquette sortie : true ; erreurs JS : 0
+
+RÉSUMÉ
+43-1 fonctionne         Client Wallet : sans la nouvelle politique, le transfert est un paiement externe de montant élevé ; avec elle, c'est « new account (new trusted contact) », pas de montant élevé, contact affiché ; Swissquote ou délai modifiés : refusé
+43-2 fonctionne         Signature (secret biométrique) et diffusion : les coins quittent l'ancienne règle et arrivent sous la nouvelle (≈ 0,4 BTC en 1 coin)
+43-3 fonctionne         Registre Swissquote : refus verrou (403), même contact (409), contact = soi (400), clé invalide (400), nom vide (400), compte d'un autre client (403) ; puis mise à jour réussie (contact Bob)
+43-4 fonctionne         Recovery de la nouvelle règle : refusée par Swissquote avant la mise à jour du registre, signée après
+43-5 fonctionne         Après la mise à jour de la politique : le client dépense seul sous la nouvelle règle (rendu reconnu, signature, diffusion)
+43-6 fonctionne         Interface : onglet Sécurité → formulaire → préparation (coins déplacés vers « votre nouveau compte ») → Client Wallet affiche « Confirm the change of trusted contact » avec le nouveau contact et sa clé
+exit=0
