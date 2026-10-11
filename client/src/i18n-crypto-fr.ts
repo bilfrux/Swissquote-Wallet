@@ -172,7 +172,7 @@ export const CRYPTO_FR: Record<string, string> = {
   "Ownership verified. Swissquote is sending…": "Propriété vérifiée. Swissquote envoie…",
   "ownership would go to {who} after {t}. If you did not ask for it, cancel it now.": "la propriété passerait à {who} après le {t}. Si vous ne l'avez pas demandée, annulez-la maintenant.",
   "Passkey enabled.": "Passkey activée.",
-  "Passwordless login, and confirmation of high-value transfers.": "Connexion sans mot de passe, et confirmation des montants élevés.",
+  "Passkey used only to confirm high-value transfers.": "La passkey sert uniquement à confirmer les montants élevés.",
   "pending": "en attente",
   "Positions": "Positions",
   "Prepare a deposit": "Préparer un dépôt",
