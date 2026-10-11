@@ -21,7 +21,7 @@ export function CreateWallet({ onCreated }: { onCreated: (a: BtcAccount) => void
       setStatus("Fetching Swissquote's public key…");
       const swissquote = await fetchSwissquoteKey();
       // Clé du tiers vérifiée AVANT d'ouvrir le wallet : pas de graine créée pour rien.
-      parseAccountKey(tiersKey, NETWORK);
+      try { parseAccountKey(tiersKey, NETWORK); } catch (e: any) { throw new Error(`Trusted contact's public key: ${e.message}`); }
       let client = ownKey.trim();
       let walletId: string | undefined;
       if (source === "wallet") {
