@@ -4,10 +4,12 @@
 //  - signer un envoi APRÈS confirmation explicite du client.
 // Ouverte seule, elle liste les wallets et permet de simuler la perte de l'appareil.
 import { useEffect, useRef, useState } from "react";
+import { type Auth, type BioKey, bioAvailable, bioEnroll, bioSecret } from "./bio";
 
-const ALLOWED = (import.meta.env.VITE_WALLET_ALLOWED_ORIGINS ?? "http://localhost:5173").split(",");
+const ALLOWED = (import.meta.env.VITE_WALLET_ALLOWED_ORIGINS ?? "http://localhost:5173")
+  .split(",").map((origin: string) => origin.trim()).filter(Boolean);
 type Req = { id: string; action: "create" | "sign" | "policy" | "prove" | "evm-address" | "evm-sign"; network: "regtest" | "signet"; payload: any; origin: string; source: Window };
-type WalletView = { id: string; label: string; accountKey: string; createdAt: string; protected: boolean; evmAddress?: string; policy?: { delay: number; tiersName?: string; network: string } };
+type WalletView = { id: string; label: string; accountKey: string; createdAt: string; protected: boolean; unlock?: { pin: boolean; bio: BioKey | null }; evmAddress?: string; policy?: { delay: number; tiersName?: string; network: string } };
 
 // Saisie du code PIN (6 à 12 chiffres). Le PIN n'est envoyé qu'au serveur du wallet (même origine).
 function PinInput({ value, onChange, label = "Wallet PIN" }: { value: string; onChange: (v: string) => void; label?: string }) {
@@ -19,6 +21,36 @@ function PinInput({ value, onChange, label = "Wallet PIN" }: { value: string; on
   );
 }
 const pinOk = (p: string) => /^\d{6,12}$/.test(p);
+
+// Déverrouillage pour une action : biométrie ou PIN, selon ce que le client a activé (biométrie proposée d'abord,
+// PIN en repli s'il en a un). Wallet non protégé (ou action sans secret) : `wallet` vaut null, pas de déverrouillage.
+function UnlockAction({ wallet, label, disabled, onAuth, onRefuse, onError }: {
+  wallet: WalletView | null | undefined; label: string; disabled?: boolean; onAuth: (a: Auth) => Promise<void>; onRefuse?: () => void; onError: (e: string) => void;
+}) {
+  const [preferPin, setPreferPin] = useState(false);
+  const [pin, setPin] = useState("");
+  const [busy, setBusy] = useState(false);
+  const bio = wallet?.protected ? wallet.unlock?.bio ?? null : null;
+  const hasPin = !!wallet?.protected && !!wallet.unlock?.pin;
+  const mode = !wallet?.protected ? "none" : bio && !(preferPin && hasPin) ? "bio" : "pin";
+  const go = async () => {
+    setBusy(true);
+    try { await onAuth(mode === "bio" ? { prf: await bioSecret(bio!) } : mode === "pin" ? { pin } : {}); }
+    catch (e: any) { onError(e.message); }
+    finally { setPin(""); setBusy(false); }
+  };
+  return (
+    <>
+      {mode === "pin" && <PinInput value={pin} onChange={setPin} />}
+      {mode === "bio" && <p className="small bio-hint" data-testid="bio-hint"><span aria-hidden="true">◉</span> Your device will ask for your fingerprint or face (Touch ID, Face ID…).</p>}
+      {bio && hasPin && <button className="linkish" onClick={() => setPreferPin(!preferPin)}>{mode === "bio" ? "Use my PIN instead" : "Use biometrics instead"}</button>}
+      <div className="row">
+        {onRefuse && <button className="secondary" onClick={onRefuse}>Refuse</button>}
+        <button disabled={disabled || busy || (mode === "pin" && !pinOk(pin))} onClick={go}>{busy && mode === "bio" ? "Waiting for biometrics…" : label}</button>
+      </div>
+    </>
+  );
+}
 type Description = {
   wallet: WalletView | null; path: "client" | "recovery" | "mixte"; delay: number | null;
   inputs: { value: string }[]; outputs: { address: string; value: string; mine: string | null }[]; fee: string;
@@ -58,10 +90,10 @@ export function App() {
     <main>
       <header>
         <div className="brand">
-          <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="10" fill="#1f2633" /><circle cx="13" cy="15" r="5" fill="none" stroke="#fff" strokeWidth="2.2" /><path d="M17 17.5h9v3.5M22.5 17.5v3" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" fill="none" /></svg>
-          <div><div className="brand-name">Client Wallet</div><div className="tag">Independent of Swissquote · your keys stay on this device</div></div>
+          <img className="swissquote-logo" src="/swissquote-logo.png" alt="Swissquote" />
+          <div className="brand-copy"><div className="brand-name">Client Wallet</div><div className="tag">Swissquote · self-custody</div></div>
         </div>
-        <div className="ref">Reference implementation · in production: hardware wallet or phone app</div>
+        <div className="ref">Independent wallet · your keys stay on this device</div>
       </header>
       {error && <p className="error">{error}</p>}
       {done && <p className="done">{done}</p>}
@@ -109,18 +141,39 @@ function Create({ req, onDone, onError }: { req: Req; onDone: (d: unknown) => vo
   const [noted, setNoted] = useState(false);
   const [pin, setPin] = useState("");
   const [pin2, setPin2] = useState("");
+  // Au choix du client : biométrie (proposée d'abord si l'appareil en a une) ou code PIN.
+  const [method, setMethod] = useState<"bio" | "pin" | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { Promise.resolve(bioAvailable()).then((ok) => setMethod((m) => m ?? (ok ? "bio" : "pin"))); }, []);
   const words = useRef<string[]>([]);
+  const generate = async () => {
+    setBusy(true);
+    try {
+      const unlock = method === "bio" ? { bio: await bioEnroll(req.payload?.label ?? "My wallet") } : { pin };
+      const c = await api("/api/wallets", { network: req.network, label: req.payload?.label, ...unlock });
+      setPin(""); setPin2(""); words.current = c.mnemonic.split(" "); setCreated(c);
+    } catch (e: any) { onError(e.message); } finally { setBusy(false); }
+  };
   if (!created)
     return (
       <section>
         <h2>Create your Bitcoin wallet</h2>
         <p>The app <strong>{req.origin}</strong> is asking to create a wallet. Your secret phrase will be generated here, on this device. Swissquote will only receive your public key.</p>
-        <p className="small">Choose a PIN: it encrypts your phrase on this device and will be requested for every signature.</p>
-        <PinInput value={pin} onChange={setPin} label="New PIN (6 to 12 digits)" />
-        <PinInput value={pin2} onChange={setPin2} label="Confirm the PIN" />
-        {pin2 && pin !== pin2 && <p className="error">The two codes do not match.</p>}
-        <button disabled={!pinOk(pin) || pin !== pin2} onClick={async () => { try { const c = await api("/api/wallets", { network: req.network, label: req.payload?.label, pin }); setPin(""); setPin2(""); words.current = c.mnemonic.split(" "); setCreated(c); } catch (e: any) { onError(e.message); } }}>
-          Generate my secret phrase
+        <fieldset className="choice">
+          <legend>How do you want to unlock your wallet for each signature?</legend>
+          <label><input type="radio" name="unlock" checked={method === "bio"} onChange={() => setMethod("bio")} /> <span><strong>Biometrics</strong> (Touch ID, Face ID, Windows Hello)<span className="small muted"> · your phrase is encrypted by a key that only your device releases after checking your fingerprint or face</span></span></label>
+          <label><input type="radio" name="unlock" checked={method === "pin"} onChange={() => setMethod("pin")} /> <span><strong>PIN code</strong><span className="small muted"> · 6 to 12 digits that encrypt your phrase on this device</span></span></label>
+        </fieldset>
+        {method === "pin" && (
+          <>
+            <PinInput value={pin} onChange={setPin} label="New PIN (6 to 12 digits)" />
+            <PinInput value={pin2} onChange={setPin2} label="Confirm the PIN" />
+            {pin2 && pin !== pin2 && <p className="error">The two codes do not match.</p>}
+          </>
+        )}
+        {method === "bio" && <p className="small">Your device will ask for your fingerprint or face twice: once to create the wallet's key, once to use it. You can add a PIN later as a fallback.</p>}
+        <button disabled={busy || !method || (method === "pin" && (!pinOk(pin) || pin !== pin2))} onClick={generate}>
+          {busy && method === "bio" ? "Waiting for biometrics…" : "Generate my secret phrase"}
         </button>
       </section>
     );
@@ -146,7 +199,6 @@ function PolicyReq({ req, onDone, onError }: { req: Req; onDone: (d: unknown) =>
 
 function Sign({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unknown) => void; onRefuse: () => void; onError: (e: string) => void }) {
   const [d, setD] = useState<Description | null>(null);
-  const [pin, setPin] = useState("");
   const [confirmDest, setConfirmDest] = useState("");
   useEffect(() => { api("/api/describe", { psbt: req.payload.psbt, network: req.network }).then(setD, (e) => onError(e.message)); }, [req]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!d) return <section><p>Reading the transaction…</p></section>;
@@ -188,20 +240,15 @@ function Sign({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unknow
           </label>
         </div>
       )}
-      {d.wallet?.protected && <PinInput value={pin} onChange={setPin} />}
-      <div className="row">
-        <button className="secondary" onClick={onRefuse}>Refuse</button>
-        <button disabled={d.path !== "client" || !d.wallet || (d.wallet.protected && !pinOk(pin)) || (d.high && confirmDest.length !== 6)} onClick={async () => { try { onDone(await api("/api/sign", { psbt: req.payload.psbt, network: req.network, pin, confirmDest })); } catch (e: any) { onError(e.message); } finally { setPin(""); } }}>
-          Confirm and sign
-        </button>
-      </div>
+      <UnlockAction wallet={d.wallet} label="Confirm and sign" onRefuse={onRefuse} onError={onError}
+        disabled={d.path !== "client" || !d.wallet || (d.high && confirmDest.length !== 6)}
+        onAuth={async (a) => onDone(await api("/api/sign", { psbt: req.payload.psbt, network: req.network, confirmDest, ...a }))} />
     </section>
   );
 }
 
 function Prove({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unknown) => void; onRefuse: () => void; onError: (e: string) => void }) {
   const p = req.payload;
-  const [pin, setPin] = useState("");
   const [w, setW] = useState<WalletView | null>(null);
   useEffect(() => { api("/api/wallets").then((l: WalletView[]) => setW(l.find((x) => x.accountKey === p.accountKey) ?? null)); }, [p.accountKey]);
   return (
@@ -209,13 +256,8 @@ function Prove({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unkno
       <h2>Prove ownership of an address</h2>
       <p>Request from <strong>{req.origin}</strong>. Your wallet will sign this message with your key (address #{p.index}{p.change ? ", change" : ""}). <strong>This signature moves no funds</strong> and cannot be used to spend.</p>
       <pre className="card mono message">{p.message}</pre>
-      {w?.protected && <PinInput value={pin} onChange={setPin} />}
-      <div className="row">
-        <button className="secondary" onClick={onRefuse}>Refuse</button>
-        <button disabled={!!w?.protected && !pinOk(pin)} onClick={async () => { try { onDone(await api("/api/prove", { accountKey: p.accountKey, change: p.change, index: p.index, message: p.message, network: req.network, pin })); } catch (e: any) { onError(e.message); } finally { setPin(""); } }}>
-          Sign the proof
-        </button>
-      </div>
+      <UnlockAction wallet={w} label="Sign the proof" onRefuse={onRefuse} onError={onError}
+        onAuth={async (a) => onDone(await api("/api/prove", { accountKey: p.accountKey, change: p.change, index: p.index, message: p.message, network: req.network, ...a }))} />
     </section>
   );
 }
@@ -240,7 +282,7 @@ function Wallets() {
           <p className="mono small">{w.accountKey}</p>
           {w.evmAddress && <p className="mono small">Ethereum: {w.evmAddress}</p>}
           {w.policy && <p className="small">Policy: you alone, or Swissquote + {w.policy.tiersName ?? "trusted contact"} after {w.policy.delay} blocks of inactivity ({w.policy.network})</p>}
-          {w.protected ? <p className="small ok">Phrase encrypted by PIN</p> : (
+          {w.protected ? <UnlockSettings w={w} onChanged={refresh} /> : (
             protecting === w.id ? (
               <div>
                 <PinInput value={newPin} onChange={setNewPin} label="New PIN (6 to 12 digits)" />
@@ -267,7 +309,6 @@ function Wallets() {
 // Adresse Ethereum : dérivée de la même phrase. Le wallet est désigné par sa clé publique Bitcoin (donnée publique).
 function EvmAddress({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unknown) => void; onRefuse: () => void; onError: (e: string) => void }) {
   const [w, setW] = useState<WalletView | null | undefined>(undefined);
-  const [pin, setPin] = useState("");
   useEffect(() => { api("/api/wallets").then((l: WalletView[]) => setW(l.find((x) => x.accountKey === req.payload.accountKey) ?? null)); }, [req]);
   if (w === undefined) return <section><p>Loading…</p></section>;
   if (!w) return <section><p className="error">No wallet on this device matches your Bitcoin account.</p><button className="secondary" onClick={onRefuse}>Close</button></section>;
@@ -275,14 +316,9 @@ function EvmAddress({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: 
     <section>
       <h2>Add an Ethereum account</h2>
       <p>Request from <strong>{req.origin}</strong>. Your Ethereum key is derived from the same secret phrase, on this device. Swissquote will only receive its <strong>address</strong>.</p>
-      {w.evmAddress ? <p className="mono card">{w.evmAddress}</p> : <p className="small">Your PIN is needed once to compute the address.</p>}
-      {!w.evmAddress && w.protected && <PinInput value={pin} onChange={setPin} />}
-      <div className="row">
-        <button className="secondary" onClick={onRefuse}>Refuse</button>
-        <button disabled={!w.evmAddress && w.protected && !pinOk(pin)} onClick={async () => { try { onDone(await api(`/api/wallets/${w.id}/evm`, { pin })); } catch (e: any) { onError(e.message); } finally { setPin(""); } }}>
-          Send my Ethereum address
-        </button>
-      </div>
+      {w.evmAddress ? <p className="mono card">{w.evmAddress}</p> : <p className="small">Your wallet must be unlocked once to compute the address.</p>}
+      <UnlockAction wallet={w.evmAddress ? null : w} label="Send my Ethereum address" onRefuse={onRefuse} onError={onError}
+        onAuth={async (a) => onDone(await api(`/api/wallets/${w.id}/evm`, a))} />
     </section>
   );
 }
@@ -291,7 +327,6 @@ type EvmDescription = { wallet: WalletView; owner: string; safe: string; deploys
 // Confirmation d'une opération Ethereum : décodée par le wallet lui-même ; tout appel non reconnu bloque la signature.
 function EvmSign({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unknown) => void; onRefuse: () => void; onError: (e: string) => void }) {
   const [d, setD] = useState<EvmDescription | null>(null);
-  const [pin, setPin] = useState("");
   useEffect(() => { api("/api/evm/describe", { op: req.payload.op }).then(setD, (e) => onError(e.message)); }, [req]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!d) return <section><p>Reading the operation…</p></section>;
   const blocked = d.calls.some((c) => c.kind === "unknown" || c.risk);
@@ -305,13 +340,54 @@ function EvmSign({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unk
         <p><span className="k">Network fees</span> {d.sponsored ? `paid by a sponsor (paymaster ${d.paymaster}), not by you` : "paid in ETH by your account"}</p>
       </div>
       {blocked && <p className="error">This operation contains a call your wallet cannot explain: it will not sign it.</p>}
-      {d.wallet.protected && <PinInput value={pin} onChange={setPin} />}
-      <div className="row">
-        <button className="secondary" onClick={onRefuse}>Refuse</button>
-        <button disabled={blocked || (d.wallet.protected && !pinOk(pin))} onClick={async () => { try { onDone(await api("/api/evm/sign", { op: req.payload.op, pin })); } catch (e: any) { onError(e.message); } finally { setPin(""); } }}>
-          Confirm and sign
-        </button>
-      </div>
+      <UnlockAction wallet={d.wallet} label="Confirm and sign" disabled={blocked} onRefuse={onRefuse} onError={onError}
+        onAuth={async (a) => onDone(await api("/api/evm/sign", { op: req.payload.op, ...a }))} />
     </section>
+  );
+}
+
+// Réglages de déverrouillage d'un wallet : biométrie et/ou PIN, au choix du client (il en reste toujours un).
+// Chaque changement exige d'abord un déverrouillage par une façon déjà active.
+type UnlockOp = "set-bio" | "remove-bio" | "set-pin" | "remove-pin";
+function UnlockSettings({ w, onChanged }: { w: WalletView; onChanged: () => void }) {
+  const [op, setOp] = useState<UnlockOp | null>(null);
+  const [newPin, setNewPin] = useState("");
+  const [newPin2, setNewPin2] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const pin = w.unlock?.pin ?? false;
+  const bio = w.unlock?.bio ?? null;
+  const status = pin && bio ? "biometrics or PIN" : bio ? "biometrics" : "PIN";
+  const TITLES: Record<UnlockOp, string> = {
+    "set-bio": "Enable biometrics", "remove-bio": "Turn off biometrics", "set-pin": pin ? "Change the PIN" : "Add a PIN", "remove-pin": "Remove the PIN",
+  };
+  const ops: UnlockOp[] = [bio ? null : "set-bio", "set-pin", bio && pin ? "remove-bio" : null, bio && pin ? "remove-pin" : null].filter(Boolean) as UnlockOp[];
+  const close = () => { setOp(null); setNewPin(""); setNewPin2(""); setErr(null); };
+  return (
+    <div className="unlock-settings" data-testid={`unlock-${w.id}`}>
+      <p className="small ok">Phrase encrypted · unlock with <strong>{status}</strong></p>
+      {!op && <p className="small">{ops.map((o) => <button key={o} className="secondary tiny" onClick={() => setOp(o)}>{TITLES[o]}</button>)}</p>}
+      {op && (
+        <div className="card">
+          <p><strong>{TITLES[op]}</strong>{op === "set-bio" ? " · after unlocking, your device will ask for your fingerprint or face twice" : ""}</p>
+          {op === "set-pin" && (
+            <>
+              <PinInput value={newPin} onChange={setNewPin} label="New PIN (6 to 12 digits)" />
+              <PinInput value={newPin2} onChange={setNewPin2} label="Confirm the PIN" />
+              {newPin2 && newPin !== newPin2 && <p className="error">The two codes do not match.</p>}
+            </>
+          )}
+          <p className="small muted">First unlock your wallet the current way:</p>
+          {err && <p className="error">{err}</p>}
+          <UnlockAction wallet={w} label="Confirm" onRefuse={close} onError={setErr}
+            disabled={op === "set-pin" && (!pinOk(newPin) || newPin !== newPin2)}
+            onAuth={async (auth) => {
+              // Vérification du déverrouillage AVANT de créer une passkey (sinon passkey orpheline si le PIN est faux).
+              const extra = op === "set-bio" ? { bio: await (async () => { await api(`/api/wallets/${w.id}/unlock`, { op: "check", auth }).catch((e) => { if (!/unknown operation/.test(e.message)) throw e; }); return bioEnroll(w.label); })() } : op === "set-pin" ? { newPin } : {};
+              await api(`/api/wallets/${w.id}/unlock`, { op, auth, ...extra });
+              close(); onChanged();
+            }} />
+        </div>
+      )}
+    </div>
   );
 }

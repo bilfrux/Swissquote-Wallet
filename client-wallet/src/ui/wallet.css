@@ -1,23 +1,25 @@
-/* Wallet du client : même langage visuel que l'appli (clair, cartes arrondies), identité propre (pas de marque Swissquote). */
+/* Wallet du client : langage visuel Swissquote, avec une séparation claire de la garde des clés. */
 :root {
-  --bg: #eef1f7; --card: #fff; --line: #e2e7f0; --text: #1f2633; --muted: #6b7487;
-  --blue: #2f64d8; --green: #12805c; --red: #d6401f; --amber: #8a5a00;
+  --bg: #f5f5f3; --card: #fff; --line: #e4e4e0; --text: #171717; --muted: #6e6e6a;
+  --blue: #ff4b1f; --green: #12805c; --red: #d6401f; --amber: #8a5a00;
   font-family: "Inter", "Helvetica Neue", Arial, system-ui, sans-serif; color: var(--text); background: var(--bg); font-size: 14px;
 }
 * { box-sizing: border-box; }
-body { margin: 0; }
+body { margin: 0; background: var(--bg); }
 p, li, td, pre { overflow-wrap: anywhere; }
-main { max-width: 480px; margin: 0 auto; padding: 16px 16px 28px; }
-header { padding: 4px 2px 12px; }
-.brand { display: flex; align-items: center; gap: 10px; }
-.brand-name { font-weight: 700; font-size: 18px; }
-.tag { font-size: 12px; color: var(--muted); }
-.ref { margin-top: 10px; font-size: 11.5px; color: var(--muted); background: #fff; border: 1px dashed #c9d0dc; border-radius: 8px; padding: 6px 10px; }
-section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; margin: 12px 0; }
+main { max-width: 560px; margin: 0 auto; padding: 24px 20px 36px; }
+header { padding: 2px 0 16px; border-bottom: 1px solid var(--line); }
+.brand { display: flex; align-items: center; gap: 14px; }
+.swissquote-logo { display: block; width: 156px; height: auto; }
+.brand-copy { border-left: 1px solid var(--line); padding-left: 14px; }
+.brand-name { font-weight: 700; font-size: 18px; letter-spacing: -.2px; }
+.tag { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.ref { margin-top: 14px; font-size: 11.5px; color: var(--muted); background: #fff; border: 1px solid var(--line); border-left: 3px solid var(--blue); border-radius: 4px; padding: 8px 11px; }
+section { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 18px 20px; margin: 14px 0; box-shadow: 0 2px 8px rgb(30 30 30 / 3%); }
 h2 { font-size: 18px; margin: 0 0 8px; }
 .small { font-size: 12.5px; } .muted { color: var(--muted); }
-button { font: inherit; cursor: pointer; border: 0; border-radius: 10px; padding: 10px 16px; background: var(--blue); color: #fff; font-weight: 600; }
-button.secondary { background: #fff; color: var(--text); border: 1px solid #c9d0dc; }
+button { font: inherit; cursor: pointer; border: 0; border-radius: 4px; padding: 10px 16px; background: var(--blue); color: #fff; font-weight: 600; }
+button.secondary { background: #fff; color: var(--text); border: 1px solid #c8c8c3; }
 button.danger { background: var(--red); }
 button:disabled { opacity: .45; cursor: default; }
 .row { display: flex; gap: 10px; margin-top: 14px; }
@@ -27,7 +29,7 @@ button:disabled { opacity: .45; cursor: default; }
 .words li::before { content: counter(w) ". "; color: var(--muted); font-size: 11px; }
 .warn { background: #fff5dc; border: 1px solid #f3d27a; color: var(--amber); padding: 9px 12px; border-radius: 10px; font-size: 13px; }
 .check { display: flex; gap: 8px; align-items: center; margin: 12px 0; }
-.card { background: #f6f8fc; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin: 10px 0; }
+.card { background: #fafaf8; border: 1px solid var(--line); border-radius: 5px; padding: 10px 12px; margin: 10px 0; }
 .k { color: var(--muted); display: inline-block; min-width: 130px; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 6px 0; }
 td { padding: 6px 4px; border-top: 1px solid var(--line); vertical-align: top; }
