@@ -135,3 +135,181 @@ Situation : le client a perdu l'appareil (« Simulate losing this device » dans
 - Que la protection d'un wallet volé est forte : une seed volée = fonds volés, atténué seulement par le chiffrement biométrique.
 - Que des alertes push réelles existent : information simulée, dépendante de Swissquote.
 - Que l'activation automatique de la passkey à la création a été testée en navigateur : seul `tsc` est passé (`docs/validation/etape-38-passkey-auto.md`).
+
+
+---
+
+# Partie 2 — Les technologies en détail
+
+Convention : **[projet]** = ce qui est dans le code et prouvé dans `docs/validation/`. **[général]** = connaissance générale de la technologie, *non exécutée ici* : à présenter comme telle, pas comme un résultat du projet. **[option]** = piste de conception non implémentée.
+
+## A. Miniscript (la brique Bitcoin)
+
+### Ce que c'est
+Un sous-ensemble structuré du Script Bitcoin, avec une syntaxe composable. Contrairement au Script brut, on peut **analyser** un script Miniscript par machine : savoir exactement quelles clés et quelles conditions le satisfont, calculer la taille du témoin, vérifier qu'il n'est pas malléable, garantir qu'il respecte les limites de standardité. Il vient avec une couche **Policy** (langage de haut niveau, ex. `and(pk(A), older(100))`) que le compilateur de référence (celui de Pieter Wuille / sipa) traduit en Miniscript optimisé. **[général]**
+
+### Les briques disponibles **[général]**
+| Fragment | Ce qu'il exprime |
+| --- | --- |
+| `pk(K)` | Une signature de la clé K |
+| `multi(k, K1…Kn)` | k signatures parmi n (sous `wsh`) |
+| `older(n)` | Verrou **relatif** (BIP68/112, `OP_CHECKSEQUENCEVERIFY`) : la pièce doit avoir au moins n blocs (ou n×512 s) |
+| `after(n)` | Verrou **absolu** (BIP65, `OP_CHECKLOCKTIMEVERIFY`) : pas avant le bloc ou la date n |
+| `sha256(h)`, `hash160(h)`… | Il faut révéler une pré-image (verrou par hachage) |
+| `and`, `or`, `andor(X,Y,Z)`, `thresh(k, …)` | Combinaisons logiques ; `andor(X,Y,Z)` = (X et Y) ou Z |
+
+### Dans notre projet **[projet]**
+Politique : `or(pk(CLIENT), and(pk(SWISSQUOTE), and(pk(CONTACT), older(D))))`, compilée en `wsh(andor(pk(S), and_v(v:pk(T), older(D)), pk(C)))`. Lecture de la forme compilée : « (Swissquote **et** contact **et** pièce vieille de D blocs) **ou** client ». Deux chemins de dépense, et le nœud Bitcoin refuse tout le reste.
+
+Pourquoi ce choix : le délai D n'est pas une promesse de notre logiciel, c'est une règle de **consensus**. Preuve : sur signet réel, la recovery avant D est rejetée par `non-BIP68-final`.
+
+### Ce que Miniscript permet de combiner (pour répondre aux « et si… ») **[général]** / **[option]**
+| Variante | Politique | Effet | Compromis |
+| --- | --- | --- | --- |
+| **Héritage** | `or(pk(OWNER), and(pk(HEIR), older(n)))` | L'héritier peut dépenser après n blocs d'inactivité | L'héritier **seul** a un pouvoir : c'est de la garde partagée, pas du logiciel |
+| **Multisig dégradant** | `thresh` + `older` (ex. 3-sur-3, puis 2-sur-3 après un délai, puis 1-sur-3) | Le seuil baisse avec le temps | Plus complexe à expliquer et à tester |
+| **Coffre (vault)** | Chemin « froid » immédiat et chemin « chaud » avec délai | Le délai laisse le temps de réagir | Sans *covenants*, Bitcoin ne peut pas imposer la destination |
+| **Verrou à date fixe** | `after(date)` | Fonds inaccessibles avant une date | Pas de reset par l'activité (le verrou est absolu) |
+| **Échange atomique / HTLC** | `sha256` + `older`/`after` | Paiements conditionnels, base des canaux Lightning | Hors sujet ici |
+| **Notre extension possible** | Ajouter `and(pk(CONTACT), older(D2))` avec D2 ≫ D | Récupération si Swissquote disparaît **et** le client perd sa clé | Le contact **seul** gagne un pouvoir : on renforce la zone grise de custody **[option]** |
+
+### Limites réelles (à connaître par cœur)
+- **Aucune restriction de destination ni de montant** : un script Bitcoin classique ne voit pas les sorties. C'est pourquoi la zone grise existe : Swissquote + contact peuvent envoyer les pièces *n'importe où* après D. Réponse honnête : « Bitcoin ne peut pas, aujourd'hui, restreindre la destination sans *covenants* (non activés) ».
+- **`older(D)` est relatif à la confirmation de chaque pièce** : le délai est *par pièce*. D'où le bouton **Refresh** : déplacer une pièce remet son compteur à zéro. C'est aussi ce qui fait que l'activité du client protège ses fonds.
+- **Plafond de BIP68 : 65 535 blocs** (valeur sur 16 bits, ≈ 455 jours) **[général]**. Notre cible de 26 000 blocs (≈ 6 mois) rentre dedans, mais un délai de 2 ans ne rentrerait pas.
+- **P2WSH (SegWit v0)** : la politique est révélée à chaque dépense (vie privée). **Taproot** la cacherait mais n'est pas implémenté **[projet]**. Et les bibliothèques de signature de messages (`bip322-js`) ne gèrent pas P2WSH.
+- **Peu de wallets externes** savent signer un Miniscript avec délai : Bitcoin Core vérifié ; Liana et certains matériels annoncés, non vérifiés.
+
+### Question piège type
+*« Pourquoi pas un simple multisig 2-sur-3 ? »* → Un 2-sur-3 laisse Swissquote + partenaire dépenser **immédiatement** ; le délai ne serait qu'une règle logicielle. Avec `older(D)`, c'est la chaîne qui l'impose, et le client garde un chemin à lui seul.
+
+## B. Safe + module de recovery de Candide (la brique Ethereum)
+
+### Ce que c'est
+Un **Safe** est un smart-contract wallet : un compte Ethereum qui est un contrat, avec une liste de propriétaires et un seuil de signatures. Il est extensible par des **modules** (code autorisé à agir au nom du Safe) et des **guards** (vérifications avant/après chaque transaction). **[général]**
+
+Le **module de recovery de Candide** ajoute des *guardians* : un ensemble d'adresses qui, à un seuil donné, peuvent lancer une recovery. Le contrat applique ensuite un **délai** avant que le nouveau propriétaire prenne la place. Le propriétaire actuel peut **annuler** pendant ce délai. **[projet]**
+
+### Dans notre projet **[projet]**
+- Propriétaire : l'EOA du client, dérivée de la même phrase que Bitcoin (`m/44'/60'/0'/0/0`).
+- Guardians : Swissquote et le contact. **Seuil 2**.
+- Les signatures des guardians sont en **EIP-712** (message typé, avec domaine = chaîne + adresse du module, donc non rejouables ailleurs), relayées par bank-mock.
+- Démo : délai de 3 minutes ; cible : 7 ou 14 jours. Module **v0.0.1**, sur **Sepolia**.
+- Après chaque recovery, notre flux appelle `cancelRecovery` et `invalidateNonce` pour éteindre toute signature résiduelle.
+
+### Ce que Safe permet de combiner **[général]**
+| Combinaison | Effet | Ici ? |
+| --- | --- | --- |
+| Plusieurs propriétaires + seuil | Multisig classique sur Ethereum | Non (un seul propriétaire) |
+| **Module de recovery** | Récupération par guardians avec délai et annulation | **Oui** |
+| **Module de plafond de dépense** (allowance) | Limite de montant par période, appliquée **on-chain** | Non : c'est la contre-mesure possible au manque de limite par montant sur Ethereum **[option]** |
+| **Guard** | Liste blanche de contrats/adresses, sanctions, simulation avant exécution | Non : serait la base d'une « interaction dApp conforme » **[option]** |
+| **Clés de session** | Droits limités et temporaires pour une application | Non |
+| **Passkey comme signataire** | Le propriétaire est une passkey (P-256) vérifiée par un contrat ; la vérification est bon marché là où la précompilée secp256r1 existe (RIP-7212) | Non : ici le propriétaire est une clé ECDSA dérivée de la seed |
+
+### Différence de fond avec Bitcoin (à savoir expliquer)
+| | Bitcoin | Ethereum |
+| --- | --- | --- |
+| Déclenchement | **Automatique** : le chemin s'ouvre tout seul pour les pièces inactives | **Actif** : Swissquote et le contact doivent démarrer la recovery |
+| Ce que fait le client | Rester actif / Refresh | Surveiller et annuler |
+| Portée | Par pièce (UTXO) | Tout le compte d'un coup |
+| Qui impose la règle | Le consensus Bitcoin | Le contrat du module |
+
+### Limites **[projet]**
+- Module **v0.0.1** : retirer un guardian n'annule pas sa recovery en cours ; le nouveau propriétaire n'est pas validé avant finalisation (audit M-01). Les correctifs existent en 0.2.0, mais ne sont **pas déployés** aux adresses du SDK.
+- Un client **inattentif** est exposé : il doit voir la recovery hostile dans le délai ; les alertes dépendent de Swissquote.
+- Pas de limite par montant sur Ethereum (Bitcoin a la confirmation renforcée au-dessus de 0,2 BTC).
+- Annulation depuis l'interface : **non testée** par un parcours automatisé.
+
+## C. ERC-4337, bundler, paymaster, Candide (transactions sans ETH)
+
+- **Principe** : au lieu d'une transaction classique, le client signe une *UserOperation* ; un **bundler** les regroupe et les envoie à un contrat unique (*EntryPoint*) ; un **paymaster** peut payer le gaz à la place de l'utilisateur. **[général]**
+- **Chez nous** : le paymaster public de Candide sponsorise les opérations ; le client n'a pas d'ETH. Bibliothèques : `abstractionkit` (SDK Candide) et `viem`. **[projet]**
+- **Combinaison** : Safe (compte) + module 4337 (accepte les UserOperations) + paymaster (gaz) + module de recovery (récupération).
+- **Limites** : le paymaster et le bundler sont des **tiers**. Swissquote ne paie pas et n'a aucune politique d'abus. Sans paymaster, il faut payer le gaz en ETH ou passer par un autre bundler : **non testé**. Les nœuds Sepolia publics ont renvoyé des états obsolètes : corrigé en lisant au bloc d'inclusion.
+- **Question piège** : *« Si Candide disparaît ? »* → le propriétaire garde sa clé et le Safe reste un contrat ; on peut utiliser un autre bundler ou une transaction normale payée en ETH (raisonnement, pas testé).
+
+## D. Seed et dérivation : BIP39, BIP32, BIP44/48
+
+- **BIP39** : la phrase de 12/24 mots encode l'entropie ; `@scure/bip39` la génère. **[projet]**
+- **BIP32** : à partir de la seed, on dérive un arbre de clés. Les dérivations **durcies** (apostrophe) ne permettent pas de remonter ; les non durcies permettent de calculer des clés publiques filles depuis une clé publique étendue (**xpub**). **[général]**
+- **BIP44** (comptes simples, utilisé pour Ethereum `m/44'/60'/0'/0/0`) et **BIP48** (comptes multi-clés/script ; `48'/1'/0'/2'` = testnet, script P2WSH) **[projet pour les chemins observés dans l'interface]**.
+- **Pourquoi on envoie un xpub à Swissquote** : elle peut calculer toutes les adresses et toutes les clés publiques du compte (donc vérifier la preuve de propriété et surveiller les pièces) **sans pouvoir dépenser**. Le niveau du compte est durci, donc l'xpub ne révèle rien au-dessus.
+- **Piège** : *« Une seule phrase pour deux chaînes, c'est risqué ? »* → oui, c'est un point de défaillance unique pour le chemin client : la phrase volée ouvre BTC et ETH. Atténuation : chiffrement biométrique de la phrase sur l'appareil. Les recoveries sont, elles, indépendantes entre chaînes.
+
+## E. PSBT (BIP174), descripteurs, sighash
+
+- **PSBT** : format standard d'une transaction **partiellement signée**. Rôles : créateur, mise à jour, signataire, combineur, finaliseur, extracteur. **[général]**
+- **Chez nous** : l'appli (sans clé) crée et met à jour ; le Client Wallet, Swissquote et la console du contact **signent chacun séparément** ; l'appli **combine, finalise et diffuse**. C'est ce qui permet qu'**aucune partie ne voit la clé d'une autre**. **[projet]**
+- **Descripteurs** (`@bitcoinerlab/descriptors-scure`) : décrivent scripts + clés + chemins, donc permettent de retrouver les adresses et de savoir quel chemin de dépense signer. **[projet]**
+- **Sighash BIP143** (SegWit v0) : la signature couvre les montants des entrées et le script du compte, donc elle ne se rejoue pas sur un autre compte. **[projet, via la lib]**
+- **Combinaison** : Miniscript décrit *ce qui est exigé* ; le PSBT transporte *les signatures qui l'atteignent* ; le descripteur permet à chacun de vérifier ce qu'il signe.
+- **Limite** : un signataire qui ne décode pas la transaction signe à l'aveugle. C'est pourquoi le Client Wallet décode lui-même le PSBT et affiche chemin, sorties et frais.
+
+## F. WebAuthn, passkeys et extension PRF
+
+- **WebAuthn / FIDO2** : l'authentificateur (Touch ID, Face ID, Windows Hello, clé de sécurité) crée une paire de clés liée à un domaine (*rpId*) ; la clé privée ne sort pas. La preuve de présence/vérification de l'utilisateur est locale. **[général]**
+- **Usage 1 — authentification serveur** : bank-mock envoie un *challenge*, le navigateur le fait signer, `@simplewebauthn/server` vérifie. Sert à déverrouiller la partie crypto et aux montants élevés. **[projet]**
+- **Usage 2 — secret de chiffrement local (PRF)** : l'extension PRF rend un secret de 32 octets, toujours le même pour une passkey et un sel donnés. On le passe dans HKDF puis AES-256-GCM pour chiffrer la phrase. **Aucune signature n'est vérifiée** : sans le bon secret, le déchiffrement échoue. **[projet]**
+- **Combinaison** : la même technologie (passkey) sert à deux rôles indépendants. Compromettre l'un (session bancaire) ne donne pas l'autre (déchiffrement local).
+- **Limites** :
+  - Le support de PRF dépend du navigateur et de l'authentificateur ; le wallet refuse de créer un wallet si PRF n'est pas disponible.
+  - Une passkey **synchronisée** (trousseau cloud) peut exister sur plusieurs appareils : le secret PRF peut être reproduit ailleurs, mais les données chiffrées restent sur l'appareil. **[général, non testé]**
+  - La biométrie PRF n'a **pas** été validée par un test automatisé avec un vrai authentificateur (l'étape 37 simule le secret). Seul un essai manuel le montre.
+  - Protection d'un appareil volé et déverrouillé : voir §9 de la partie 1.
+
+## G. Chiffrement du coffre : HKDF, AES-256-GCM, scrypt (`node:crypto`)
+
+- **HKDF-SHA256** dérive une clé AES à partir du secret PRF et du sel. **AES-256-GCM** chiffre la phrase *et* l'authentifie (une altération du fichier fait échouer le déchiffrement). **[général]**
+- **scrypt** (ancien format PIN) est volontairement coûteux, mais un PIN à 6 chiffres n'a que 10⁶ possibilités : résistant en ligne (60 s de blocage après 5 erreurs), **faible hors ligne** si le fichier est volé. C'est pourquoi le PIN a été abandonné pour les nouveaux wallets.
+- Aucune de ces primitives n'est écrite dans le projet : appel à `node:crypto`.
+
+## H. BIP-322, preuve de propriété et Travel Rule
+
+- **BIP-322** : signature de message générique, y compris pour des adresses SegWit, contrairement à l'ancien format BIP-137. Variante utilisée : « simple ». **[projet]**
+- **Chez nous** : Swissquote émet un challenge à usage unique (10 min). Le Client Wallet le signe avec la clé client de l'index i. Swissquote **recalcule** cette clé à partir de l'xpub enregistré et vérifie en mode strict.
+- **Ce que ça prouve** : le client détient la clé client à l'index i. **Ce que ça ne prouve pas** : une signature de l'adresse P2WSH elle-même (non supporté par la lib), ni l'identité de la personne (liée seulement à la session bancaire).
+- **Travel Rule** (traçabilité des transferts de crypto entre prestataires et vers des portefeuilles privés) : ici, retrait uniquement vers une adresse prouvée, dépôt crédité seulement si toutes les entrées viennent d'un wallet enregistré. Ledger mocké ; transferts on-chain réels sur regtest ; pas d'analyse de chaîne. Détail : `docs/travel-rule.md`.
+
+## I. Réseaux et accès à la chaîne : bitcoind, regtest, signet, Esplora, Sepolia
+
+| Élément | Ce que c'est | Pourquoi on l'utilise |
+| --- | --- | --- |
+| **bitcoind 29** en **regtest** | Nœud Bitcoin Core avec une chaîne privée où l'on mine à la demande | Démo reproductible : `mine 6` fait passer D en une seconde |
+| **Signet** | Réseau de test public dont les blocs sont signés par un signataire fixe, avec des pièces gratuites par faucet | Preuve sur un vrai réseau (les rejets `non-BIP68-final` sont réels) |
+| **Esplora** (blockstream.info) | API REST qui lit la chaîne | Lire pièces, historique, frais et diffuser sans nœud local en signet |
+| **Sepolia** | Testnet public d'Ethereum | Preuve sur un vrai réseau pour Safe + Candide |
+| **Limite** | Pas de mainnet ; les délais de démo (6 blocs, 3 min) ne sont pas ceux de production | À dire clairement |
+
+## J. Isolation entre applications : origines, `postMessage`, processus séparés
+
+- Le site banque et le Client Wallet sont **deux origines et deux processus** (ports différents, stockage séparé). Le navigateur applique la politique de **même origine** : le site banque ne peut pas lire le stockage du wallet. **[général]**
+- Le site ouvre la fenêtre du wallet et lui envoie une demande par `postMessage`, en n'écoutant que l'origine du wallet. L'API du wallet n'a pas de CORS et refuse toute requête d'une autre origine avant exécution. **[projet, étape 6 test 6-7]**
+- **Combinaison** avec PSBT : ce que le site banque envoie au wallet, ce sont des demandes ; ce qu'il reçoit, ce sont des clés publiques et des signatures. Jamais une clé privée.
+- **Limite** : un navigateur compromis sur l'appareil qui héberge les deux contourne tout cela. D'où la recommandation d'un secure element en production.
+
+## K. Outils de développement et de test
+
+- **React 19 / Vite 8 / TypeScript** : interface. **Node 24** avec `node:sqlite` (module expérimental, à signaler) : stockage de bank-mock. **`playwright-core`** : parcours navigateur de test. **Docker** : bitcoind regtest.
+- Chaque affirmation du README renvoie à une exécution enregistrée dans `docs/validation/` (commande + sortie). Quand un test n'a pas été exécuté, la doc l'écrit : c'est un argument de crédibilité.
+
+## L. Les combinaisons qui font l'originalité du projet
+
+1. **Miniscript + PSBT + trois signataires indépendants** : chacun signe séparément un même PSBT, aucune partie ne reconstitue de secret (contraire de Shamir).
+2. **Miniscript `older(D)` + bouton Refresh** : le client contrôle le délai par son activité ; la banque n'a aucun levier.
+3. **Safe + module de recovery + EIP-712 + relais bank-mock** : mêmes acteurs que Bitcoin, sémantique inverse (démarrage actif, annulation par le propriétaire).
+4. **Une seed, deux comptes, deux mécanismes de recovery** : un seul secret à garder, mais des règles propres à chaque chaîne.
+5. **Passkey bancaire + passkey du wallet (PRF)** : deux usages distincts de WebAuthn, pour verrouiller l'accès crypto côté serveur *et* le déchiffrement côté appareil.
+6. **Défense en profondeur** : bank-mock vérifie le re-KYC et la destination (couche secondaire), le wallet décode ce qu'il signe, mais la défense réelle est dans le script et dans le contrat.
+
+## M. Réponses courtes aux questions « technologie par technologie »
+
+| Question | Réponse en une phrase |
+| --- | --- |
+| Pourquoi Miniscript et pas du Script à la main ? | On peut prouver par analyse que chaque chemin se satisfait, qu'il n'est pas malléable, et le compilateur est celui de référence. |
+| Pourquoi pas Taproot ? | Non fait dans le temps imparti : c'est la perspective naturelle (vie privée, frais). Point resté à vérifier dans le README : la clé Taproot dépend de l'arbre de scripts, et `bip322-js` n'annonce que la dépense par la clé. Je n'ai pas testé. |
+| Pourquoi un Safe plutôt qu'un script ? | Ethereum n'a pas de verrou relatif natif au niveau de l'UTXO ; la règle doit vivre dans un contrat (module). |
+| Pourquoi le même seed pour BTC et ETH ? | Un seul secret à protéger ; en contrepartie, un point de défaillance unique pour le chemin client. |
+| Pourquoi des passkeys ? | Standard établi, vérification utilisateur matérielle, secret jamais exporté ; PRF fournit une clé de chiffrement sans mot de passe. |
+| Qu'est-ce qui est réel ? | Chaîne, scripts, signatures, WebAuthn, contrats : réels. Banque, re-KYC, email, ledger de custody : mockés. |
+| Qu'est-ce qui manque pour la production ? | Secure element, mainnet, Taproot, délai long, politique de paymaster, vrai KYC, audit, module Safe corrigé. |
