@@ -200,42 +200,8 @@ function LoginPage({ onLogin, onHome }: { onLogin: (s: Session) => void; onHome:
           <p className="lg-new">{t("login.new")}<br /><button type="button" className="link" onClick={() => setHint(true)}>{t("login.become")}</button></p>
           <p className="muted small lg-demo">{t("login.demo")}</p>
         </section>
-        <aside className="lg-visual" aria-hidden="true"><LoginArt /></aside>
+        <aside className="lg-visual" aria-hidden="true"><img src="/login-visual.png" alt="" className="lg-img" /></aside>
       </div>
     </div>
-  );
-}
-
-// Illustration (dessin original, dans l'esprit de la page Swissquote) : coffre, carte, téléphone et tablette sur fond corail.
-function LoginArt() {
-  return (
-    <svg viewBox="0 0 600 560" className="lg-art">
-      <defs>
-        <linearGradient id="lg-bg" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stopColor="#f6806a" /><stop offset="1" stopColor="#ee4a2b" /></linearGradient>
-        <linearGradient id="lg-card" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stopColor="#ff8a6b" /><stop offset=".6" stopColor="#f2542f" /><stop offset="1" stopColor="#c92f17" /></linearGradient>
-        <linearGradient id="lg-glass" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#fff" stopOpacity=".7" /><stop offset="1" stopColor="#fff" stopOpacity=".25" /></linearGradient>
-      </defs>
-      <rect width="600" height="560" rx="22" fill="url(#lg-bg)" />
-      {/* socle */}
-      <path d="M90 360 330 230 560 350 320 480Z" fill="#fff" opacity=".92" />
-      <path d="M90 360 320 480v22L90 382Z" fill="#e9e3e1" /><path d="M320 480 560 350v22L320 502Z" fill="#d9d1ce" />
-      {/* tablette */}
-      <path d="M270 250 450 155 560 215 380 310Z" fill="#f4f6fb" stroke="#e1e5ee" />
-      <path d="M300 250 440 178M310 262 470 180M330 270 420 222" stroke="#c7cfdd" strokeWidth="5" strokeLinecap="round" />
-      <path d="M380 255l25-14 15 4 20-18 18 6" stroke="#2fae6f" strokeWidth="3" fill="none" />
-      {/* coffre en verre */}
-      <path d="M150 250 240 205 320 245 230 292Z" fill="url(#lg-glass)" /><path d="M150 250v95l80 42v-95Z" fill="#fff" opacity=".55" /><path d="M230 292v95l90-47v-95Z" fill="#fff" opacity=".4" />
-      <circle cx="235" cy="330" r="30" fill="#f15a3a" opacity=".85" /><path d="M235 302v56M207 330h56M215 310l40 40M255 310l-40 40" stroke="#333" strokeWidth="3" />
-      {/* téléphone */}
-      <path d="M180 410 290 352 345 382 235 440Z" fill="#e8412a" /><path d="M192 410 288 360 333 384 238 433Z" fill="#fff" />
-      <path d="M215 410l40-21M222 418l50-26M232 424l40-21" stroke="#c7cfdd" strokeWidth="4" strokeLinecap="round" />
-      {/* carte */}
-      <path d="M330 330 470 258 540 296 400 368Z" fill="url(#lg-card)" /><path d="M330 330v10l70 38v-10Z" fill="#b62b15" /><path d="M400 368v10l140-72v-10Z" fill="#a8240f" />
-      <circle cx="488" cy="320" r="11" fill="#eb001b" opacity=".9" /><circle cx="500" cy="314" r="11" fill="#f79e1b" opacity=".9" />
-      <text x="430" y="292" fill="#fff" fontSize="15" fontWeight="700" fontFamily="Arial" transform="rotate(-27 430 292)">Swissquote</text>
-      {/* pions */}
-      <path d="M420 95 470 70 505 88 455 113Z" fill="#fff" /><path d="M420 95v45l35 18v-45Z" fill="#f3d6d0" /><path d="M455 113v45l50-26V88Z" fill="#e6c4bc" />
-      <path d="M470 62 500 47 522 58 492 73Z" fill="#2a2a2a" /><path d="M470 62v32l22 11V73Z" fill="#111" /><path d="M492 73v32l30-15V58Z" fill="#333" />
-    </svg>
   );
 }

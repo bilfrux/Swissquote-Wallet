@@ -14,7 +14,7 @@ swissquote.com offers, for Switzerland, `hreflang` de-CH, en-CH, fr-CH and it-CH
 | --- | --- |
 | Public header: logo, help, language, "Discover our services", Login, Sign up (sign-up explained as out of scope of the demo) | `client/src/public/PublicSite.tsx` |
 | "Markets" page: rail (Tools, Markets, Inspiration, ESG, Crypto hub), search field, regions and products menu, daily overview with 10 cards (flag, symbol, name, price, change, sparkline, "All components"). **Simulated data, labelled as such** | same |
-| Login page: title, username and password fields with icons, show/hide password, "forgot" links, black login button, passkey login kept, help, "New to Swissquote? Become a client", demo clients reminder; illustration drawn for the project (not Swissquote's image) | same |
+| Login page: title, username and password fields with icons, show/hide password, "forgot" links, black login button, passkey login kept, help, "New to Swissquote? Become a client", demo clients reminder; illustration: the Swissquote visual provided by the user (`client/public/login-visual.png`, transparent PNG on the coral gradient), replacing a first drawing made for the project | same |
 | Language support and selector (public pages and app) | `client/src/i18n.tsx`, `ui/Shell.tsx`, `bank/Overview.tsx`, `bank/Accounts.tsx`, `main.tsx` |
 | Flow: not logged in → Markets → Login → app; logout → Markets | `client/src/App.tsx` |
 | Old login page removed | `client/src/bank/Login.tsx` |
