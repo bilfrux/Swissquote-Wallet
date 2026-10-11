@@ -28,16 +28,17 @@ APP_URL=http://localhost:5183 CONSOLE_URL=http://localhost:5184 npm run validate
 | 17-1 | Add the Ethereum account: address derived in the Client Wallet, contact's address read in their console, Safe recomputed by Swissquote and shown; registration without a session refused (401) | works: Safe `0x292919c03fe12BEAD122998d1280812eeD5723AA`, owner `0xB33e…E891` |
 | 17-2 | Activation from the interface: the Client Wallet screen lists "Enable the recovery module (Candide, 3 minutes delay)", the two guardians and "paid by a sponsor"; Safe deployed with guardians Swissquote + contact, threshold 2, 0 ETH | works: [tx 0xd943…7eca](https://sepolia.etherscan.io/tx/0xd943777d7bc9fcceba6c586d7047e96e3f82f3ea84091c9f66f22d2e18617eca) in run 2; state read on-chain afterwards: owner = client EOA, guardians `0x8243…86Ee` (contact) and `0xd2D6…ca17` (Swissquote), threshold 2, module enabled (see below) |
 | 17-3 | The Client Wallet refuses to sign an operation with a call it cannot decode | works: `400 refused: not decoded: do not sign unless you know what it does` |
-| 17-4 | Send 1 USDC from the interface, signed in the Client Wallet, fees sponsored | **not tested yet**: waiting for test USDC from Circle's faucet on the Safe address above |
+| 17-4 | Send 1 USDC from the interface, signed in the Client Wallet, fees sponsored | works (run 4, after Circle's faucet): screen "Send 1 USDC to 0x8243…86Ee" and "paid by a sponsor"; [tx 0x457f…6963](https://sepolia.etherscan.io/tx/0x457f87501218278910983cc9097b62f2a8e4bc732cc72954221ad7cfab686963) status 1; Safe 20 → 19 USDC, recipient +1 USDC, Safe ETH 0 (checked with `cast`). Signed by the key recovered in step 18: the Safe address did not change, only its owner |
 | 17-x | No error in the browser consoles | works (run 3) |
 
-## The three runs
+## The four runs
 
 | Run | Result | Cause and fix |
 | --- | --- | --- |
 | 1 | 17-1 OK, then timeout waiting for the wallet window | The app prepared the operation (bundler + paymaster round trips) **then** opened the wallet window: no longer a user gesture, so the browser blocked it. Fix: two clicks, "Activate" (prepare) then "Sign with my Client Wallet", as in the Bitcoin send flow. |
 | 2 | Activation sent and included; 17-2 marked KO; React "duplicate key" errors | The test read the state "latest" on the public node right after inclusion (stale, as in step 16). A read a moment later showed the expected state. The duplicate key was mine: the Ethereum card had the same React key as its sibling Bitcoin card. Fixes: test reads at the receipt's block; distinct key. |
-| 3 | 17-1, 17-3, 17-x OK; 17-2 "already activated" | Activation is a one-time on-chain action, so run 3 could not repeat it. The 17-2 verdict rests on run 2's transaction, its capture (`etape-17-1-activation-wallet.png`) and the on-chain read recorded in `etape-17-sortie.txt`. |
+| 3 | 17-1, 17-3, 17-x OK; 17-2 "already activated"; 17-4 not tested (no USDC yet) | Activation is a one-time on-chain action, so run 3 could not repeat it. The 17-2 verdict rests on run 2's transaction, its capture (`etape-17-1-activation-wallet.png`) and the on-chain read recorded in `etape-17-sortie.txt`. |
+| 4 | all criteria met, including 17-4 | After the faucet (20 USDC) and the recoveries of step 18. The test now reads the Safe's owner on-chain and uses that wallet's PIN. |
 
 ## Non-regression (`etape-17-regressions-sortie.txt`)
 

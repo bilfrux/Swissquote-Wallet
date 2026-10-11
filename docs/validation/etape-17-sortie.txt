@@ -51,3 +51,26 @@ RÉSUMÉ
 $ lecture on-chain après l essai 2 (readState du Safe 0x2929…23AA)
 {"deployed":true,"usdc":"0","owners":["0xB33ef3D09896dB38A5f15eceBDD25c88DeacE891"],"guardians":["0x82436F79d37e0f9d41d7C3CF8925b8BC079F86Ee","0xd2D6c688BC62E6e8e89BdF22d7aC79a64BDBca17"],"threshold":"2","moduleEnabled":true,"pending":null}
 GET /guardian/evm-address -> 0xd2D6c688BC62E6e8e89BdF22d7aC79a64BDBca17
+
+$ npm run -s validate:17   # essai 4, après réception de 20 USDC du faucet Circle (et après les recoveries de l étape 18)
+[OK ] 17-1 Ajout du compte Ethereum : adresse dérivée dans le Wallet du client (même phrase), Safe recalculé par Swissquote et affiché
+       Safe 0x292919c03fe12BEAD122998d1280812eeD5723AA ; propriétaire 0x085568B8A0d0cF806C73961Eb1b4129c7E62F82a ; tiers 0x82436F79d37e0f9d41d7C3CF8925b8BC079F86Ee ; enregistrement sans session : 401
+[OK ] 17-2 Activation (déjà faite lors d'un essai précédent)
+       gardiens 0x82436F79d37e0f9d41d7C3CF8925b8BC079F86Ee, 0xd2D6c688BC62E6e8e89BdF22d7aC79a64BDBca17 ; seuil 2
+[OK ] 17-3 Le Wallet du client refuse de signer une opération contenant un appel non reconnu
+       400 refused: not decoded: do not sign unless you know what it does
+[OK ] 17-4 Envoi d'1 USDC depuis l'interface, signé dans le Wallet du client, frais parrainés
+       USDC sent: 0x457f87501218278910983cc9097b62f2a8e4bc732cc72954221ad7cfab686963 ; solde 20000000 -> 19000000 (unités de 10^-6) ; écran : Confirm the Ethereum operationRequest from http://localhost:5183 · account 0x292919c03fe12BEAD122998d1280812eeD5723AA (Sepolia)Send 1 USDC to 0x82436F79d37e0f9d
+[OK ] 17-x Aucune erreur dans les consoles des navigateurs
+       aucune
+
+RÉSUMÉ
+17-1 fonctionne         Ajout du compte Ethereum : adresse dérivée dans le Wallet du client (même phrase), Safe recalculé par Swissquote et affiché
+17-2 fonctionne         Activation (déjà faite lors d'un essai précédent)
+17-3 fonctionne         Le Wallet du client refuse de signer une opération contenant un appel non reconnu
+17-4 fonctionne         Envoi d'1 USDC depuis l'interface, signé dans le Wallet du client, frais parrainés
+17-x fonctionne         Aucune erreur dans les consoles des navigateurs
+
+$ vérification indépendante (cast)
+receipt 0x457f…6963 status: 1 (success)
+USDC du tiers 0x8243…86Ee : 1000000 (1 USDC) ; ETH du Safe : 0
