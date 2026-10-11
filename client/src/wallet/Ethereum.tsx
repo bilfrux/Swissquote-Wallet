@@ -83,14 +83,18 @@ export function Ethereum({ customerId, accountKey, tiersName, onInfo }: { custom
   };
   // 1) Prépare l'opération et la fait parrainer ; 2) sur un clic, la fait signer dans le Wallet du client, l'envoie,
   // puis relit l'état AU bloc de l'inclusion (le nœud public peut renvoyer un état en retard).
+  type Prepared = NonNullable<typeof ready>;
   const prepare = async (label: string, calls: Parameters<typeof buildSponsoredOp>[1], from: { safe: Address; owner: Address } = acc!, after?: (blockNumber: bigint) => Promise<void>) => {
-    setReady({ label, op: await buildSponsoredOp(from, calls), after });
+    const op = await buildSponsoredOp(from, calls);
+    const prepared = { label, op, after };
+    setReady(prepared);
+    return prepared;
   };
-  const signAndSend = async () => {
-    const { signature } = await walletRequest<{ signature: string }>("evm-sign", { op: ready!.op });
-    const r = await sendOp(ready!.op, signature);
-    setTxs((t) => [{ label: ready!.label, hash: r.txHash }, ...t]);
-    const after = ready!.after;
+  const signAndSend = async (prepared: Prepared = ready!) => {
+    const { signature } = await walletRequest<{ signature: string }>("evm-sign", { op: prepared.op });
+    const r = await sendOp(prepared.op, signature);
+    setTxs((t) => [{ label: prepared.label, hash: r.txHash }, ...t]);
+    const after = prepared.after;
     setReady(null);
     await refresh(r.blockNumber);
     if (after) await after(r.blockNumber);
@@ -154,7 +158,7 @@ export function Ethereum({ customerId, accountKey, tiersName, onInfo }: { custom
       {state && !active && (
         <div className="warning">
           <p>{tr("Not active yet. Activating creates your account on-chain and sets its two recovery guardians: Swissquote and {who} (both needed, {d} delay that you can cancel). Network fees are sponsored: you need no ETH.", { who: acc.tiersName ?? tr("your trusted contact"), d: RECOVERY_DELAY_LABEL })}</p>
-          <button disabled={!!busy || !sq} onClick={run("activate", () => prepare("Activation", activationCalls(acc.safe, sq!, acc.tiers)))}>
+          <button disabled={!!busy || !sq} onClick={run("activate", async () => { await prepare("Activation", activationCalls(acc.safe, sq!, acc.tiers)); })}>
             {busy === "activate" ? tr("Preparing…") : tr("Activate my Ethereum account")}
           </button>
         </div>
@@ -162,7 +166,7 @@ export function Ethereum({ customerId, accountKey, tiersName, onInfo }: { custom
       {state?.pending && (
         <div className="warning" data-testid="evm-pending">
           <p><strong>{tr("Recovery in progress on this account")}</strong>: {tr("ownership would go to {who} after {t}. If you did not ask for it, cancel it now.", { who: state.pending.newOwners.map(short).join(", "), t: new Date(state.pending.executeAfter * 1000).toLocaleString(loc) })}</p>
-          <button disabled={!!busy} onClick={run("cancel", () => prepare("Recovery cancelled", cancelRecoveryCalls()))}>{busy === "cancel" ? tr("Preparing…") : tr("Cancel this recovery")}</button>
+          <button disabled={!!busy} onClick={run("cancel", async () => { await prepare("Recovery cancelled", cancelRecoveryCalls()); })}>{busy === "cancel" ? tr("Preparing…") : tr("Cancel this recovery")}</button>
         </div>
       )}
       {ready && (
@@ -184,7 +188,10 @@ export function Ethereum({ customerId, accountKey, tiersName, onInfo }: { custom
       <div className="send">
         <label>{tr("Recipient")}<input className="mono" placeholder="0x…" value={to} onChange={(e) => setTo(e.target.value.trim())} /></label>
         <label>{tr("Amount (USDC)")}<input placeholder="1" value={amount} onChange={(e) => setAmount(e.target.value.trim())} /></label>
-        <button className="btn-primary wide" disabled={!!busy || !isAddress(to) || !(Number(amount) > 0)} onClick={run("send", () => prepare("USDC sent", [usdcTransferCall(getAddress(to), parseUnits(amount, USDC_DECIMALS))]))}>
+        <button className="btn-primary wide" disabled={!!busy || !isAddress(to) || !(Number(amount) > 0)} onClick={run("send", async () => {
+          const prepared = await prepare("USDC sent", [usdcTransferCall(getAddress(to), parseUnits(amount, USDC_DECIMALS))]);
+          await signAndSend(prepared);
+        })}>
           {busy === "send" ? tr("Preparing…") : tr("Send USDC")}
         </button>
         <p className="muted small">{tr("Fees sponsored by a paymaster (third party, not Swissquote). Your Client Wallet shows the transfer in clear before signing.")}</p>
@@ -193,7 +200,7 @@ export function Ethereum({ customerId, accountKey, tiersName, onInfo }: { custom
   ) : panel === "recover" && state ? (
     <section className="card side-panel">
       <div className="panel-head"><h2>{tr("Recover this account")}</h2><button className="link" aria-label={tr("Close")} onClick={() => setPanel("receive")}>✕</button></div>
-      <EvmRecovery acc={acc} state={state} busy={busy} run={run} prepare={prepare}
+      <EvmRecovery acc={acc} state={state} busy={busy} run={run} prepare={async (...args) => { await prepare(...args); }}
         onRecovered={async (blockNumber) => {
           const a = await syncEvm(acc.safe, blockNumber);
           setAcc(a); localStorage.setItem(cacheKey(customerId), JSON.stringify({ ...a, swissquote: sq }));
