@@ -41,8 +41,9 @@ async function login(ctx: BrowserContext) {
   await p.goto(APP);
   await p.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
   await p.reload();
-  await p.getByLabel("Client ID").fill("CH-0003");
-  await p.getByLabel("Password").fill("demo0003");
+  await p.getByRole("button", { name: "Login", exact: true }).click(); // site public (étape 22)
+  await p.getByLabel("Username").fill("CH-0003");
+  await p.getByLabel("Password", { exact: true }).fill("demo0003");
   await p.getByRole("button", { name: "Log in", exact: true }).click();
   await p.getByRole("button", { name: "Crypto", exact: true }).click();
   return p;

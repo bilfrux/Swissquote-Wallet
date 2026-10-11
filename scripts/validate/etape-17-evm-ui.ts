@@ -55,8 +55,9 @@ try {
   await app.goto(APP);
   await app.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
   await app.reload();
-  await app.getByLabel("Client ID").fill("CH-0003");
-  await app.getByLabel("Password").fill("demo0003");
+  await app.getByRole("button", { name: "Login", exact: true }).click(); // site public (étape 22)
+  await app.getByLabel("Username").fill("CH-0003");
+  await app.getByLabel("Password", { exact: true }).fill("demo0003");
   await app.getByRole("button", { name: "Log in", exact: true }).click();
   await app.getByRole("button", { name: "Crypto", exact: true }).click();
   await toEthereum(app);

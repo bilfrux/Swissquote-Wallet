@@ -9,7 +9,8 @@ for (const [name, vp] of [["ordinateur", { width: 1280, height: 1000 }], ["telep
   const ctx = await b.newContext({ viewport: vp });
   const p = await ctx.newPage(); p.on("console", (m) => m.type() === "error" && errs.push(m.text())); p.on("pageerror", (e) => errs.push(e.message)); p.on("response", (r) => { if (r.status() >= 400) failed.push(`${r.status()} ${new URL(r.url()).host}`); });
   await p.goto(APP); await p.evaluate(() => { localStorage.clear(); sessionStorage.clear(); }); await p.reload();
-  await p.getByLabel("Client ID").fill("CH-0003"); await p.getByLabel("Password").fill("demo0003");
+  await p.getByRole("button", { name: "Login", exact: true }).click(); // site public (étape 22)
+  await p.getByLabel("Username").fill("CH-0003"); await p.getByLabel("Password", { exact: true }).fill("demo0003");
   await p.getByRole("button", { name: "Log in", exact: true }).click();
   await p.getByRole("button", { name: "Crypto", exact: true }).first().click();
   await p.getByTestId("btc-balance").waitFor({ timeout: 30000 }); await p.waitForTimeout(4000);

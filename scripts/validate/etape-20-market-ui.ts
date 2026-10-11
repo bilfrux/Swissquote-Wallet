@@ -11,7 +11,8 @@ const b = await chromium.launch({ executablePath: "/Applications/Google Chrome.a
 const errs: string[] = [], failed: string[] = [];
 const login = async (p: Page) => {
   await p.goto(APP); await p.evaluate(() => { localStorage.clear(); sessionStorage.clear(); }); await p.reload();
-  await p.getByLabel("Client ID").fill("CH-0003"); await p.getByLabel("Password").fill("demo0003");
+  await p.getByRole("button", { name: "Login", exact: true }).click(); // site public (étape 22)
+  await p.getByLabel("Username").fill("CH-0003"); await p.getByLabel("Password", { exact: true }).fill("demo0003");
   await p.getByRole("button", { name: "Log in", exact: true }).click();
 };
 

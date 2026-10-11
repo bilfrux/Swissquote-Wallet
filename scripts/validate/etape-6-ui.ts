@@ -68,8 +68,9 @@ const login = async (p: Page) => {
   await p.goto(APP);
   await p.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
   await p.reload();
-  await p.getByLabel("Client ID").fill("CH-0003");
-  await p.getByLabel("Password").fill("demo0003");
+  await p.getByRole("button", { name: "Login", exact: true }).click(); // site public (étape 22)
+  await p.getByLabel("Username").fill("CH-0003");
+  await p.getByLabel("Password", { exact: true }).fill("demo0003");
   await p.getByRole("button", { name: "Log in", exact: true }).click();
 };
 
@@ -93,21 +94,22 @@ try {
   await app.goto(APP);
   await app.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
   await app.reload();
-  await app.getByLabel("Client ID").fill("CH-0003");
-  await app.getByLabel("Password").fill("faux");
+  await app.getByRole("button", { name: "Login", exact: true }).click(); // site public (étape 22)
+  await app.getByLabel("Username").fill("CH-0003");
+  await app.getByLabel("Password", { exact: true }).fill("faux");
   const errorsBeforeLogin = errors.length;
   await app.getByRole("button", { name: "Log in", exact: true }).click();
   const badLogin = await app.locator(".error").textContent();
   errors.splice(errorsBeforeLogin); // le 403 du mauvais mot de passe, volontaire, est attendu
   await shot(app, "1-connexion");
-  await app.getByLabel("Password").fill("demo0003");
+  await app.getByLabel("Password", { exact: true }).fill("demo0003");
   await app.getByRole("button", { name: "Log in", exact: true }).click();
   await app.getByText(MOBILE ? "Savings" : "Private account").first().waitFor();
   await app.getByText(/8[’']420\.15/).first().waitFor(); // comptes CHF chargés
   await app.getByText(MOBILE ? "Create" : "Create my wallet").first().waitFor(); // état du wallet lu (« … » pendant le chargement)
   const overview = await app.locator("main").textContent();
   report("6-2", "Connexion e-banking simulée (mauvais mot de passe refusé), aperçu avec comptes CHF et tuile « Créer mon wallet »",
-    !!badLogin?.includes("incorrect") && (MOBILE ? !!overview?.includes("Total value") && !!overview?.includes("Cash") && !!overview?.includes("Create") : !!overview?.includes("Private account") && !!overview?.includes("Create my wallet")), `${badLogin} ; aperçu affiché`);
+    /incorrect/i.test(badLogin ?? "") && (MOBILE ? !!overview?.includes("Total value") && !!overview?.includes("Cash") && !!overview?.includes("Create") : !!overview?.includes("Private account") && !!overview?.includes("Create my wallet")), `${badLogin} ; aperçu affiché`);
   await shot(app, "2-apercu");
 
   // --- Passkey : activation depuis « Mon compte », déconnexion, reconnexion par passkey ---
@@ -115,7 +117,8 @@ try {
   await app.getByRole("button", { name: "Enable a passkey" }).click();
   await app.getByText("Passkey enabled.").waitFor({ timeout: 15000 });
   await app.getByRole("button", { name: "Log out" }).click();
-  await app.getByLabel("Client ID").fill("CH-0003");
+  await app.getByRole("button", { name: "Login", exact: true }).click(); // site public (étape 22)
+  await app.getByLabel("Username").fill("CH-0003");
   await app.getByRole("button", { name: "Log in with a passkey" }).click();
   await app.getByText(MOBILE ? "Savings" : "Private account").first().waitFor({ timeout: 15000 });
   report("6-17", "Passkey : activée depuis « Mon compte », puis connexion sans mot de passe par passkey (WebAuthn, vérification de l'utilisateur)", true, "connexion par passkey réussie");

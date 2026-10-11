@@ -1,0 +1,24 @@
+$ curl swissquote.com : langues pour la Suisse (hreflang)
+hrefLang="de-CH" hrefLang="en-CH" hrefLang="fr-CH" hrefLang="it-CH" (autres régions : ar, es, ru, zh)
+
+$ npm run -s validate:22
+[OK ] 22-1 Accueil public « Marchés » : aperçu du jour (10 cartes simulées avec courbe), en-tête Aide / langue / Login / Sign up
+       10 cartes ; en-tête : ?EN ▾Discover our servicesLoginSign up
+[OK ] 22-2 Choix de la langue (FR) appliqué et mémorisé après rechargement
+       titre : Marchés ; après rechargement : Marchés
+[OK ] 22-3 Connexion en français : mauvais mot de passe refusé avec un message traduit, mot de passe affichable, puis connexion réussie
+       refus : Nom d'utilisateur ou mot de passe incorrect. ; champ affiché en clair : text
+[OK ] 22-4 Appli connectée en allemand (menus, aperçu, pied de page) ; déconnexion : retour à la page « Märkte »
+       menu : StartseiteBankingKrypto ; retour aux marchés : true
+[OK ] 22-5 Téléphone : page « Markets » puis page de connexion utilisables
+       formulaire visible : true
+[OK ] 22-x Aucune erreur dans les consoles (hors refus volontaire du mauvais mot de passe)
+       aucune ; réponses en erreur : aucune
+
+RÉSUMÉ
+22-1 fonctionne         Accueil public « Marchés » : aperçu du jour (10 cartes simulées avec courbe), en-tête Aide / langue / Login / Sign up
+22-2 fonctionne         Choix de la langue (FR) appliqué et mémorisé après rechargement
+22-3 fonctionne         Connexion en français : mauvais mot de passe refusé avec un message traduit, mot de passe affichable, puis connexion réussie
+22-4 fonctionne         Appli connectée en allemand (menus, aperçu, pied de page) ; déconnexion : retour à la page « Märkte »
+22-5 fonctionne         Téléphone : page « Markets » puis page de connexion utilisables
+22-x fonctionne         Aucune erreur dans les consoles (hors refus volontaire du mauvais mot de passe)

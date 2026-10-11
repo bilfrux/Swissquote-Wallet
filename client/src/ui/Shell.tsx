@@ -8,6 +8,7 @@ import { num } from "./format";
 import { useIsMobile } from "./useIsMobile";
 import { NotificationBell } from "./NotificationBell";
 import { AccountSecurity } from "./AccountSecurity";
+import { LangSelect, useT } from "../i18n";
 
 export type Tab = "accueil" | "banque" | "crypto" | "demo";
 type Props = {
@@ -19,22 +20,24 @@ type Props = {
   children: React.ReactNode;
 };
 
+// Libellés : clés de traduction (i18n.tsx).
 const TABS: { id: Tab; label: string; icon: () => React.ReactElement }[] = [
-  { id: "accueil", label: "Home", icon: IconHome },
-  { id: "banque", label: "Banking", icon: IconBank },
-  { id: "crypto", label: "Crypto", icon: IconCrypto },
-  ...(NETWORK === "regtest" ? [{ id: "demo" as Tab, label: "Demo", icon: IconBolt }] : []),
+  { id: "accueil", label: "nav.home", icon: IconHome },
+  { id: "banque", label: "nav.banking", icon: IconBank },
+  { id: "crypto", label: "nav.crypto", icon: IconCrypto },
+  ...(NETWORK === "regtest" ? [{ id: "demo" as Tab, label: "nav.demo", icon: IconBolt }] : []),
 ];
 
 export function Shell(p: Props) {
   const mobile = useIsMobile();
+  const { t } = useT();
   const [sheet, setSheet] = useState(false);
   const RAIL: { label: string; icon: () => React.ReactElement; go: () => void; on: boolean }[] = [
-    { label: "Portfolio", icon: IconPortfolio, go: () => p.onTab("accueil"), on: p.tab === "accueil" },
-    { label: "Accounts", icon: IconBank, go: () => p.onTab("banque"), on: p.tab === "banque" },
-    { label: "Crypto assets", icon: IconCrypto, go: () => p.onTab("crypto"), on: p.tab === "crypto" },
-    { label: "Security", icon: IconShield, go: () => p.onTab("crypto", "securite"), on: false },
-    ...(NETWORK === "regtest" ? [{ label: "Attacks", icon: IconBolt, go: () => p.onTab("demo"), on: p.tab === "demo" }] : []),
+    { label: t("rail.portfolio"), icon: IconPortfolio, go: () => p.onTab("accueil"), on: p.tab === "accueil" },
+    { label: t("rail.accounts"), icon: IconBank, go: () => p.onTab("banque"), on: p.tab === "banque" },
+    { label: t("rail.cryptoAssets"), icon: IconCrypto, go: () => p.onTab("crypto"), on: p.tab === "crypto" },
+    { label: t("rail.security"), icon: IconShield, go: () => p.onTab("crypto", "securite"), on: false },
+    ...(NETWORK === "regtest" ? [{ label: t("rail.attacks"), icon: IconBolt, go: () => p.onTab("demo"), on: p.tab === "demo" }] : []),
   ];
   // Même arbre pour les deux mises en page : le contenu (<main>) garde sa position, donc franchir le seuil
   // téléphone/ordinateur (rotation, redimensionnement) ne démonte pas l'appli et ne perd pas son état.
@@ -52,9 +55,10 @@ export function Shell(p: Props) {
           {sheet && (
             <div className="m-sheet">
               <p><strong>{p.user.firstName} {p.user.lastName}</strong></p>
-              <p className="muted small">Simulated bank · Bitcoin {NETWORK}</p>
+              <p className="muted small">{t("shell.simBank")} · Bitcoin {NETWORK}</p>
+              <LangSelect />
               <AccountSecurity />
-              <button className="btn-outline-red" onClick={p.onLogout}>Log out</button>
+              <button className="btn-outline-red" onClick={p.onLogout}>{t("shell.logout")}</button>
             </div>
           )}
         </>
@@ -62,17 +66,18 @@ export function Shell(p: Props) {
         <header className="d-header">
           <Logo />
           <nav className="d-topnav">
-            {TABS.map((t) => (
-              <button key={t.id} className={p.tab === t.id ? "active" : ""} onClick={() => p.onTab(t.id)}>{t.label}</button>
+            {TABS.map((tb) => (
+              <button key={tb.id} className={p.tab === tb.id ? "active" : ""} onClick={() => p.onTab(tb.id)}>{t(tb.label)}</button>
             ))}
           </nav>
           <div className="d-header-right">
+            <LangSelect />
             <NotificationBell />
             <div className="bell-wrap">
               <button className="account-pill" aria-label="My account" onClick={() => setSheet(!sheet)}><IconUser /> {p.user.firstName} {p.user.lastName}</button>
               {sheet && <div className="bell-panel"><p><strong>{p.user.firstName} {p.user.lastName}</strong></p><AccountSecurity /></div>}
             </div>
-            <button className="btn-outline-red" onClick={p.onLogout}>Log out</button>
+            <button className="btn-outline-red" onClick={p.onLogout}>{t("shell.logout")}</button>
           </div>
         </header>
       )}
@@ -88,20 +93,20 @@ export function Shell(p: Props) {
       </div>
       {mobile ? (
         <nav className="m-tabbar">
-          {TABS.map((t) => (
-            <button key={t.id} className={p.tab === t.id ? "active" : ""} onClick={() => p.onTab(t.id)}>
-              <t.icon />
-              <span>{t.label}</span>
+          {TABS.map((tb) => (
+            <button key={tb.id} className={p.tab === tb.id ? "active" : ""} onClick={() => p.onTab(tb.id)}>
+              <tb.icon />
+              <span>{t(tb.label)}</span>
             </button>
           ))}
         </nav>
       ) : (
         <footer className="d-status">
-          <span>Total value <strong>{num(p.totals.totalChf)} CHF</strong></span>
-          <span>CHF accounts <strong>{num(p.totals.cashChf)} CHF</strong></span>
-          <span>Crypto <strong>{p.totals.crypto ?? "—"}</strong></span>
-          <span>Bitcoin network <strong>{NETWORK}</strong></span>
-          <span className="sim">Simulated bank for the demo</span>
+          <span>{t("foot.total")} <strong>{num(p.totals.totalChf)} CHF</strong></span>
+          <span>{t("foot.cash")} <strong>{num(p.totals.cashChf)} CHF</strong></span>
+          <span>{t("foot.crypto")} <strong>{p.totals.crypto ?? "—"}</strong></span>
+          <span>{t("foot.network")} <strong>{NETWORK}</strong></span>
+          <span className="sim">{t("foot.sim")}</span>
         </footer>
       )}
     </div>

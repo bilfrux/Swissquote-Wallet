@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { type BankAccount, type Session, clearSession, custody, loadSession, me } from "./lib/bank";
 import { priceOf, usePrices } from "./lib/market";
 import { num } from "./ui/format";
-import { Login } from "./bank/Login";
+import { PublicSite } from "./public/PublicSite";
 import { Overview } from "./bank/Overview";
 import { Accounts } from "./bank/Accounts";
 import { CryptoTab } from "./wallet/CryptoTab";
@@ -36,7 +36,8 @@ export function App() {
     if (anchor) setTimeout(() => openCrypto(anchor), 60);
   };
 
-  if (!session) return <Login onLogin={setSession} />;
+  // Pas de session (arrivée ou déconnexion) : site public, page « Marchés » puis connexion.
+  if (!session) return <PublicSite onLogin={setSession} />;
   const cash = (accounts ?? []).reduce((s, a) => s + a.balance, 0);
   // Prix du marché (CoinGecko) ou cours simulé ; les coins du wallet sont sur des réseaux de test.
   const cryptoChf = (btcSats == null ? 0 : (Number(btcSats) / 1e8) * priceOf(market, "bitcoin")) + (custodySats / 1e8) * priceOf(market, "bitcoin")
