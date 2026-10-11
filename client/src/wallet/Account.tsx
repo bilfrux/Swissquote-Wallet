@@ -99,7 +99,9 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
 
   const balance = (utxos ?? []).reduce((s, u) => s + u.value, 0n);
   const balanceChf = (Number(balance) / 1e8) * priceOf(market, "bitcoin");
-  const nextOpen = utxos?.length ? Math.min(...utxos.map((u) => u.recoveryOpensIn)) : null;
+  // Coin pas encore confirmé : le délai de D blocs ne commence qu'à sa confirmation (+1 bloc dans l'estimation).
+  const blocksLeft = (u: { recoveryOpensIn: number; confirmations: number }) => u.recoveryOpensIn + (u.confirmations === 0 ? 1 : 0);
+  const nextOpen = utxos?.length ? Math.min(...utxos.map(blocksLeft)) : null;
   const soon = (utxos ?? []).filter((u) => u.recoveryOpensIn <= Math.ceil(cfg.delay / 3));
   const opened = soon.filter((u) => u.recoveryOpensIn === 0);
   // Estimation : blocs restants × 10 min (cadence cible de Bitcoin et de signet). Regtest : blocs minés à la demande.
@@ -213,7 +215,7 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
                     <td className="mono hide-m">{u.txid.slice(0, 12)}…:{u.vout} {u.change ? "(change)" : ""}</td>
                     <td>{btcFmt(u.value)}</td>
                     <td>{u.confirmations || "pending"}</td>
-                    <td className={u.recoveryOpensIn === 0 ? "danger" : ""}>{u.recoveryOpensIn === 0 ? "open" : `in ${u.recoveryOpensIn} block(s)${timed ? ` (≈ ${hms(left(u.recoveryOpensIn))})` : ""}`}</td>
+                    <td className={u.recoveryOpensIn === 0 ? "danger" : ""}>{u.recoveryOpensIn === 0 ? "open" : `in ${blocksLeft(u)} block(s)${u.confirmations === 0 ? " (after confirmation)" : ""}${timed ? ` ≈ ${hms(left(blocksLeft(u)))}` : ""}`}</td>
                   </tr>
                 ))}
               </tbody>
@@ -245,7 +247,7 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
       )}
       {soon.length > opened.length && (
         <p className="warning" data-testid={opened.length ? undefined : "recovery-countdown"}>
-          {(() => { const b = Math.min(...soon.filter((u) => u.recoveryOpensIn > 0).map((u) => u.recoveryOpensIn)); return (
+          {(() => { const b = Math.min(...soon.filter((u) => u.recoveryOpensIn > 0).map(blocksLeft)); return (
             <><strong>{soon.length - opened.length} coin(s) soon spendable by Swissquote + {tiers}</strong>: in {b} block(s){timed && <>, about <strong className="countdown">{hms(left(b))}</strong> (around {at(b)}, estimated at ~10 min per block)</>}. </>
           ); })()}
           If this is not a recovery you asked for, use “Refresh” to reset the delay.

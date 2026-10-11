@@ -1,0 +1,31 @@
+$ npx tsx scripts/validate/etape-23-refresh-signet.ts   # essai 1 (Refresh réel, puis lecture du badge)
+[OK ] 23-1 Refresh depuis l'interface sur signet : envoi à soi-même signé dans le Wallet du client, diffusé
+       solde avant 0.00008898 BTC ; https://blockstream.info/signet/tx/23f284c1b1e98a21a327ef5f1a34f26a9a386bcac2c5f19a7da8bb7fc974e857 ; écran : Confirm the transferRequest from http://localhost:5183 · wallet “Swissquote Bitcoin wallet (after recovery)”Transfer to yourself0.00008616 BTC+ fee 0.00000282 B
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+locator.waitFor: Timeout 60000ms exceeded.
+Call log:
+[2m  - waiting for locator('.asset-balance .chip').getByText(/Recovery possible in \d+ block\(s\) \(≈/) to be visible[22m
+
+  log: [
+    "  - waiting for locator('.asset-balance .chip').getByText(/Recovery possible in \\d+ block\\(s\\) \\(≈/) to be visible"
+  ],
+  name: 'TimeoutError'
+}
+
+Node.js v24.10.0
+
+$ (lecture de la page) onglet Coins : "23f284c1b1e9…:0 (change) 0.00008616 BTC pending in 7 block(s) (after confirmation) ≈ 1 h 09 min 51 s" ; badge non lu : le sélecteur .asset-balance .chip trouvait aussi le badge (masqué) de la fiche Ethereum
+
+$ npx tsx scripts/validate/etape-23-refresh-signet.ts   # essai 2 (sélecteur du badge Bitcoin)
+[--] 23-1 : Refresh déjà diffusé lors d'un essai précédent (solde 0.00008616 BTC, aucun coin au-delà du délai)
+[OK ] 23-2 Compte à rebours affiché et qui défile (deux relevés à 5 s d'écart) ; coin non confirmé : délai compté à partir de sa confirmation
+       Recovery possible in 7 block(s) (≈ 1 h 10 min 00 s) → Recovery possible in 7 block(s) (≈ 1 h 09 min 56 s) ; coins : CoinAmountConfirmationsRecovery possible23f284c1b1e9…:0 (change)0.00008616 BTCpendingin 7 block(s) (after confirmation) ≈ 1 h 09 min 56 s
+[OK ] 23-x Aucune erreur dans les consoles
+       aucune ; réponses en erreur : aucune
+
+RÉSUMÉ
+23-2 fonctionne         Compte à rebours affiché et qui défile (deux relevés à 5 s d'écart) ; coin non confirmé : délai compté à partir de sa confirmation
+23-x fonctionne         Aucune erreur dans les consoles
