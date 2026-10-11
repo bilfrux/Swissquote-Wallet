@@ -12,7 +12,7 @@ import { createServer as createVite } from "vite";
 import { btc } from "@bitcoinerlab/descriptors-scure";
 import { base64 } from "@scure/base";
 import { Signer } from "bip322-js";
-import { type NetworkName, btcNetwork, createWalletConfig, keyAddressOf, simulate } from "@sq/bitcoin";
+import { BitcoindBackend, type ChainBackend, EsploraBackend, type NetworkName, btcNetwork, buildSpend, createWalletConfig, finalizePsbt, keyAddressOf, scan, simulate } from "@sq/bitcoin";
 import { accountKey, masterFromMnemonic, newMnemonic } from "@sq/bitcoin/keys";
 import { signPsbtWithMnemonic } from "@sq/bitcoin/sign";
 import { type JsonOp, describeOp, ownersOf, safeAddressOf, signOp } from "@sq/evm";
@@ -51,6 +51,13 @@ const PORT = Number(process.env.CLIENT_WALLET_PORT ?? 5180);
 const HIGH_VALUE_SATS = BigInt(process.env.CLIENT_WALLET_HIGH_VALUE_SATS ?? 20_000_000);
 const SELF = `http://localhost:${PORT}`;
 const root = new URL("..", import.meta.url).pathname;
+
+// Kit de sortie : dépenser avec sa clé sans le site, sans bank-mock, sans compte Swissquote. Seuls ce wallet, sa politique
+// enregistrée (données publiques) et un accès à la chaîne Bitcoin sont nécessaires : bitcoind (regtest) ou une API Esplora
+// publique (signet), jamais Swissquote.
+const chainFor = (n: NetworkName): ChainBackend =>
+  n === "regtest" ? new BitcoindBackend(process.env.BTC_RPC_URL ?? "http://regtest:regtest@127.0.0.1:18443")
+    : new EsploraBackend(process.env.ESPLORA_URL ?? "https://blockstream.info/signet/api");
 
 class HttpError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -218,6 +225,34 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
       const keyAddress = keyAddressOf(child.publicKey!, network);
       const wif = btc.WIF(btcNetwork(network)).encode(child.privateKey!);
       return { signature: Signer.sign(wif, keyAddress, body.message), keyAddress };
+    }
+
+    case "POST /api/exit/prepare": {
+      // Sortie d'urgence : tous les coins du wallet vers l'adresse choisie, par le chemin « votre clé seule ». Le PSBT passe
+      // ensuite par le même écran de confirmation et la même signature biométrique que tout envoi (/api/describe, /api/sign).
+      const w = wallets.find((x) => x.id === body.walletId);
+      if (!w) throw new HttpError(404, "unknown wallet");
+      if (!w.policy) throw new HttpError(409, "this wallet has no saved account policy: create or recover the account first");
+      const net = w.policy.network;
+      const cfg = await createWalletConfig({ ...w.policy, client: w.accountKey });
+      const chain = chainFor(net);
+      const utxos = await scan(cfg, chain).catch((e) => { throw new HttpError(502, `cannot read the Bitcoin network: ${e.message}`); });
+      if (!utxos.length) throw new HttpError(409, "no coins found for this wallet on this network");
+      const feeRate = body.feeRate === undefined ? (await chain.feeRates().catch(() => ({ normal: 2 }))).normal : Number(body.feeRate);
+      if (!(feeRate >= 1 && feeRate <= 1000)) throw new HttpError(400, "invalid fee rate (1 to 1000 sat/vB)");
+      const spend = await buildSpend({ cfg, backend: chain, utxos, path: "client", feeRate, to: String(body.to ?? "").trim() }).catch((e) => { throw new HttpError(400, e.message); });
+      return { psbt: spend.psbt, network: net, coins: utxos.length, total: String(utxos.reduce((s, u) => s + u.value, 0n)) };
+    }
+
+    case "POST /api/exit/broadcast": {
+      const w = wallets.find((x) => x.id === body.walletId);
+      if (!w?.policy) throw new HttpError(404, "unknown wallet or no saved account policy");
+      const d = await describe(body.psbt, w.policy.network);
+      if (d.wallet?.id !== w.id || d.path !== "client") throw new HttpError(400, "this PSBT is not a client-path spend of this wallet");
+      const cfg = await createWalletConfig({ ...w.policy, client: w.accountKey });
+      let hex: string;
+      try { hex = finalizePsbt(cfg, body.psbt).hex; } catch (e: any) { throw new HttpError(400, `PSBT not fully signed: ${e.message}`); }
+      return { txid: await chainFor(w.policy.network).broadcast(hex).catch((e) => { throw new HttpError(502, `rejected by the network: ${e.message}`); }) };
     }
 
     case "POST /api/sign": {

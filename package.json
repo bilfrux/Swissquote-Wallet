@@ -48,7 +48,8 @@
     "validate:12": "tsx scripts/validate/etape-12-relay.ts",
     "validate:37": "tsx scripts/validate/etape-37-bio.ts",
     "validate:38": "tsx scripts/validate/etape-38-crypto-lock.ts",
-    "validate:40": "tsx scripts/validate/etape-40-device-wallets.ts"
+    "validate:40": "tsx scripts/validate/etape-40-device-wallets.ts",
+    "validate:41": "tsx scripts/validate/etape-41-exit-kit.ts"
   },
   "devDependencies": {
     "bip322-js": "^4.0.0",

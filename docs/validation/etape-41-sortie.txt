@@ -1,0 +1,17 @@
+[OK ] 41-1 Refus : wallet inconnu (404), adresse invalide (400), wallet sans politique enregistrée (409)
+       404 unknown wallet | 400 Error: invalid address pas-une-adresse | 409 this wallet has no saved account policy: create or recover the account first
+[OK ] 41-2 Préparation : 2 coins trouvés (0,4 BTC), PSBT par le chemin « votre clé seule », une seule sortie vers l'adresse choisie, montant élevé signalé
+       200 ; coins 2 ; total 40000000 ; chemin client ; sorties 1 ; montant élevé true
+[OK ] 41-3 Sans secret biométrique : signature refusée (403) ; PSBT non signé : diffusion refusée (400)
+       signature 403 no PIN for this wallet: use biometrics (4 attempt(s) left) | diffusion 400 PSBT not fully signed: Error: cannot finalize without signatures
+[OK ] 41-4 Signature (6 caractères exigés), diffusion et confirmation : l'adresse choisie reçoit ≈ 0,4 BTC, le wallet est vidé
+       mauvais 6 caractères 400 ; signature 200 ; diffusion 200 (cccf4ad467f65fa942249829ebf607f3febabf2ff14751136ddeef41c64fba6d) ; reçu 0.39999566 BTC ; coins restants 0
+[OK ] 41-5 Interface du Client Wallet seul : bouton « Emergency exit », formulaire, écran de confirmation (chemin « votre clé seule », 0,05 BTC, adresse choisie) puis demande de biométrie
+       chemin affiché : true ; montant : true ; adresse : true ; erreurs JS : 0
+
+RÉSUMÉ
+41-1 fonctionne         Refus : wallet inconnu (404), adresse invalide (400), wallet sans politique enregistrée (409)
+41-2 fonctionne         Préparation : 2 coins trouvés (0,4 BTC), PSBT par le chemin « votre clé seule », une seule sortie vers l'adresse choisie, montant élevé signalé
+41-3 fonctionne         Sans secret biométrique : signature refusée (403) ; PSBT non signé : diffusion refusée (400)
+41-4 fonctionne         Signature (6 caractères exigés), diffusion et confirmation : l'adresse choisie reçoit ≈ 0,4 BTC, le wallet est vidé
+41-5 fonctionne         Interface du Client Wallet seul : bouton « Emergency exit », formulaire, écran de confirmation (chemin « votre clé seule », 0,05 BTC, adresse choisie) puis demande de biométrie

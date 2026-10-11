@@ -246,7 +246,56 @@ function Prove({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unkno
   );
 }
 
+// Kit de sortie : envoie TOUS les coins du wallet vers une adresse choisie, sans le site Swissquote, sans bank-mock et sans
+// compte Swissquote. Même écran de confirmation et même signature biométrique que tout envoi.
+function Exit({ wallet, onClose }: { wallet: WalletView; onClose: () => void }) {
+  const [to, setTo] = useState("");
+  const [fee, setFee] = useState("");
+  const [prepared, setPrepared] = useState<{ psbt: string; network: "regtest" | "signet"; coins: number; total: string } | null>(null);
+  const [txid, setTxid] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const fail = (e: string) => { setError(e); setBusy(false); };
+  if (txid) return (
+    <section>
+      <h2>Emergency exit</h2>
+      <p className="done">Transaction broadcast: <span className="mono">{txid}</span></p>
+      <p className="small muted">All coins of this wallet were sent to the address you chose. No Swissquote service was used.</p>
+      <button className="secondary" onClick={onClose}>Close</button>
+    </section>
+  );
+  if (prepared) return (
+    <>
+      {error && <p className="error">{error}</p>}
+      <p className="small muted">{prepared.coins} coin(s), {btc(prepared.total)} in total, found on the {prepared.network} network.</p>
+      <Sign
+        req={{ id: "exit", action: "sign", network: prepared.network, payload: { psbt: prepared.psbt }, origin: "Emergency exit (this wallet, no Swissquote service)", source: window }}
+        onDone={async (signed: any) => { try { setTxid((await api("/api/exit/broadcast", { walletId: wallet.id, psbt: signed.psbt })).txid); } catch (e: any) { fail(e.message); } }}
+        onRefuse={() => { setPrepared(null); setError(null); }}
+        onError={fail}
+      />
+    </>
+  );
+  return (
+    <section>
+      <h2>Emergency exit</h2>
+      <p>Sends <strong>all</strong> the coins of “{wallet.label}” to an address you choose, with your key alone. It works without the Swissquote site, its servers or your Swissquote account: it only needs this wallet and access to the Bitcoin network.</p>
+      <label><span>Destination address</span><input className="mono" value={to} onChange={(e) => setTo(e.target.value)} placeholder="tb1… / bcrt1…" /></label>
+      <label><span>Fee (sat/vB, empty = network estimate)</span><input value={fee} onChange={(e) => setFee(e.target.value.replace(/[^\d.]/g, ""))} /></label>
+      {error && <p className="error">{error}</p>}
+      <div className="row">
+        <button className="secondary" onClick={onClose}>Back</button>
+        <button disabled={busy || !to.trim()} onClick={async () => {
+          setBusy(true); setError(null);
+          try { setPrepared(await api("/api/exit/prepare", { walletId: wallet.id, to, ...(fee ? { feeRate: Number(fee) } : {}) })); setBusy(false); } catch (e: any) { fail(e.message); }
+        }}>{busy ? "Reading the network…" : "Prepare the exit"}</button>
+      </div>
+    </section>
+  );
+}
+
 function Wallets() {
+  const [exiting, setExiting] = useState<WalletView | null>(null);
   const [list, setList] = useState<WalletView[] | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -254,6 +303,7 @@ function Wallets() {
   const refresh = () => api("/api/wallets").then(setList, (e) => setErr(e.message));
   useEffect(() => { refresh(); }, []);
   if (!list) return null;
+  if (exiting) return <Exit wallet={exiting} onClose={() => { setExiting(null); refresh(); }} />;
   return (
     <section>
       <h2>My wallets</h2>
@@ -275,6 +325,7 @@ function Wallets() {
               <p className="small warnline">Not protected: phrase stored in clear. <button className="secondary" onClick={() => setProtecting(w.id)}>Protect with biometrics</button></p>
             )
           )}
+          {w.policy && w.protected && <p><button className="secondary" onClick={() => setExiting(w)}>Emergency exit (works without Swissquote)</button></p>}
           {confirming === w.id ? (
             <div className="row">
               <button className="secondary" onClick={() => setConfirming(null)}>Cancel</button>
