@@ -1,6 +1,7 @@
 // Langues proposées par Swissquote en Suisse (balises hreflang de swissquote.com : en-CH, fr-CH, de-CH, it-CH).
-// Traduits : site public (marchés, connexion), cadre de l'appli, accueil et comptes. Les écrans crypto restent en anglais.
+// Traduits : site public (marchés, connexion), cadre de l'appli, accueil et comptes ; écrans crypto en français (i18n-crypto-fr.ts).
 import { createContext, useContext, useState, type ReactNode } from "react";
+import { CRYPTO_FR } from "./i18n-crypto-fr";
 
 export type Lang = "en" | "fr" | "de" | "it";
 export const LANGS: { id: Lang; label: string; name: string }[] = [
@@ -247,14 +248,18 @@ const it: Dict = {
 const DICTS: Record<Lang, Dict> = { en, fr, de, it };
 
 const KEY = "sq-lang";
-type Ctx = { lang: Lang; setLang: (l: Lang) => void; t: (k: string) => string };
-const LangCtx = createContext<Ctx>({ lang: "en", setLang: () => undefined, t: (k) => en[k] ?? k });
+// tr(texte anglais, variables) : écrans crypto, la clé est le texte anglais lui-même (repli : l'anglais).
+type Vars = Record<string, string | number>;
+const fill = (s: string, v?: Vars) => (v ? s.replace(/\{(\w+)\}/g, (_, k) => String(v[k] ?? `{${k}}`)) : s);
+type Ctx = { lang: Lang; setLang: (l: Lang) => void; t: (k: string) => string; tr: (en: string, v?: Vars) => string };
+const LangCtx = createContext<Ctx>({ lang: "en", setLang: () => undefined, t: (k) => en[k] ?? k, tr: (e, v) => fill(e, v) });
 
 export function LangProvider({ children }: { children: ReactNode }) {
   const [lang, set] = useState<Lang>(() => (LANGS.some((l) => l.id === localStorage.getItem(KEY)) ? (localStorage.getItem(KEY) as Lang) : "en"));
   const setLang = (l: Lang) => { localStorage.setItem(KEY, l); document.documentElement.lang = l; set(l); };
   const t = (k: string) => DICTS[lang][k] ?? en[k] ?? k;
-  return <LangCtx.Provider value={{ lang, setLang, t }}>{children}</LangCtx.Provider>;
+  const tr = (e: string, v?: Vars) => fill((lang === "fr" ? CRYPTO_FR[e] : undefined) ?? e, v);
+  return <LangCtx.Provider value={{ lang, setLang, t, tr }}>{children}</LangCtx.Provider>;
 }
 export const useT = () => useContext(LangCtx);
 

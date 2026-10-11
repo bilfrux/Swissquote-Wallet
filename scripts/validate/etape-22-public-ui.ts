@@ -48,7 +48,21 @@ try {
   await p.getByRole("button", { name: "Déconnexion" }).waitFor({ timeout: 20000 });
   report("22-3", "Connexion en français : mauvais mot de passe refusé avec un message traduit, mot de passe affichable, puis connexion réussie", bad === "Nom d'utilisateur ou mot de passe incorrect." && shown === "text", `refus : ${bad} ; champ affiché en clair : ${shown}`);
 
+  // 22-6 Écrans crypto en français : wallet existant (accueil du wallet) ou création du wallet.
+  await p.locator(".d-topnav").getByRole("button", { name: "Crypto", exact: true }).click();
+  const crypto = p.getByTestId("wallet-page").or(p.getByRole("heading", { name: "Créer mon wallet Bitcoin" }));
+  await crypto.first().waitFor({ timeout: 20000 });
+  const cryptoText = ((await p.locator("main").textContent()) ?? "").replace(/\s+/g, " ");
+  const frWords = ["Valeur crypto totale", "Variation du jour", "Mon wallet", "Recevoir", "Envoyer"].filter((w) => cryptoText.includes(w));
+  const created = await p.getByTestId("wallet-page").isVisible();
+  const enLeft = ["Total crypto value", "Daily change", "My wallet", "Receive", "Create my Bitcoin wallet"].filter((w) => cryptoText.includes(w));
+  await p.screenshot({ path: `${SHOTS}/etape-22-6-crypto-fr.png` });
+  report("22-6", "Écrans crypto en français (wallet : valeur totale, variation du jour, Mon wallet, Recevoir / Envoyer), sans libellé anglais restant parmi ceux contrôlés",
+    (created ? frWords.length === 5 : cryptoText.includes("Créer mon wallet Bitcoin")) && enLeft.length === 0,
+    `${created ? "wallet existant" : "création du wallet"} ; trouvés : ${frWords.join(", ") || "—"} ; anglais restant : ${enLeft.join(", ") || "aucun"}`);
+
   // 22-4 L'appli suit la langue (DE), puis déconnexion → retour à « Marchés ».
+  await p.locator(".d-topnav").getByRole("button", { name: "Accueil", exact: true }).click();
   await p.getByRole("button", { name: "Langue" }).click();
   await p.getByRole("menuitem", { name: /DE/ }).click();
   await p.getByRole("heading", { name: "Übersicht" }).waitFor();

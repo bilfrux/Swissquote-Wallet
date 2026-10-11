@@ -7,11 +7,13 @@ import { type TravelRuleRecord, custody, depositAddress, ownershipStatus, syncDe
 import { txLink } from "../lib/chain";
 import { btcFmt, parseBtc } from "../lib/format";
 import { proveOwnership } from "../lib/ownership";
+import { useT } from "../i18n";
 
 // Statuts enregistrés par bank-mock (valeurs en base) -> libellés affichés.
 const STATUS: Record<string, string> = { "envoyé": "sent", "crédité": "credited", "en attente de vérification": "awaiting verification" };
 
 export function Transfer({ cfg, receiveIndex, onDone, onDeposit }: { cfg: WalletConfig; receiveIndex: number; onDone: () => void; onDeposit: (address: string) => void }) {
+  const { tr } = useT();
   const [bal, setBal] = useState<number | null>(null);
   const [recs, setRecs] = useState<TravelRuleRecord[]>([]);
   const [amount, setAmount] = useState("");
@@ -34,14 +36,14 @@ export function Transfer({ cfg, receiveIndex, onDone, onDeposit }: { cfg: Wallet
       // Travel Rule : Swissquote exige la preuve que ce wallet vous appartient. Si elle n'existe pas encore pour
       // cette adresse, votre wallet la signe d'abord (sans déplacer de fonds).
       if (!(await ownershipStatus(address))) {
-        setStatus("Travel Rule: proving ownership of your wallet…");
+        setStatus(tr("Travel Rule: proving ownership of your wallet…"));
         const v = await proveOwnership(cfg, receiveIndex);
-        if (!v.verified) throw new Error(`proof rejected: ${v.proves}`);
+        if (!v.verified) throw new Error(`${tr("proof rejected:")} ${v.proves}`);
       }
-      setStatus("Ownership verified. Swissquote is sending…");
+      setStatus(tr("Ownership verified. Swissquote is sending…"));
       const r = await withdrawToWallet(address, sats);
       setStatus(null);
-      setResult({ ok: true, text: `Transfer sent: ${r.txid}` });
+      setResult({ ok: true, text: `${tr("Transfer sent:")} ${r.txid}` });
       await load();
       onDone();
     } catch (e: any) { setStatus(null); setResult({ ok: false, text: e.message }); } finally { setBusy(false); }
@@ -50,38 +52,38 @@ export function Transfer({ cfg, receiveIndex, onDone, onDeposit }: { cfg: Wallet
   return (
     <div className="transfer">
       <div className="sq-account">
-        <p className="muted small">Swissquote crypto account (held in custody by Swissquote)</p>
+        <p className="muted small">{tr("Swissquote crypto account (held in custody by Swissquote)")}</p>
         <p className="stat" data-testid="custody-balance">{bal === null ? "…" : btcFmt(BigInt(bal))}</p>
       </div>
 
-      <h3>To my wallet</h3>
-      <p className="small">Funds go from your Swissquote account to address #{receiveIndex} of your wallet. Swissquote first checks that this wallet really is yours (Travel Rule).</p>
-      <label><span>Amount (BTC)</span><input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.1" /></label>
-      <button className="btn-primary wide" disabled={busy || !amount} onClick={withdraw}>Transfer to my wallet</button>
+      <h3>{tr("To my wallet")}</h3>
+      <p className="small">{tr("Funds go from your Swissquote account to address #{i} of your wallet. Swissquote first checks that this wallet really is yours (Travel Rule).", { i: receiveIndex })}</p>
+      <label><span>{tr("Amount (BTC)")}</span><input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.1" /></label>
+      <button className="btn-primary wide" disabled={busy || !amount} onClick={withdraw}>{tr("Transfer to my wallet")}</button>
       {status && <p className="note">{status}</p>}
       {result && (
         <p className={result.ok ? "success" : "error"} data-testid="transfer-result">
           {result.text}
-          {result.ok && txLink(result.text.split(": ")[1]) && <> · <a href={txLink(result.text.split(": ")[1])!} target="_blank" rel="noreferrer">explorer</a></>}
+          {result.ok && txLink(result.text.split(": ")[1]) && <> · <a href={txLink(result.text.split(": ")[1])!} target="_blank" rel="noreferrer">{tr("explorer")}</a></>}
         </p>
       )}
 
       <div className="divider" />
-      <h3>To my Swissquote account</h3>
-      <p className="small">Send from your wallet to your deposit address. The deposit is only credited if it comes from one of your registered wallets.</p>
+      <h3>{tr("To my Swissquote account")}</h3>
+      <p className="small">{tr("Send from your wallet to your deposit address. The deposit is only credited if it comes from one of your registered wallets.")}</p>
       <div className="btn-row">
-        <button className="btn-secondary" onClick={async () => { try { onDeposit(await depositAddress()); } catch (e: any) { setResult({ ok: false, text: e.message }); } }}>Prepare a deposit</button>
-        <button className="btn-secondary" onClick={async () => { try { const s = await syncDeposits(); setResult({ ok: true, text: `Deposits: ${s.credited} credited, ${s.held} awaiting verification` }); await load(); } catch (e: any) { setResult({ ok: false, text: e.message }); } }}>Check my deposits</button>
+        <button className="btn-secondary" onClick={async () => { try { onDeposit(await depositAddress()); } catch (e: any) { setResult({ ok: false, text: e.message }); } }}>{tr("Prepare a deposit")}</button>
+        <button className="btn-secondary" onClick={async () => { try { const s = await syncDeposits(); setResult({ ok: true, text: tr("Deposits: {c} credited, {h} awaiting verification", { c: s.credited, h: s.held }) }); await load(); } catch (e: any) { setResult({ ok: false, text: e.message }); } }}>{tr("Check my deposits")}</button>
       </div>
 
       {recs.length > 0 && (
         <>
           <div className="divider" />
-          <h3>Transfers and Travel Rule</h3>
+          <h3>{tr("Transfers and Travel Rule")}</h3>
           <div className="tr-list" data-testid="travel-rule">
             {recs.map((r) => (
               <div key={r.id} className={`tr-item ${r.status === "en attente de vérification" ? "held" : ""}`}>
-                <p><strong>{r.direction === "sortant" ? "Withdrawal to wallet" : "Deposit to Swissquote"}</strong> · {btcFmt(BigInt(r.amount_sats))} · {STATUS[r.status] ?? r.status}</p>
+                <p><strong>{r.direction === "sortant" ? tr("Withdrawal to wallet") : tr("Deposit to Swissquote")}</strong> · {btcFmt(BigInt(r.amount_sats))} · {tr(STATUS[r.status] ?? r.status)}</p>
                 <p className="small muted">{r.originator} → {r.beneficiary}</p>
                 <p className="small">{r.verification}</p>
               </div>

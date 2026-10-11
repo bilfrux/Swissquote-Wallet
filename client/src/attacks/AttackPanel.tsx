@@ -1,6 +1,7 @@
 // Panneau « Attaques » (démo regtest) : chaque bouton exécute un vrai scénario contre bitcoind, via le serveur
 // d'attaques (processus séparé, graines de démo jetables). L'appli n'affiche que le verdict et le message de la chaîne.
 import { useState } from "react";
+import { useT } from "../i18n";
 
 const URL_ATTACKS = import.meta.env.VITE_ATTACKS_URL ?? "http://localhost:4200";
 type Result = { id: string; title: string; expected: string; outcome: string; ok: boolean; chainMessage: string; steps: string[] };
@@ -12,6 +13,7 @@ const BUTTONS = [
 ];
 
 export function AttackPanel() {
+  const { tr } = useT();
   const [results, setResults] = useState<Record<string, Result | { error: string }>>({});
   const [running, setRunning] = useState<string | null>(null);
   const run = async (id: string) => {
@@ -28,22 +30,22 @@ export function AttackPanel() {
   };
   return (
     <section>
-      <h2>Attacks (regtest demo)</h2>
-      <p className="note">Each button runs a real scenario against a Bitcoin node, on a demo account.</p>
+      <h2>{tr("Attacks (regtest demo)")}</h2>
+      <p className="note">{tr("Each button runs a real scenario against a Bitcoin node, on a demo account.")}</p>
       {BUTTONS.map((b) => {
         const r = results[b.id];
         return (
           <div key={b.id} className="step attack">
-            <button disabled={running !== null} onClick={() => run(b.id)}>{running === b.id ? "Running…" : b.label}</button>{" "}
-            <span className="note">{b.hint}</span>
+            <button disabled={running !== null} onClick={() => run(b.id)}>{running === b.id ? tr("Running…") : tr(b.label)}</button>{" "}
+            <span className="note">{tr(b.hint)}</span>
             {r && "error" in r && <p className="error">{r.error}</p>}
             {r && "outcome" in r && (
               <div className={r.ok ? "success" : "error"}>
                 <p className="verdict">
-                  {r.outcome === "rejected" ? "⛔ Rejected" : "✅ Succeeded"} — expected: {r.expected}
-                  {r.ok ? " (as expected)" : " (NOT as expected)"}
+                  {r.outcome === "rejected" ? `⛔ ${tr("Rejected")}` : `✅ ${tr("Succeeded")}`} — {tr("expected:")} {r.expected}
+                  {r.ok ? ` ${tr("(as expected)")}` : ` ${tr("(NOT as expected)")}`}
                 </p>
-                <p>Actual message from the chain: <span className="mono">{r.chainMessage}</span></p>
+                <p>{tr("Actual message from the chain:")} <span className="mono">{r.chainMessage}</span></p>
                 <ul>{r.steps.map((s, i) => <li key={i}>{s}</li>)}</ul>
               </div>
             )}

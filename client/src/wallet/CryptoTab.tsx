@@ -7,9 +7,11 @@ import { type BtcAccount, NETWORK, loadActiveAccount, saveActiveAccount } from "
 import { Recovery } from "../recovery/Recovery";
 import { CreateWallet } from "./CreateWallet";
 import { WalletHome } from "./WalletHome";
+import { useT } from "../i18n";
 
 export function CryptoTab({ session, onBalance, custodySats = 0, onUsdc }: { session: Session; onBalance: (s: bigint | null) => void; custodySats?: number; onUsdc?: (u: bigint) => void }) {
   const cid = session.customer.id;
+  const { tr } = useT();
   const [account, setAccount] = useState<BtcAccount | null | undefined>(undefined);
   const [cfg, setCfg] = useState<WalletConfig | null>(null);
   const [recovering, setRecovering] = useState(() => localStorage.getItem(`sq-wallet:recovery:${NETWORK}`) !== null);
@@ -26,7 +28,7 @@ export function CryptoTab({ session, onBalance, custodySats = 0, onUsdc }: { ses
         saveActiveAccount(cid, a);
         setAccount(a);
       },
-      () => { setAccount(cached ?? null); if (cached) setNotice("Swissquote is unreachable: account loaded from this device. You can still spend."); },
+      () => { setAccount(cached ?? null); if (cached) setNotice(tr("Swissquote is unreachable: account loaded from this device. You can still spend.")); },
     );
   }, [cid]);
   useEffect(() => {
@@ -36,16 +38,16 @@ export function CryptoTab({ session, onBalance, custodySats = 0, onUsdc }: { ses
   }, [account]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activate = (a: BtcAccount) => { saveActiveAccount(cid, a); setAccount(a); };
-  if (account === undefined) return <section><p>Loading…</p></section>;
+  if (account === undefined) return <section><p>{tr("Loading…")}</p></section>;
   if (recovering)
-    return <Recovery onCancel={() => setRecovering(false)} onDone={(a) => { activate(a); setRecovering(false); setNotice("Recovery complete: here is your new wallet."); }} />;
+    return <Recovery onCancel={() => setRecovering(false)} onDone={(a) => { activate(a); setRecovering(false); setNotice(tr("Recovery complete: here is your new wallet.")); }} />;
   return (
     <>
       {notice && <p className="note banner">{notice}</p>}
       {!account && (
         <>
-          <CreateWallet onCreated={(a) => { activate(a); setNotice("Your Bitcoin wallet has been created. Only you hold its key."); }} />
-          <p className="center"><button className="link" onClick={() => setRecovering(true)}>I had a wallet and lost it: recover my bitcoin</button></p>
+          <CreateWallet onCreated={(a) => { activate(a); setNotice(tr("Your Bitcoin wallet has been created. Only you hold its key.")); }} />
+          <p className="center"><button className="link" onClick={() => setRecovering(true)}>{tr("I had a wallet and lost it: recover my bitcoin")}</button></p>
         </>
       )}
       {account && cfg && <WalletHome key={cfg.client.raw} customerId={cid} cfg={cfg} account={account} custodySats={custodySats} onLost={() => setRecovering(true)} onBalance={onBalance} onUsdc={onUsdc} />}

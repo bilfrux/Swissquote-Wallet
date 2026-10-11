@@ -11,6 +11,7 @@ import { type EvmAccount, evmAccounts, evmSignRecovery, registerEvm, relayCreate
 import { priceOf, usePrices } from "../lib/market";
 import { PriceChart } from "../ui/PriceChart";
 import { walletRequest } from "../lib/walletBridge";
+import { useT } from "../i18n";
 import { num } from "../ui/format";
 import { IconBank, IconReceive, IconRefresh, IconSend, IconShield } from "../ui/icons";
 import { useIsMobile } from "../ui/useIsMobile";
@@ -36,6 +37,8 @@ export const EthIcon = ({ size = 44 }: { size?: number }) => (
 export function Ethereum({ customerId, accountKey, tiersName, onInfo }: { customerId: string; accountKey: string; tiersName?: string | null; onInfo?: (i: EvmInfo) => void }) {
   const mobile = useIsMobile();
   const market = usePrices();
+  const { tr, lang } = useT();
+  const loc = lang === "fr" ? "fr-CH" : "en-GB";
   const USDC_CHF = priceOf(market, "usd-coin");
   const [acc, setAcc] = useState<EvmAccount | null | undefined>(undefined);
   const [sq, setSq] = useState<Address | null>(null);
@@ -66,7 +69,7 @@ export function Ethereum({ customerId, accountKey, tiersName, onInfo }: { custom
   }, [customerId]);
   const refresh = useCallback(async (blockNumber?: bigint) => {
     if (!acc) return;
-    try { setState(await readState(acc.safe, blockNumber)); } catch (e: any) { setError(`chain read failed: ${e.message}`); }
+    try { setState(await readState(acc.safe, blockNumber)); } catch (e: any) { setError(`${tr("chain read failed:")} ${e.message}`); }
     setActsError(null);
     activity(acc.safe).then(setActs, (e) => setActsError(e?.shortMessage ?? e?.message ?? String(e)));
   }, [acc]);
@@ -99,50 +102,50 @@ export function Ethereum({ customerId, accountKey, tiersName, onInfo }: { custom
   }, []);
   const open = (p: Panel) => { setPanel(p); if (mobile) setTimeout(() => panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 30); };
 
-  if (acc === undefined) return <section className="card" data-testid="evm-card"><p className="muted">Loading…</p></section>;
+  if (acc === undefined) return <section className="card" data-testid="evm-card"><p className="muted">{tr("Loading…")}</p></section>;
   if (!acc)
     return (
       <section className="card evm" data-testid="evm-card">
-        <div className="asset-id"><EthIcon /><div><h1>Ethereum · USDC</h1><p className="muted small">Sepolia testnet · not added yet</p></div></div>
-        <p className="small">Add an Ethereum account to your wallet: same Client Wallet, same secret phrase. Recovery works as for Bitcoin: Swissquote and your trusted contact together, after a delay enforced by the contract, which you can cancel.</p>
-        <label>{tiersName ?? "Trusted contact"}'s Ethereum address
+        <div className="asset-id"><EthIcon /><div><h1>Ethereum · USDC</h1><p className="muted small">{tr("Sepolia testnet · not added yet")}</p></div></div>
+        <p className="small">{tr("Add an Ethereum account to your wallet: same Client Wallet, same secret phrase. Recovery works as for Bitcoin: Swissquote and your trusted contact together, after a delay enforced by the contract, which you can cancel.")}</p>
+        <label>{tr("{who}'s Ethereum address", { who: tiersName ?? tr("Trusted contact") })}
           <input className="mono" placeholder="0x…" value={tiersAddr} onChange={(e) => setTiersAddr(e.target.value.trim())} />
         </label>
-        <p className="muted small">Shown in their guardian console (same phrase as their Bitcoin key).</p>
+        <p className="muted small">{tr("Shown in their guardian console (same phrase as their Bitcoin key).")}</p>
         <button className="btn-primary" disabled={!!busy || !isAddress(tiersAddr)} onClick={run("add", async () => {
           const { evmAddress } = await walletRequest<{ evmAddress: string }>("evm-address", { accountKey });
           const a = await registerEvm(evmAddress, getAddress(tiersAddr), tiersName);
           setSq(a.swissquote); setAcc(a);
           localStorage.setItem(cacheKey(customerId), JSON.stringify(a));
-        })}>{busy === "add" ? "Waiting for your Client Wallet…" : "Add my Ethereum account"}</button>
+        })}>{busy === "add" ? tr("Waiting for your Client Wallet…") : tr("Add my Ethereum account")}</button>
         {error && <p className="error">{error}</p>}
       </section>
     );
 
-  const label = (a: string) => (sq && a.toLowerCase() === sq.toLowerCase() ? "Swissquote" : a.toLowerCase() === acc.tiers.toLowerCase() ? acc.tiersName ?? "trusted contact" : short(a));
+  const label = (a: string) => (sq && a.toLowerCase() === sq.toLowerCase() ? "Swissquote" : a.toLowerCase() === acc.tiers.toLowerCase() ? acc.tiersName ?? tr("trusted contact") : short(a));
   const active = !!(state?.deployed && state.moduleEnabled && state.threshold === 2n);
   const balance = state?.usdc ?? 0n;
-  const status = !state ? null : state.pending ? { cls: "bad", text: "Recovery in progress" } : active ? { cls: "ok", text: `Protected: Swissquote + ${acc.tiersName ?? "contact"}, ${RECOVERY_DELAY_LABEL} delay` } : { cls: "warn", text: "Not active yet" };
+  const status = !state ? null : state.pending ? { cls: "bad", text: tr("Recovery in progress") } : active ? { cls: "ok", text: tr("Protected: Swissquote + {who}, {d} delay", { who: acc.tiersName ?? "contact", d: RECOVERY_DELAY_LABEL }) } : { cls: "warn", text: tr("Not active yet") };
 
   const header = (
     <section className="card asset-head">
       <div className="asset-id">
         <EthIcon />
-        <div><h1>Ethereum · USDC</h1><p className="muted small">self-custody · Sepolia · <a className="mono" href={`${EXPLORER}/address/${acc.safe}`} target="_blank" rel="noreferrer" title={acc.safe}>{short(acc.safe)}</a> <button className="link small" onClick={() => { navigator.clipboard?.writeText(acc.safe); setCopied(true); setTimeout(() => setCopied(false), 1200); }}>{copied ? "copied" : "⧉"}</button><span hidden data-testid="evm-safe">{acc.safe}</span></p></div>
-        {!mobile && <button className="link refresh" onClick={() => refresh()}><IconRefresh /> Reload</button>}
+        <div><h1>Ethereum · USDC</h1><p className="muted small">{tr("self-custody")} · Sepolia · <a className="mono" href={`${EXPLORER}/address/${acc.safe}`} target="_blank" rel="noreferrer" title={acc.safe}>{short(acc.safe)}</a> <button className="link small" onClick={() => { navigator.clipboard?.writeText(acc.safe); setCopied(true); setTimeout(() => setCopied(false), 1200); }}>{copied ? tr("copied") : "⧉"}</button><span hidden data-testid="evm-safe">{acc.safe}</span></p></div>
+        {!mobile && <button className="link refresh" onClick={() => refresh()}><IconRefresh /> {tr("Reload")}</button>}
       </div>
       <div className="asset-balance">
         <p className="asset-btc" data-testid="evm-usdc">{state ? usdc(balance) : "…"}</p>
-        <p className="muted">≈ {num((Number(balance) / 10 ** USDC_DECIMALS) * USDC_CHF)} CHF <span className="small">({market?.["usd-coin"].source === "CoinGecko" ? "market price, test coins have no value" : "simulated rate"}) · 0 ETH needed</span></p>
+        <p className="muted">≈ {num((Number(balance) / 10 ** USDC_DECIMALS) * USDC_CHF)} CHF <span className="small">({market?.["usd-coin"].source === "CoinGecko" ? tr("market price, test coins have no value") : tr("simulated rate")}) · {tr("0 ETH needed")}</span></p>
         {status && <span className={`chip ${status.cls}`}><IconShield /> {status.text}</span>}
       </div>
       <div className="round-actions asset-actions">
-        <button className={panel === "receive" ? "on" : ""} onClick={() => open("receive")}><span className="round dark"><IconReceive /></span>Receive</button>
-        <button className={panel === "send" ? "on" : ""} disabled={!active} onClick={() => open("send")}><span className="round dark"><IconSend /></span>Send</button>
-        <button className={panel === "recover" ? "on" : ""} disabled={!active} onClick={() => open("recover")}><span className="round dark"><IconShield /></span>Recover</button>
-        <button disabled title="Swissquote account ↔ wallet transfers: Bitcoin only for now"><span className="round dark"><IconBank /></span>Transfer (soon)</button>
+        <button className={panel === "receive" ? "on" : ""} onClick={() => open("receive")}><span className="round dark"><IconReceive /></span>{tr("Receive")}</button>
+        <button className={panel === "send" ? "on" : ""} disabled={!active} onClick={() => open("send")}><span className="round dark"><IconSend /></span>{tr("Send")}</button>
+        <button className={panel === "recover" ? "on" : ""} disabled={!active} onClick={() => open("recover")}><span className="round dark"><IconShield /></span>{tr("Recover")}</button>
+        <button disabled title={tr("Swissquote account ↔ wallet transfers: Bitcoin only for now")}><span className="round dark"><IconBank /></span>{tr("Transfer (soon)")}</button>
       </div>
-      {active && <p className="small muted span-all" data-testid="evm-guardians">Recovery guardians: {state!.guardians.map(label).join(" + ")} (both needed) · owner: your Client Wallet ({short(state!.owners[0])})</p>}
+      {active && <p className="small muted span-all" data-testid="evm-guardians">{tr("Recovery guardians:")} {state!.guardians.map(label).join(" + ")} {tr("(both needed) · owner: your Client Wallet")} ({short(state!.owners[0])})</p>}
     </section>
   );
 
@@ -150,26 +153,26 @@ export function Ethereum({ customerId, accountKey, tiersName, onInfo }: { custom
     <>
       {state && !active && (
         <div className="warning">
-          <p>Not active yet. Activating creates your account on-chain and sets its two recovery guardians: Swissquote and {acc.tiersName ?? "your trusted contact"} (both needed, {RECOVERY_DELAY_LABEL} delay that you can cancel). Network fees are sponsored: you need no ETH.</p>
+          <p>{tr("Not active yet. Activating creates your account on-chain and sets its two recovery guardians: Swissquote and {who} (both needed, {d} delay that you can cancel). Network fees are sponsored: you need no ETH.", { who: acc.tiersName ?? tr("your trusted contact"), d: RECOVERY_DELAY_LABEL })}</p>
           <button disabled={!!busy || !sq} onClick={run("activate", () => prepare("Activation", activationCalls(acc.safe, sq!, acc.tiers)))}>
-            {busy === "activate" ? "Preparing…" : "Activate my Ethereum account"}
+            {busy === "activate" ? tr("Preparing…") : tr("Activate my Ethereum account")}
           </button>
         </div>
       )}
       {state?.pending && (
         <div className="warning" data-testid="evm-pending">
-          <p><strong>Recovery in progress on this account</strong>: ownership would go to {state.pending.newOwners.map(short).join(", ")} after {new Date(state.pending.executeAfter * 1000).toLocaleString("en-GB")}. If you did not ask for it, cancel it now.</p>
-          <button disabled={!!busy} onClick={run("cancel", () => prepare("Recovery cancelled", cancelRecoveryCalls()))}>{busy === "cancel" ? "Preparing…" : "Cancel this recovery"}</button>
+          <p><strong>{tr("Recovery in progress on this account")}</strong>: {tr("ownership would go to {who} after {t}. If you did not ask for it, cancel it now.", { who: state.pending.newOwners.map(short).join(", "), t: new Date(state.pending.executeAfter * 1000).toLocaleString(loc) })}</p>
+          <button disabled={!!busy} onClick={run("cancel", () => prepare("Recovery cancelled", cancelRecoveryCalls()))}>{busy === "cancel" ? tr("Preparing…") : tr("Cancel this recovery")}</button>
         </div>
       )}
       {ready && (
         <div className="note banner" data-testid="evm-ready">
-          <p>{ready.label === "USDC sent" ? "Transfer" : ready.label} prepared, network fees sponsored. Confirm it in your Client Wallet: it decodes the operation itself.</p>
-          <button disabled={!!busy} onClick={run("sign", signAndSend)}>{busy === "sign" ? "Waiting for your Client Wallet, then the network…" : "Sign with my Client Wallet"}</button>
+          <p>{tr(ready.label === "USDC sent" ? "Transfer" : ready.label)} {tr("prepared, network fees sponsored. Confirm it in your Client Wallet: it decodes the operation itself.")}</p>
+          <button disabled={!!busy} onClick={run("sign", signAndSend)}>{busy === "sign" ? tr("Waiting for your Client Wallet, then the network…") : tr("Sign with my Client Wallet")}</button>
         </div>
       )}
       {txs.map((t, i) => (
-        <p key={t.hash} className={i === 0 ? "success" : "muted small"} data-testid={i === 0 ? "evm-last-tx" : "evm-tx"}>{t.label}: <a href={`${EXPLORER}/tx/${t.hash}`} target="_blank" rel="noreferrer" className="mono">{t.hash}</a></p>
+        <p key={t.hash} className={i === 0 ? "success" : "muted small"} data-testid={i === 0 ? "evm-last-tx" : "evm-tx"}>{tr(t.label)}: <a href={`${EXPLORER}/tx/${t.hash}`} target="_blank" rel="noreferrer" className="mono">{t.hash}</a></p>
       ))}
       {error && <p className="error">{error}</p>}
     </>
@@ -177,19 +180,19 @@ export function Ethereum({ customerId, accountKey, tiersName, onInfo }: { custom
 
   const sidePanel = panel === "send" && active ? (
     <section className="card side-panel">
-      <div className="panel-head"><h2>Send USDC</h2><button className="link" aria-label="Close" onClick={() => setPanel("receive")}>✕</button></div>
+      <div className="panel-head"><h2>{tr("Send USDC")}</h2><button className="link" aria-label={tr("Close")} onClick={() => setPanel("receive")}>✕</button></div>
       <div className="send">
-        <label>Recipient<input className="mono" placeholder="0x…" value={to} onChange={(e) => setTo(e.target.value.trim())} /></label>
-        <label>Amount (USDC)<input placeholder="1" value={amount} onChange={(e) => setAmount(e.target.value.trim())} /></label>
+        <label>{tr("Recipient")}<input className="mono" placeholder="0x…" value={to} onChange={(e) => setTo(e.target.value.trim())} /></label>
+        <label>{tr("Amount (USDC)")}<input placeholder="1" value={amount} onChange={(e) => setAmount(e.target.value.trim())} /></label>
         <button className="btn-primary wide" disabled={!!busy || !isAddress(to) || !(Number(amount) > 0)} onClick={run("send", () => prepare("USDC sent", [usdcTransferCall(getAddress(to), parseUnits(amount, USDC_DECIMALS))]))}>
-          {busy === "send" ? "Preparing…" : "Send USDC"}
+          {busy === "send" ? tr("Preparing…") : tr("Send USDC")}
         </button>
-        <p className="muted small">Fees sponsored by a paymaster (third party, not Swissquote). Your Client Wallet shows the transfer in clear before signing.</p>
+        <p className="muted small">{tr("Fees sponsored by a paymaster (third party, not Swissquote). Your Client Wallet shows the transfer in clear before signing.")}</p>
       </div>
     </section>
   ) : panel === "recover" && state ? (
     <section className="card side-panel">
-      <div className="panel-head"><h2>Recover this account</h2><button className="link" aria-label="Close" onClick={() => setPanel("receive")}>✕</button></div>
+      <div className="panel-head"><h2>{tr("Recover this account")}</h2><button className="link" aria-label={tr("Close")} onClick={() => setPanel("receive")}>✕</button></div>
       <EvmRecovery acc={acc} state={state} busy={busy} run={run} prepare={prepare}
         onRecovered={async (blockNumber) => {
           const a = await syncEvm(acc.safe, blockNumber);
@@ -202,14 +205,14 @@ export function Ethereum({ customerId, accountKey, tiersName, onInfo }: { custom
     </section>
   ) : (
     <section className="card side-panel">
-      <h2>Receive USDC</h2>
+      <h2>{tr("Receive USDC")}</h2>
       {qr && <div className="qr" dangerouslySetInnerHTML={{ __html: qr }} />}
       <p className="mono address">{acc.safe}</p>
       <div className="btn-row">
-        <button className="btn-secondary" onClick={() => navigator.clipboard?.writeText(acc.safe)}>Copy address</button>
+        <button className="btn-secondary" onClick={() => navigator.clipboard?.writeText(acc.safe)}>{tr("Copy address")}</button>
       </div>
-      <p className="muted small"><a href={`${EXPLORER}/address/${acc.safe}`} target="_blank" rel="noreferrer">View in explorer</a></p>
-      <p className="muted small">Ethereum Sepolia only. Send USDC (test) to this address; no ETH is needed to use it.</p>
+      <p className="muted small"><a href={`${EXPLORER}/address/${acc.safe}`} target="_blank" rel="noreferrer">{tr("View in explorer")}</a></p>
+      <p className="muted small">{tr("Ethereum Sepolia only. Send USDC (test) to this address; no ETH is needed to use it.")}</p>
     </section>
   );
 
@@ -218,14 +221,14 @@ export function Ethereum({ customerId, accountKey, tiersName, onInfo }: { custom
     <section className="card">
       <div className="segmented crypto-tabs evm-tabs">
         {([["activity", "Activity"], ["assets", "Assets"], ["security", "Security"]] as const).map(([k, l]) => (
-          <button key={k} className={sub === k ? "on" : ""} onClick={() => setSub(k)}>{l}</button>
+          <button key={k} className={sub === k ? "on" : ""} onClick={() => setSub(k)}>{tr(l)}</button>
         ))}
       </div>
       {sub === "activity" && (
         <div data-testid="evm-activity">
-          {!acts && !actsError && <p className="muted small">Loading…</p>}
-          {!acts && actsError && <p className="error small">Activity unavailable (public node): {actsError} <button className="link" onClick={() => refresh()}>Retry</button></p>}
-          {acts && acts.items.length === 0 && <p className="muted small">No activity in the recent blocks.</p>}
+          {!acts && !actsError && <p className="muted small">{tr("Loading…")}</p>}
+          {!acts && actsError && <p className="error small">{tr("Activity unavailable (public node):")} {actsError} <button className="link" onClick={() => refresh()}>{tr("Retry")}</button></p>}
+          {acts && acts.items.length === 0 && <p className="muted small">{tr("No activity in the recent blocks.")}</p>}
           {acts && acts.items.length > 0 && (
             <div className="tx-list">
               {(allActs ? acts.items : acts.items.slice(0, 8)).map((h) => {
@@ -234,10 +237,10 @@ export function Ethereum({ customerId, accountKey, tiersName, onInfo }: { custom
                   <div key={`${h.txHash}:${h.logIndex}`} className={`tx-row kind-${h.kind}`}>
                     <span className={`tx-icon ${dir}`}>{dir === "in" ? <IconReceive /> : dir === "out" ? <IconSend /> : <IconShield />}</span>
                     <div className="tx-main">
-                      <p className="tx-kind">{KIND[h.kind]}</p>
+                      <p className="tx-kind">{tr(KIND[h.kind])}</p>
                       <p className="muted small">
-                        {h.time ? new Date(h.time * 1000).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : `block ${h.blockNumber}`}
-                        {h.counterparty && <> · {dir === "in" ? "from" : "to"} {label(h.counterparty)}</>} · <a href={`${EXPLORER}/tx/${h.txHash}`} target="_blank" rel="noreferrer">explorer</a>
+                        {h.time ? new Date(h.time * 1000).toLocaleString(loc, { dateStyle: "medium", timeStyle: "short" }) : `${tr("block")} ${h.blockNumber}`}
+                        {h.counterparty && <> · {dir === "in" ? tr("from") : tr("to")} {label(h.counterparty)}</>} · <a href={`${EXPLORER}/tx/${h.txHash}`} target="_blank" rel="noreferrer">{tr("explorer")}</a>
                       </p>
                     </div>
                     <p className={`tx-amount ${dir === "out" ? "neg" : dir === "in" ? "pos" : "muted"}`}>{h.amount !== undefined ? `${dir === "out" ? "−" : "+"}${usdc(h.amount)}` : ""}</p>
@@ -246,27 +249,27 @@ export function Ethereum({ customerId, accountKey, tiersName, onInfo }: { custom
               })}
             </div>
           )}
-          {acts && acts.items.length > 8 && <button className="link" onClick={() => setAllActs(!allActs)}>{allActs ? "Show less" : `Show all (${acts.items.length})`}</button>}
-          {acts && <p className="muted small">Read on-chain since block {acts.since.toString()} (the public node keeps a limited history).</p>}
+          {acts && acts.items.length > 8 && <button className="link" onClick={() => setAllActs(!allActs)}>{allActs ? tr("Show less") : tr("Show all ({n})", { n: acts.items.length })}</button>}
+          {acts && <p className="muted small">{tr("Read on-chain since block {b} (the public node keeps a limited history).", { b: acts.since.toString() })}</p>}
         </div>
       )}
       {sub === "assets" && (
         <table>
-          <thead><tr><th>Asset</th><th>Balance</th><th>Value</th></tr></thead>
+          <thead><tr><th>{tr("Asset")}</th><th>{tr("Balance")}</th><th>{tr("Value")}</th></tr></thead>
           <tbody>
-            <tr><td>USDC (test, Circle)</td><td>{usdc(balance)}</td><td>≈ {num((Number(balance) / 10 ** USDC_DECIMALS) * USDC_CHF)} CHF</td></tr>
-            <tr><td>ETH</td><td>0 ETH</td><td className="muted">not needed: fees are sponsored</td></tr>
+            <tr><td>{tr("USDC (test, Circle)")}</td><td>{usdc(balance)}</td><td>≈ {num((Number(balance) / 10 ** USDC_DECIMALS) * USDC_CHF)} CHF</td></tr>
+            <tr><td>ETH</td><td>0 ETH</td><td className="muted">{tr("not needed: fees are sponsored")}</td></tr>
           </tbody>
         </table>
       )}
       {sub === "security" && (
         <div>
           <div className="sec-grid">
-            <div className="sec-item"><p className="sec-who">You</p><p className="small">Spend on your own, at any time, with your Client Wallet{state?.owners[0] ? ` (${short(state.owners[0])})` : ""}.</p></div>
-            <div className="sec-item"><p className="sec-who">Swissquote + {acc.tiersName ?? "trusted contact"}</p><p className="small">Only together, then a {RECOVERY_DELAY_LABEL} delay enforced by the contract, during which you can cancel.</p></div>
-            <div className="sec-item"><p className="sec-who">Swissquote alone</p><p className="small">Cannot start a recovery, nor spend anything.</p></div>
+            <div className="sec-item"><p className="sec-who">{tr("You")}</p><p className="small">{tr("Spend on your own, at any time, with your Client Wallet")}{state?.owners[0] ? ` (${short(state.owners[0])})` : ""}.</p></div>
+            <div className="sec-item"><p className="sec-who">Swissquote + {acc.tiersName ?? tr("trusted contact")}</p><p className="small">{tr("Only together, then a {d} delay enforced by the contract, during which you can cancel.", { d: RECOVERY_DELAY_LABEL })}</p></div>
+            <div className="sec-item"><p className="sec-who">{tr("Swissquote alone")}</p><p className="small">{tr("Cannot start a recovery, nor spend anything.")}</p></div>
           </div>
-          {active && <button className="link" onClick={() => open("recover")}>Lost the key of this Ethereum account? Recover it</button>}
+          {active && <button className="link" onClick={() => open("recover")}>{tr("Lost the key of this Ethereum account? Recover it")}</button>}
         </div>
       )}
     </section>
@@ -296,6 +299,7 @@ function EvmRecovery({ acc, state, busy, run, prepare, onRecovered }: {
   prepare: (label: string, calls: Parameters<typeof buildSponsoredOp>[1], from?: { safe: Address; owner: Address }, after?: (b: bigint) => Promise<void>) => Promise<void>;
   onRecovered: (blockNumber: bigint) => Promise<void>;
 }) {
+  const { tr } = useT();
   // Progression mémorisée dans la session (comme la recovery Bitcoin) : un remontage ou un rechargement ne la perd pas.
   // Données publiques ou à usage unique (jeton de re-KYC de 10 min, signatures des gardiens, clés publiques).
   const persisted = <T,>(name: string, initial: T) => {
@@ -329,52 +333,52 @@ function EvmRecovery({ acc, state, busy, run, prepare, onRecovered }: {
   const left = state.pending ? state.pending.executeAfter * 1000 - now : 0;
   return (
     <div className="card recovery-evm" data-testid="evm-recovery">
-      <h4>Recover this Ethereum account</h4>
-      <p className="small">Swissquote and {acc.tiersName ?? "your trusted contact"} must both sign; the contract then waits {RECOVERY_DELAY_LABEL}, during which the current key can cancel.</p>
+      <h4>{tr("Recover this Ethereum account")}</h4>
+      <p className="small">{tr("Swissquote and {who} must both sign; the contract then waits {d}, during which the current key can cancel.", { who: acc.tiersName ?? tr("your trusted contact"), d: RECOVERY_DELAY_LABEL })}</p>
       {!token && (
         <div className="step">
-          <p>1. Verify your identity with Swissquote</p>
-          <input placeholder="Last name" value={kyc.lastName} onChange={(e) => setKyc({ ...kyc, lastName: e.target.value })} />
-          <input placeholder="Date of birth (YYYY-MM-DD)" value={kyc.birthDate} onChange={(e) => setKyc({ ...kyc, birthDate: e.target.value })} />
-          <input placeholder="Code received by SMS" value={kyc.otp} onChange={(e) => setKyc({ ...kyc, otp: e.target.value })} />
-          <button disabled={!!busy} onClick={run("kyc", async () => setToken((await verifyIdentity(kyc)).token))}>Verify my identity</button>
+          <p>{tr("1. Verify your identity with Swissquote")}</p>
+          <input placeholder={tr("Last name")} value={kyc.lastName} onChange={(e) => setKyc({ ...kyc, lastName: e.target.value })} />
+          <input placeholder={tr("Date of birth (YYYY-MM-DD)")} value={kyc.birthDate} onChange={(e) => setKyc({ ...kyc, birthDate: e.target.value })} />
+          <input placeholder={tr("Code received by SMS")} value={kyc.otp} onChange={(e) => setKyc({ ...kyc, otp: e.target.value })} />
+          <button disabled={!!busy} onClick={run("kyc", async () => setToken((await verifyIdentity(kyc)).token))}>{tr("Verify my identity")}</button>
         </div>
       )}
       {token && !newOwner && (
         <div className="step">
-          <p>2. Your new key: a new Client Wallet on this device</p>
+          <p>{tr("2. Your new key: a new Client Wallet on this device")}</p>
           {!newWallet
-            ? <button disabled={!!busy} onClick={run("new-wallet", async () => setNewWallet((await walletRequest<{ accountKey: string }>("create", { label: "Wallet after recovery" })).accountKey))}>Create a new Client Wallet</button>
-            : <button disabled={!!busy} onClick={run("new-owner", async () => setNewOwner((await walletRequest<{ evmAddress: Address }>("evm-address", { accountKey: newWallet })).evmAddress))}>Get its Ethereum address</button>}
+            ? <button disabled={!!busy} onClick={run("new-wallet", async () => setNewWallet((await walletRequest<{ accountKey: string }>("create", { label: "Wallet after recovery" })).accountKey))}>{tr("Create a new Client Wallet")}</button>
+            : <button disabled={!!busy} onClick={run("new-owner", async () => setNewOwner((await walletRequest<{ evmAddress: Address }>("evm-address", { accountKey: newWallet })).evmAddress))}>{tr("Get its Ethereum address")}</button>}
         </div>
       )}
       {newOwner && !state.pending && (
         <div className="step">
-          <p>New owner: <span className="mono" data-testid="evm-new-owner">{newOwner}</span></p>
-          {!sqSig && <button disabled={!!busy} onClick={run("sq", async () => setSqSig(await evmSignRecovery(token!, acc.safe, newOwner)))}>Request Swissquote's signature</button>}
-          {sqSig && !relayId && <button disabled={!!busy} onClick={run("relay", async () => setRelayId(await relayCreate(JSON.stringify({ kind: "evm-recovery", safe: acc.safe, newOwner, nonce: sqSig.nonce }))))}>Send the request to {acc.tiersName ?? "your trusted contact"}</button>}
+          <p>{tr("New owner:")} <span className="mono" data-testid="evm-new-owner">{newOwner}</span></p>
+          {!sqSig && <button disabled={!!busy} onClick={run("sq", async () => setSqSig(await evmSignRecovery(token!, acc.safe, newOwner)))}>{tr("Request Swissquote's signature")}</button>}
+          {sqSig && !relayId && <button disabled={!!busy} onClick={run("relay", async () => setRelayId(await relayCreate(JSON.stringify({ kind: "evm-recovery", safe: acc.safe, newOwner, nonce: sqSig.nonce }))))}>{tr("Send the request to {who}", { who: acc.tiersName ?? tr("your trusted contact") })}</button>}
           {relayId && !tSig && (
             <>
-              <p className="small">Link for {acc.tiersName ?? "your trusted contact"}: <span className="mono" data-testid="evm-relay-link">{`${CONSOLE_URL}/?req=${relayId}`}</span></p>
-              <button disabled={!!busy} onClick={run("fetch", async () => { const r = await relayGet(relayId); if (!r.signed) throw new Error("not signed yet"); setTSig(JSON.parse(r.signed)); })}>Fetch the trusted contact's signature</button>
+              <p className="small">{tr("Link for {who}:", { who: acc.tiersName ?? tr("your trusted contact") })} <span className="mono" data-testid="evm-relay-link">{`${CONSOLE_URL}/?req=${relayId}`}</span></p>
+              <button disabled={!!busy} onClick={run("fetch", async () => { const r = await relayGet(relayId); if (!r.signed) throw new Error(tr("not signed yet")); setTSig(JSON.parse(r.signed)); })}>{tr("Fetch the trusted contact's signature")}</button>
             </>
           )}
           {sqSig && tSig && (
-            <button disabled={!!busy} onClick={run("start", () => prepare("Recovery started", [startRecoveryCall(acc.safe, newOwner, [sqSig, tSig])], relaySafe!))}>Start the recovery</button>
+            <button disabled={!!busy} onClick={run("start", () => prepare("Recovery started", [startRecoveryCall(acc.safe, newOwner, [sqSig, tSig])], relaySafe!))}>{tr("Start the recovery")}</button>
           )}
         </div>
       )}
-      {token && <p className="small"><button className="link" onClick={restart}>Restart this recovery</button></p>}
+      {token && <p className="small"><button className="link" onClick={restart}>{tr("Restart this recovery")}</button></p>}
       {pendingToMe && (
         <div className="step" data-testid="evm-countdown">
           {left > 0
-            ? <p>Recovery started. The contract allows it to complete in <strong>{Math.ceil(left / 1000)} s</strong>.</p>
+            ? <p>{tr("Recovery started. The contract allows it to complete in")} <strong>{Math.ceil(left / 1000)} s</strong>.</p>
             : chainTime <= state.pending!.executeAfter && now < (state.pending!.executeAfter + 60) * 1000 // repli si l'heure de la chaîne reste illisible
-            ? <p>Delay elapsed: waiting for the next block to confirm it on-chain…</p>
+            ? <p>{tr("Delay elapsed: waiting for the next block to confirm it on-chain…")}</p>
             : <button disabled={!!busy} onClick={run("finalize", () => prepare("Recovery completed", [finalizeRecoveryCall(acc.safe)], relaySafe!, async (b) => {
                 for (const k of Object.keys(sessionStorage)) if (k.startsWith(`sq-evm-recovery:${acc.safe}:`)) sessionStorage.removeItem(k);
                 await onRecovered(b);
-              }))}>Complete the recovery</button>}
+              }))}>{tr("Complete the recovery")}</button>}
         </div>
       )}
     </div>

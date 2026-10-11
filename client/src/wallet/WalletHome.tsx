@@ -11,6 +11,7 @@ import { priceOf, usePrices } from "../lib/market";
 import { num } from "../ui/format";
 import { useIsMobile } from "../ui/useIsMobile";
 import { openCrypto } from "./Account";
+import { useT } from "../i18n";
 import { Account, BtcIcon, RECEIVE_KEY } from "./Account";
 import { EthIcon, Ethereum, type EvmInfo } from "./Ethereum";
 
@@ -25,6 +26,7 @@ export function WalletHome({ customerId, cfg, account, custodySats = 0, onLost, 
 }) {
   const mobile = useIsMobile();
   const market = usePrices();
+  const { tr } = useT();
   const [net, setNet] = useState<Network>(() => (localStorage.getItem(NET_KEY(customerId)) as Network) ?? "btc");
   const [open, setOpen] = useState(false);
   const [btcSats, setBtcSats] = useState<bigint | null>(null);
@@ -44,7 +46,7 @@ export function WalletHome({ customerId, cfg, account, custodySats = 0, onLost, 
   const btcAddress = outputAt(cfg, 0, Number(localStorage.getItem(RECEIVE_KEY(cfg)) ?? 0)).getAddress();
   const rows = [
     { id: "btc" as const, icon: <BtcIcon size={28} />, name: "Bitcoin", sub: `${cfg.network} · BTC`, address: btcAddress, balance: btcSats === null ? "…" : btcFmt(btcSats) },
-    { id: "evm" as const, icon: <EthIcon size={28} />, name: "Ethereum", sub: "Sepolia · USDC", address: evm.safe ?? null, balance: !evm.added ? "Add" : evm.usdc === undefined ? "…" : `${formatUnits(evm.usdc, USDC_DECIMALS)} USDC` },
+    { id: "evm" as const, icon: <EthIcon size={28} />, name: "Ethereum", sub: "Sepolia · USDC", address: evm.safe ?? null, balance: !evm.added ? tr("Add") : evm.usdc === undefined ? "…" : `${formatUnits(evm.usdc, USDC_DECIMALS)} USDC` },
   ];
   const current = rows.find((r) => r.id === net)!;
   const copy = (a: string) => { navigator.clipboard?.writeText(a); setCopied(a); setTimeout(() => setCopied(null), 1200); };
@@ -65,35 +67,35 @@ export function WalletHome({ customerId, cfg, account, custodySats = 0, onLost, 
   const left = (
     <aside className="wallet-left">
       <section className="card kpis">
-        <div><p className="kpi-label">Total crypto value</p><p className="kpi"><strong data-testid="crypto-total">{num(total)}</strong> CHF</p></div>
-        <div><p className="kpi-label">Daily change</p><p className={`kpi ${daily >= 0 ? "up" : "down"}`}><strong>{daily >= 0 ? "+" : "−"}{num(Math.abs(daily))}</strong> CHF</p></div>
-        <div><p className="kpi-label">Assets</p><p className="kpi"><strong>{2 + (custodySats > 0 ? 1 : 0)}</strong></p></div>
-        <p className="muted small kpi-note">{market?.bitcoin.source === "CoinGecko" ? "Market prices (CoinGecko). The wallet's coins are on test networks and have no value." : "Simulated rates (market data unavailable)."}</p>
+        <div><p className="kpi-label">{tr("Total crypto value")}</p><p className="kpi"><strong data-testid="crypto-total">{num(total)}</strong> CHF</p></div>
+        <div><p className="kpi-label">{tr("Daily change")}</p><p className={`kpi ${daily >= 0 ? "up" : "down"}`}><strong>{daily >= 0 ? "+" : "−"}{num(Math.abs(daily))}</strong> CHF</p></div>
+        <div><p className="kpi-label">{tr("Assets")}</p><p className="kpi"><strong>{2 + (custodySats > 0 ? 1 : 0)}</strong></p></div>
+        <p className="muted small kpi-note">{market?.bitcoin.source === "CoinGecko" ? tr("Market prices (CoinGecko). The wallet's coins are on test networks and have no value.") : tr("Simulated rates (market data unavailable).")}</p>
       </section>
       <section className="card positions" data-testid="positions">
-        <div className="card-head"><h3>Positions</h3></div>
+        <div className="card-head"><h3>{tr("Positions")}</h3></div>
         <table>
-          <thead><tr><th>Product · quantity</th><th className="num">Value CHF</th><th className="num">24h</th></tr></thead>
+          <thead><tr><th>{tr("Product · quantity")}</th><th className="num">{tr("Value CHF")}</th><th className="num">24h</th></tr></thead>
           <tbody>
-            <tr className="group"><td colSpan={3}>Self-custody · your keys</td></tr>
+            <tr className="group"><td colSpan={3}>{tr("Self-custody · your keys")}</td></tr>
             <tr className={`pos-row ${net === "btc" ? "on" : ""}`} onClick={() => choose("btc")}>
               <td><span className="pos-name"><BtcIcon size={22} /><span><strong>Bitcoin</strong><span className="muted small">{cfg.network} · {btcSats === null ? "…" : btcFmt(btcSats)}</span></span></span>
-                <span className="pos-actions"><button className="pill blue" aria-label="Send BTC" onClick={(e) => { e.stopPropagation(); go("btc", "envoyer"); }}>Send</button><button className="pill red" aria-label="Receive BTC" onClick={(e) => { e.stopPropagation(); go("btc", "recevoir"); }}>Receive</button></span></td>
+                <span className="pos-actions"><button className="pill blue" aria-label="Send BTC" onClick={(e) => { e.stopPropagation(); go("btc", "envoyer"); }}>{tr("Send")}</button><button className="pill red" aria-label="Receive BTC" onClick={(e) => { e.stopPropagation(); go("btc", "recevoir"); }}>{tr("Receive")}</button></span></td>
               <td className="num">{num(btcChf)}</td><td className="num">{pct(market?.bitcoin.change24h)}</td>
             </tr>
             <tr className={`pos-row ${net === "evm" ? "on" : ""}`} onClick={() => choose("evm")}>
               <td><span className="pos-name"><EthIcon size={22} /><span><strong>USDC</strong><span className="muted small">Ethereum Sepolia · {evm.usdc === undefined ? "—" : `${num(usdcUnits)} USDC`}</span></span></span>
                 {evm.added
-                  ? <span className="pos-actions"><button className="pill blue" aria-label="Send USDC (positions)" onClick={(e) => { e.stopPropagation(); go("evm", "send"); }}>Send</button><button className="pill red" aria-label="Receive USDC" onClick={(e) => { e.stopPropagation(); go("evm", "receive"); }}>Receive</button></span>
-                  : <span className="pos-actions"><button className="pill" aria-label="Add USDC on Ethereum" onClick={(e) => { e.stopPropagation(); choose("evm"); }}>Add</button></span>}</td>
+                  ? <span className="pos-actions"><button className="pill blue" aria-label="Send USDC (positions)" onClick={(e) => { e.stopPropagation(); go("evm", "send"); }}>{tr("Send")}</button><button className="pill red" aria-label="Receive USDC" onClick={(e) => { e.stopPropagation(); go("evm", "receive"); }}>{tr("Receive")}</button></span>
+                  : <span className="pos-actions"><button className="pill" aria-label="Add USDC on Ethereum" onClick={(e) => { e.stopPropagation(); choose("evm"); }}>{tr("Add")}</button></span>}</td>
               <td className="num">{num(usdcChf)}</td><td className="num">{pct(market?.["usd-coin"].change24h)}</td>
             </tr>
             {custodySats > 0 && (
               <>
-                <tr className="group"><td colSpan={3}>Held by Swissquote · custody</td></tr>
+                <tr className="group"><td colSpan={3}>{tr("Held by Swissquote · custody")}</td></tr>
                 <tr className="pos-row" onClick={() => go("btc", "transferer")}>
-                  <td><span className="pos-name"><BtcIcon size={22} /><span><strong>Bitcoin</strong><span className="muted small">Swissquote crypto account · {(custodySats / 1e8).toFixed(8)} BTC</span></span></span>
-                    <span className="pos-actions"><button className="pill" aria-label="Open Swissquote account ↔ wallet transfers" onClick={(e) => { e.stopPropagation(); go("btc", "transferer"); }}>Transfer</button></span></td>
+                  <td><span className="pos-name"><BtcIcon size={22} /><span><strong>Bitcoin</strong><span className="muted small">{tr("Swissquote crypto account")} · {(custodySats / 1e8).toFixed(8)} BTC</span></span></span>
+                    <span className="pos-actions"><button className="pill" aria-label="Open Swissquote account ↔ wallet transfers" onClick={(e) => { e.stopPropagation(); go("btc", "transferer"); }}>{tr("Transfer")}</button></span></td>
                   <td className="num">{num(custodyChf)}</td><td className="num">{pct(market?.bitcoin.change24h)}</td>
                 </tr>
               </>
@@ -110,14 +112,14 @@ export function WalletHome({ customerId, cfg, account, custodySats = 0, onLost, 
       <div className="wallet-main">
       <div className="wallet-bar" ref={menuRef}>
         <div>
-          <p className="wallet-name">My wallet</p>
+          <p className="wallet-name">{tr("My wallet")}</p>
           <button className="net-pill" data-testid="network-switcher" aria-expanded={open} onClick={() => setOpen(!open)}>
             {current.icon}<span className="net-name">{current.name}</span>
             {current.address && <span className="mono muted">{short(current.address)}</span>}
             <span className="caret">▾</span>
           </button>
         </div>
-        {current.address && <button className="link small" onClick={() => copy(current.address!)}>{copied === current.address ? "Copied" : "Copy address"}</button>}
+        {current.address && <button className="link small" onClick={() => copy(current.address!)}>{copied === current.address ? tr("Copied") : tr("Copy address")}</button>}
         {open && (
           <div className="net-menu" role="menu">
             {rows.map((r) => (
@@ -127,10 +129,10 @@ export function WalletHome({ customerId, cfg, account, custodySats = 0, onLost, 
                   <span className="net-text"><strong>{r.name}</strong><span className="muted small">{r.sub}</span></span>
                   <span className="net-balance">{r.balance}</span>
                 </button>
-                {r.address && <button className="link mono small net-addr" title="Copy" onClick={() => copy(r.address!)}>{copied === r.address ? "Copied" : `${short(r.address)} ⧉`}</button>}
+                {r.address && <button className="link mono small net-addr" title={tr("Copy")} onClick={() => copy(r.address!)}>{copied === r.address ? tr("Copied") : `${short(r.address)} ⧉`}</button>}
               </div>
             ))}
-            <p className="muted small net-foot">Both accounts come from the same secret phrase, kept in your Client Wallet. Swissquote never holds their keys.</p>
+            <p className="muted small net-foot">{tr("Both accounts come from the same secret phrase, kept in your Client Wallet. Swissquote never holds their keys.")}</p>
           </div>
         )}
       </div>

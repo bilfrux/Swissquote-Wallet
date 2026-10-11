@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import { type Notification, markNotificationsRead, notifications } from "../lib/bank";
 import { IconBell } from "./icons";
+import { useT } from "../i18n";
 
 export function NotificationBell({ round = false }: { round?: boolean }) {
+  const { tr } = useT();
   const [data, setData] = useState<{ unread: number; items: Notification[] } | null>(null);
   const [open, setOpen] = useState(false);
   useEffect(() => {
@@ -20,14 +22,14 @@ export function NotificationBell({ round = false }: { round?: boolean }) {
   };
   return (
     <div className="bell-wrap">
-      <button className={round ? "round bell" : "bell"} aria-label={`Alerts${data?.unread ? ` (${data.unread} unread)` : ""}`} onClick={toggle}>
+      <button className={round ? "round bell" : "bell"} aria-label={tr("Alerts") + (data?.unread ? ` (${tr("{n} unread", { n: data.unread })})` : "")} onClick={toggle}>
         <IconBell />
         {!!data?.unread && <span className="badge-count" data-testid="bell-count">{data.unread}</span>}
       </button>
       {open && (
         <div className="bell-panel" data-testid="bell-panel">
-          <p className="bell-head"><strong>Alerts</strong> <span className="muted small">by simulated email and in the app</span></p>
-          {!data?.items.length && <p className="muted small">No alerts.</p>}
+          <p className="bell-head"><strong>{tr("Alerts")}</strong> <span className="muted small">{tr("by simulated email and in the app")}</span></p>
+          {!data?.items.length && <p className="muted small">{tr("No alerts.")}</p>}
           {data?.items.map((n) => (
             <div key={n.id} className={`bell-item ${n.kind}`}>
               <p className="bell-title">{n.title}</p>

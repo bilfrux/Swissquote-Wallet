@@ -3,10 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { type Coin, PERIODS, type Period, history } from "../lib/market";
 import { num } from "./format";
+import { useT } from "../i18n";
 
 const W = 640, H = 240, PAD = { l: 8, r: 64, t: 14, b: 26 };
 
 export function PriceChart({ coin, label }: { coin: Coin; label: string }) {
+  const { tr, lang } = useT();
+  const loc = lang === "fr" ? "fr-CH" : "en-GB";
   const [period, setPeriod] = useState<Period>("1M");
   const [pts, setPts] = useState<[number, number][] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +37,7 @@ export function PriceChart({ coin, label }: { coin: Coin; label: string }) {
     return { x, y, line, up, ticks, xt, first: ys[0], last: ys[ys.length - 1], min, max, t0, t1 };
   }, [pts]);
 
-  const fmtDate = (t: number) => new Date(t).toLocaleString("en-GB", period === "1D" ? { hour: "2-digit", minute: "2-digit" } : period === "1Y" ? { month: "short", year: "2-digit" } : { day: "2-digit", month: "short" });
+  const fmtDate = (t: number) => new Date(t).toLocaleString(loc, period === "1D" ? { hour: "2-digit", minute: "2-digit" } : period === "1Y" ? { month: "short", year: "2-digit" } : { day: "2-digit", month: "short" });
   const decimals = coin === "usd-coin" ? 4 : 0;
   const price = (v: number) => num(v, decimals);
   const onMove = (e: React.MouseEvent) => {
@@ -60,8 +63,8 @@ export function PriceChart({ coin, label }: { coin: Coin; label: string }) {
           {PERIODS.map((p) => <button key={p} className={p === period ? "on" : ""} onClick={() => setPeriod(p)}>{p}</button>)}
         </div>
       </div>
-      {!pts && !error && <div className="pc-empty muted small">Loading market data…</div>}
-      {error && <div className="pc-empty error small">Market data unavailable ({error}). Balances use the last known or simulated rate.</div>}
+      {!pts && !error && <div className="pc-empty muted small">{tr("Loading market data…")}</div>}
+      {error && <div className="pc-empty error small">{tr("Market data unavailable ({e}). Balances use the last known or simulated rate.", { e: error })}</div>}
       {g && (
         <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="pc-svg" onMouseMove={onMove} onMouseLeave={() => setHover(null)} role="img" aria-label={`${label} price, ${period}`}>
           <defs>
@@ -89,13 +92,13 @@ export function PriceChart({ coin, label }: { coin: Coin; label: string }) {
               <g transform={`translate(${Math.min(Math.max(g.x(h[0]) - 60, PAD.l), W - PAD.r - 124)},${PAD.t})`}>
                 <rect width="120" height="38" rx="5" fill="#fff" stroke="#e1e5ec" />
                 <text x="8" y="16" className="pc-tip-price">CHF {price(h[1])}</text>
-                <text x="8" y="30" className="pc-axis">{new Date(h[0]).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</text>
+                <text x="8" y="30" className="pc-axis">{new Date(h[0]).toLocaleString(loc, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</text>
               </g>
             </g>
           )}
         </svg>
       )}
-      <p className="muted small pc-source">Market price of {coin === "bitcoin" ? "bitcoin (mainnet)" : "USDC"} from CoinGecko, for information. Your coins are on a test network and have no value.</p>
+      <p className="muted small pc-source">{tr("Market price of {c} from CoinGecko, for information. Your coins are on a test network and have no value.", { c: coin === "bitcoin" ? tr("bitcoin (mainnet)") : "USDC" })}</p>
     </div>
   );
 }
