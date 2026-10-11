@@ -7,7 +7,6 @@ import { formatUnits } from "viem";
 import { USDC_DECIMALS } from "@sq/evm";
 import type { BtcAccount } from "../lib/config";
 import { btcFmt } from "../lib/format";
-import { priceOf, usePrices } from "../lib/market";
 import { num } from "../ui/format";
 import { useIsMobile } from "../ui/useIsMobile";
 import { openCrypto } from "./Account";
@@ -25,7 +24,6 @@ export function WalletHome({ customerId, cfg, account, custodySats = 0, onLost, 
   customerId: string; cfg: WalletConfig; account: BtcAccount; custodySats?: number; onLost: () => void; onBalance: (s: bigint) => void; onUsdc?: (u: bigint) => void;
 }) {
   const mobile = useIsMobile();
-  const market = usePrices();
   const { tr } = useT();
   const [net, setNet] = useState<Network>(() => (localStorage.getItem(NET_KEY(customerId)) as Network) ?? "btc");
   const [open, setOpen] = useState(false);
@@ -51,26 +49,21 @@ export function WalletHome({ customerId, cfg, account, custodySats = 0, onLost, 
   const current = rows.find((r) => r.id === net)!;
   const copy = (a: string) => { navigator.clipboard?.writeText(a); setCopied(a); setTimeout(() => setCopied(null), 1200); };
 
-  // Vue d'ensemble et positions (prix du marché ; coins de test sans valeur réelle).
-  const btcPx = priceOf(market, "bitcoin"), usdcPx = priceOf(market, "usd-coin");
-  const btcChf = btcSats === null ? 0 : (Number(btcSats) / 1e8) * btcPx;
+  // Les soldes sont réels sur des réseaux de test, mais n'ont pas de valeur CHF.
   const usdcUnits = evm.usdc === undefined ? 0 : Number(evm.usdc) / 10 ** USDC_DECIMALS;
-  const usdcChf = usdcUnits * usdcPx;
-  const custodyChf = (custodySats / 1e8) * btcPx;
-  const total = btcChf + usdcChf + custodyChf;
-  const daily = btcChf * ((market?.bitcoin.change24h ?? 0) / 100) / (1 + (market?.bitcoin.change24h ?? 0) / 100)
-    + usdcChf * ((market?.["usd-coin"].change24h ?? 0) / 100) / (1 + (market?.["usd-coin"].change24h ?? 0) / 100)
-    + custodyChf * ((market?.bitcoin.change24h ?? 0) / 100) / (1 + (market?.bitcoin.change24h ?? 0) / 100);
-  const pct = (c: number | undefined) => <span className={(c ?? 0) >= 0 ? "up" : "down"}>{(c ?? 0) >= 0 ? "+" : ""}{num(c ?? 0)}%</span>;
+  const assetCount = ((btcSats ?? 0n) > 0n ? 1 : 0)
+    + (evm.added && (evm.usdc ?? 0n) > 0n ? 1 : 0)
+    + (custodySats > 0 ? 1 : 0);
+  const unvalued = <span title={tr("Test-network assets are not valued in CHF.")}>—</span>;
   const go = (n: Network, panel: string) => { choose(n); setTimeout(() => (n === "btc" ? openCrypto(panel) : window.dispatchEvent(new CustomEvent("sq-evm", { detail: panel }))), 30); };
 
   const left = (
     <aside className="wallet-left">
       <section className="card kpis">
-        <div><p className="kpi-label">{tr("Total crypto value")}</p><p className="kpi"><strong data-testid="crypto-total">{num(total)}</strong> CHF</p></div>
-        <div><p className="kpi-label">{tr("Daily change")}</p><p className={`kpi ${daily >= 0 ? "up" : "down"}`}><strong>{daily >= 0 ? "+" : "−"}{num(Math.abs(daily))}</strong> CHF</p></div>
-        <div><p className="kpi-label">{tr("Assets")}</p><p className="kpi"><strong>{2 + (custodySats > 0 ? 1 : 0)}</strong></p></div>
-        <p className="muted small kpi-note">{market?.bitcoin.source === "CoinGecko" ? tr("Market prices (CoinGecko). The wallet's coins are on test networks and have no value.") : tr("Simulated rates (market data unavailable).")}</p>
+        <div><p className="kpi-label">{tr("Total crypto value")}</p><p className="kpi"><strong data-testid="crypto-total">{unvalued}</strong></p></div>
+        <div><p className="kpi-label">{tr("Daily change")}</p><p className="kpi"><strong>{unvalued}</strong></p></div>
+        <div><p className="kpi-label">{tr("Assets")}</p><p className="kpi"><strong>{assetCount}</strong></p></div>
+        <p className="muted small kpi-note">{tr("Test-network assets are not valued in CHF.")}</p>
       </section>
       <section className="card positions" data-testid="positions">
         <div className="card-head"><h3>{tr("Positions")}</h3></div>
@@ -81,14 +74,14 @@ export function WalletHome({ customerId, cfg, account, custodySats = 0, onLost, 
             <tr className={`pos-row ${net === "btc" ? "on" : ""}`} onClick={() => choose("btc")}>
               <td><span className="pos-name"><BtcIcon size={22} /><span><strong>Bitcoin</strong><span className="muted small">{cfg.network} · {btcSats === null ? "…" : btcFmt(btcSats)}</span></span></span>
                 <span className="pos-actions"><button className="pill blue" aria-label="Send BTC" onClick={(e) => { e.stopPropagation(); go("btc", "envoyer"); }}>{tr("Send")}</button><button className="pill red" aria-label="Receive BTC" onClick={(e) => { e.stopPropagation(); go("btc", "recevoir"); }}>{tr("Receive")}</button></span></td>
-              <td className="num">{num(btcChf)}</td><td className="num">{pct(market?.bitcoin.change24h)}</td>
+              <td className="num">{unvalued}</td><td className="num">{unvalued}</td>
             </tr>
             <tr className={`pos-row ${net === "evm" ? "on" : ""}`} onClick={() => choose("evm")}>
               <td><span className="pos-name"><EthIcon size={22} /><span><strong>USDC</strong><span className="muted small">Ethereum Sepolia · {evm.usdc === undefined ? "—" : `${num(usdcUnits)} USDC`}</span></span></span>
                 {evm.added
                   ? <span className="pos-actions"><button className="pill blue" aria-label="Send USDC (positions)" onClick={(e) => { e.stopPropagation(); go("evm", "send"); }}>{tr("Send")}</button><button className="pill red" aria-label="Receive USDC" onClick={(e) => { e.stopPropagation(); go("evm", "receive"); }}>{tr("Receive")}</button></span>
                   : <span className="pos-actions"><button className="pill" aria-label="Add USDC on Ethereum" onClick={(e) => { e.stopPropagation(); choose("evm"); }}>{tr("Add")}</button></span>}</td>
-              <td className="num">{num(usdcChf)}</td><td className="num">{pct(market?.["usd-coin"].change24h)}</td>
+              <td className="num">{unvalued}</td><td className="num">{unvalued}</td>
             </tr>
             {custodySats > 0 && (
               <>
@@ -96,7 +89,7 @@ export function WalletHome({ customerId, cfg, account, custodySats = 0, onLost, 
                 <tr className="pos-row" onClick={() => go("btc", "transferer")}>
                   <td><span className="pos-name"><BtcIcon size={22} /><span><strong>Bitcoin</strong><span className="muted small">{tr("Swissquote crypto account")} · {(custodySats / 1e8).toFixed(8)} BTC</span></span></span>
                     <span className="pos-actions"><button className="pill" aria-label="Open Swissquote account ↔ wallet transfers" onClick={(e) => { e.stopPropagation(); go("btc", "transferer"); }}>{tr("Transfer")}</button></span></td>
-                  <td className="num">{num(custodyChf)}</td><td className="num">{pct(market?.bitcoin.change24h)}</td>
+                  <td className="num">{unvalued}</td><td className="num">{unvalued}</td>
                 </tr>
               </>
             )}
