@@ -12,6 +12,7 @@ export const LANGS: { id: Lang; label: string; name: string }[] = [
 
 type Dict = Record<string, string>;
 const en: Dict = {
+  "login.unreachable": "Cannot reach the Swissquote server (bank-mock). Open the app at the address shown when the demo starts (for example http://localhost:5183) and check that the demo is running.",
   "login.bad": "Incorrect username or password.",
   "ov.title": "Overview",
   "ov.client": "Client",
@@ -73,6 +74,7 @@ const en: Dict = {
   "foot.total": "Total value", "foot.cash": "CHF accounts", "foot.crypto": "Crypto", "foot.network": "Bitcoin network", "foot.sim": "Simulated bank for the demo",
 };
 const fr: Dict = {
+  "login.unreachable": "Impossible de joindre le serveur Swissquote (bank-mock). Ouvrez l'appli à l'adresse indiquée au lancement de la démo (par exemple http://localhost:5183) et vérifiez que la démo tourne.",
   "login.bad": "Nom d'utilisateur ou mot de passe incorrect.",
   "ov.title": "Aperçu",
   "ov.client": "Client",
@@ -129,6 +131,7 @@ const fr: Dict = {
   "foot.total": "Valeur totale", "foot.cash": "Comptes CHF", "foot.crypto": "Crypto", "foot.network": "Réseau Bitcoin", "foot.sim": "Banque simulée pour la démo",
 };
 const de: Dict = {
+  "login.unreachable": "Der Swissquote-Server (bank-mock) ist nicht erreichbar. Öffnen Sie die App unter der beim Start der Demo angezeigten Adresse (z. B. http://localhost:5183) und prüfen Sie, ob die Demo läuft.",
   "login.bad": "Benutzername oder Passwort falsch.",
   "ov.title": "Übersicht",
   "ov.client": "Kunde",
@@ -185,6 +188,7 @@ const de: Dict = {
   "foot.total": "Gesamtwert", "foot.cash": "CHF-Konten", "foot.crypto": "Krypto", "foot.network": "Bitcoin-Netzwerk", "foot.sim": "Simulierte Bank für die Demo",
 };
 const it: Dict = {
+  "login.unreachable": "Impossibile raggiungere il server Swissquote (bank-mock). Apri l'app all'indirizzo indicato all'avvio della demo (ad esempio http://localhost:5183) e verifica che la demo sia in esecuzione.",
   "login.bad": "Nome utente o password errati.",
   "ov.title": "Panoramica",
   "ov.client": "Cliente",

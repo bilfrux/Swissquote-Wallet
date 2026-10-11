@@ -172,7 +172,7 @@ function LoginPage({ onLogin, onHome }: { onLogin: (s: Session) => void; onHome:
       <div className="lg-body">
         <section className="lg-form">
           <h1>{t("login.title")}</h1>
-          <form onSubmit={async (e) => { e.preventDefault(); setError(null); try { onLogin(await login(id.trim(), pwd)); } catch (err: any) { setError(/incorrect/i.test(err.message) ? t("login.bad") : err.message); } }}>
+          <form onSubmit={async (e) => { e.preventDefault(); setError(null); try { onLogin(await login(id.trim(), pwd)); } catch (err: any) { setError(/incorrect/i.test(err.message) ? t("login.bad") : err instanceof TypeError ? t("login.unreachable") : err.message); } }}>
             <label className="lg-label" htmlFor="lg-user">{t("login.user")}</label>
             <div className="lg-input">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9" /><circle cx="12" cy="10" r="3" /><path d="M6.5 18.5a6.5 6.5 0 0 1 11 0" /></svg>
@@ -192,7 +192,7 @@ function LoginPage({ onLogin, onHome }: { onLogin: (s: Session) => void; onHome:
             {hint && <p className="note banner">{t("login.forgotDemo")}</p>}
             <button type="submit" className="lg-submit">{t("login.submit")}</button>
           </form>
-          <button className="lg-passkey" onClick={async () => { setError(null); try { onLogin(await loginWithPasskey(id.trim())); } catch (err: any) { setError(err.message); } }}>
+          <button className="lg-passkey" onClick={async () => { setError(null); try { onLogin(await loginWithPasskey(id.trim())); } catch (err: any) { setError(err instanceof TypeError ? t("login.unreachable") : err.message); } }}>
             {t("login.passkey")}
           </button>
           <p className="lg-link"><button type="button" className="link" onClick={() => setHint(true)}>{t("login.help")}</button></p>
