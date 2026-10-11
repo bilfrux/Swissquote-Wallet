@@ -12,7 +12,7 @@ import { createServer as createVite } from "vite";
 import { btc } from "@bitcoinerlab/descriptors-scure";
 import { base64 } from "@scure/base";
 import { Signer } from "bip322-js";
-import { BitcoindBackend, type ChainBackend, EsploraBackend, type NetworkName, btcNetwork, buildSpend, createWalletConfig, finalizePsbt, keyAddressOf, scan, simulate } from "@sq/bitcoin";
+import { BitcoindBackend, type ChainBackend, EsploraBackend, type NetworkName, addresses, btcNetwork, buildSpend, createWalletConfig, finalizePsbt, keyAddressOf, scan, simulate } from "@sq/bitcoin";
 import { accountKey, masterFromMnemonic, newMnemonic } from "@sq/bitcoin/keys";
 import { signPsbtWithMnemonic } from "@sq/bitcoin/sign";
 import { type JsonOp, describeOp, ownersOf, safeAddressOf, signOp } from "@sq/evm";
@@ -68,7 +68,11 @@ const fp = (n: number) => n.toString(16).padStart(8, "0");
 const relativeBlocks = (seq: number) => (seq & 0x80000000 || seq & 0x00400000 ? null : seq & 0xffff);
 
 // Décodage du PSBT pour l'écran de confirmation : quel wallet, quel chemin, où va l'argent, combien de frais.
-async function describe(psbt: string, network: NetworkName) {
+// `nextPolicy` (facultative) : nouvelle politique du compte, envoyée par le site pour un CHANGEMENT DE CONTACT DE CONFIANCE.
+// Elle ne sert qu'à reconnaître les sorties de la nouvelle règle (même clé du client, mêmes clés Swissquote : le client y
+// dépense toujours seul) et à afficher le nouveau contact. Jamais enregistrée ici : la politique du wallet ne change qu'après
+// diffusion, par la demande « policy » du site.
+async function describe(psbt: string, network: NetworkName, nextPolicy?: Policy) {
   const tx = btc.Transaction.fromPSBT(base64.decode(psbt.trim()));
   const fps = new Set<string>();
   const inputs = [];
@@ -80,9 +84,20 @@ async function describe(psbt: string, network: NetworkName) {
   const wallet = load().find((w) => fps.has(w.id));
   const path = inputs.every((i) => i.delay !== null) ? "recovery" : inputs.every((i) => i.delay === null) ? "client" : "mixte";
   let outputs: { address: string; value: string; mine: string | null }[];
+  let contactChange: { from: string | null; to: string | null; key: string; delay: number } | null = null;
   if (wallet?.policy) {
     const cfg = await createWalletConfig({ ...wallet.policy, client: wallet.accountKey });
     outputs = simulate(cfg, psbt).outputs.map((o) => ({ address: o.address, value: String(o.value), mine: o.own ? (o.own.change ? "change (this account)" : "this account") : null }));
+    if (nextPolicy) {
+      if (nextPolicy.network !== wallet.policy.network || nextPolicy.network !== network) throw new HttpError(400, "the new policy is for another network");
+      if (nextPolicy.swissquote !== wallet.policy.swissquote || nextPolicy.delay !== wallet.policy.delay) throw new HttpError(400, "a change of trusted contact must keep the same Swissquote key and delay");
+      const next = await createWalletConfig({ ...nextPolicy, client: wallet.accountKey }).catch((e) => { throw new HttpError(400, `invalid new policy: ${e.message}`); });
+      const nextAddresses = new Set(addresses(next, 60).map((a) => a.address));
+      outputs = outputs.map((o) => (!o.mine && nextAddresses.has(o.address) ? { ...o, mine: "new account (new trusted contact)" } : o));
+      contactChange = outputs.some((o) => o.mine === "new account (new trusted contact)")
+        ? { from: wallet.policy.tiersName ?? null, to: nextPolicy.tiersName ?? null, key: nextPolicy.tiers, delay: nextPolicy.delay }
+        : null;
+    }
   } else {
     outputs = Array.from({ length: tx.outputsLength }, (_, i) => {
       const o = tx.getOutput(i);
@@ -94,7 +109,7 @@ async function describe(psbt: string, network: NetworkName) {
   const external = outputs.filter((o) => !o.mine);
   const sent = external.reduce((s, o) => s + BigInt(o.value), 0n);
   const high = sent >= HIGH_VALUE_SATS;
-  return { wallet: wallet ? publicView(wallet) : null, path, delay: inputs[0]?.delay ?? null, inputs, outputs, fee: String(fee), sent: String(sent), high, highValueSats: String(HIGH_VALUE_SATS), confirmTarget: high ? external[0]?.address ?? null : null };
+  return { wallet: wallet ? publicView(wallet) : null, path, delay: inputs[0]?.delay ?? null, inputs, outputs, fee: String(fee), sent: String(sent), high, highValueSats: String(HIGH_VALUE_SATS), confirmTarget: high ? external[0]?.address ?? null : null, contactChange };
 }
 
 // Opération Ethereum : à quel wallet appartient le Safe, et que fait-elle (décodée ici, sans faire confiance à l'appli).
@@ -210,7 +225,7 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
     }
 
     case "POST /api/describe":
-      return describe(body.psbt, body.network);
+      return describe(body.psbt, body.network, body.nextPolicy);
 
     case "POST /api/prove": {
       // Preuve de propriété : signature BIP-322 « simple » d'un défi par la clé CLIENT à (change, index),
@@ -256,7 +271,7 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
     }
 
     case "POST /api/sign": {
-      const d = await describe(body.psbt, body.network);
+      const d = await describe(body.psbt, body.network, body.nextPolicy);
       if (!d.wallet) throw new HttpError(400, "this PSBT spends no coin of your wallets");
       if (d.path !== "client") throw new HttpError(400, "this PSBT uses the recovery path (Swissquote + trusted contact): your wallet must not sign it");
       const w = wallets.find((x) => x.id === d.wallet!.id)!;

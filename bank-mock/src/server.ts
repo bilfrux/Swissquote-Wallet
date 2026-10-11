@@ -88,6 +88,29 @@ async function route(req: IncomingMessage, body: any, url: URL) {
       return { accountId: row.id };
     }
 
+    case "POST /accounts/tiers": {
+      // Changement du contact de confiance d'un compte Bitcoin : le client a déjà déplacé ses coins vers la nouvelle règle
+      // (même clé client et même clé Swissquote, nouveau contact). Swissquote met à jour son registre pour pouvoir signer une
+      // recovery selon la NOUVELLE règle ; sinon sa revue (les coins appartiennent-ils à un compte enregistré ?) échouerait.
+      // Verrou biométrique complet exigé. Cela ne donne aucun pouvoir de dépense : la règle réelle est celle des coins, on-chain.
+      const customerId = needCrypto(req, "full");
+      const net = network(body.network);
+      const row = db.prepare("select * from accounts where customer_id = ? and network = ? and client_key = ?").get(customerId, net, String(body.client ?? "")) as AccountRow | undefined;
+      if (!row) throw new HttpError(403, "this account does not belong to the logged-in client");
+      const tiers = String(body.tiers ?? "");
+      if (tiers === row.tiers_key) throw new HttpError(409, "this is already the trusted contact of the account");
+      if (tiers === row.client_key || tiers === swissquoteAccountKey(net)) throw new HttpError(400, "the trusted contact must be a third party (not you, not Swissquote)");
+      await createWalletConfig({ network: net, delay: row.delay, client: row.client_key, swissquote: swissquoteAccountKey(net), tiers }).catch((e) => { throw new HttpError(400, `invalid trusted contact key: ${e.message}`); });
+      const name = typeof body.tiersName === "string" ? body.tiersName.trim().slice(0, 80) : "";
+      if (!name) throw new HttpError(400, "the trusted contact's name is required");
+      db.exec("create table if not exists tiers_changes (id integer primary key, customer_id text not null, account_id integer not null, old_key text not null, old_name text, new_key text not null, new_name text not null, created_at text not null default (datetime('now')))");
+      db.prepare("insert into tiers_changes (customer_id, account_id, old_key, old_name, new_key, new_name) values (?, ?, ?, ?, ?, ?)").run(customerId, row.id, row.tiers_key, row.tiers_name, tiers, name);
+      db.prepare("update accounts set tiers_key = ?, tiers_name = ? where id = ?").run(tiers, name, row.id);
+      notify(customerId, row.id, "contact-change", "Trusted contact changed",
+        `The trusted contact of your account #${row.id} is now ${name} (it was ${row.tiers_name ?? "another contact"}). If this was not you, refresh your coins from your wallet and change your password.`, `tiers:${row.id}:${Date.now()}`);
+      return publicAccount(db.prepare("select * from accounts where id = ?").get(row.id) as AccountRow);
+    }
+
     // ---- Ethereum (étape 17) : Safe du client, Swissquote est l'un des deux gardiens du module de recovery ----
     // ---- Flux de prix (information ; relais CoinGecko avec cache partagé) ----
     case "GET /market/prices":

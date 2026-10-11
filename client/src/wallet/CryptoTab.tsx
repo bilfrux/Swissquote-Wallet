@@ -56,7 +56,7 @@ export function CryptoTab({ session, onBalance, custodySats = 0, onUsdc, startIn
           <p className="center"><button className="link" onClick={() => setRecovering(true)}>{tr("I had a wallet and lost it: recover my bitcoin")}</button></p>
         </>
       )}
-      {account && cfg && <WalletHome key={cfg.client.raw} customerId={cid} cfg={cfg} account={account} custodySats={custodySats} onLost={() => setRecovering(true)} onBalance={onBalance} onUsdc={onUsdc} />}
+      {account && cfg && <WalletHome key={cfg.client.raw} customerId={cid} cfg={cfg} account={account} custodySats={custodySats} onLost={() => setRecovering(true)} onBalance={onBalance} onUsdc={onUsdc} onContactChanged={activate} />}
     </>
   );
 }

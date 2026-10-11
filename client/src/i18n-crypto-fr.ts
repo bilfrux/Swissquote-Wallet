@@ -334,4 +334,32 @@ export const CRYPTO_FR: Record<string, string> = {
   "Swissquote is unreachable: the biometric lock cannot be checked. Spending still requires your Client Wallet's biometrics.":
     "Swissquote est injoignable : le verrou biométrique ne peut pas être vérifié. Toute dépense exige quand même la biométrie de votre Client Wallet.",
   "Biometrics could not be enabled on this device:": "La biométrie n'a pas pu être activée sur cet appareil :",
+  // Changement du contact de confiance (étape 43)
+  "Change my trusted contact": "Changer mon contact de confiance",
+  "Swissquote and this contact together can help you recover your coins. You can replace the contact: your coins are moved to a new rule that includes the new contact, and the delay restarts.":
+    "Swissquote et ce contact peuvent ensemble vous aider à récupérer vos coins. Vous pouvez le remplacer : vos coins sont déplacés vers une nouvelle règle qui inclut le nouveau contact, et le délai repart de zéro.",
+  "New contact's name": "Nom du nouveau contact",
+  "New contact's public key": "Clé publique du nouveau contact",
+  "Ask your contact to send you their public key from their console, and check it with them by another means.": "Demandez à votre contact de vous envoyer sa clé publique depuis sa console, et vérifiez-la avec lui par un autre moyen.",
+  "Prepare the change": "Préparer le changement",
+  "New trusted contact: {n}": "Nouveau contact de confiance : {n}",
+  "All your coins ({a}) move to a new address of your account. You alone can still spend them; Swissquote and {n} together will be able to move them after {d} blocks without movement.":
+    "Tous vos coins ({a}) sont déplacés vers une nouvelle adresse de votre compte. Vous seul pouvez toujours les dépenser ; Swissquote et {n} ensemble pourront les déplacer après {d} blocs sans mouvement.",
+  "your new account (new trusted contact)": "votre nouveau compte (nouveau contact de confiance)",
+  "Your account holds no coins: nothing has to be moved.": "Votre compte ne contient aucun coin : il n'y a rien à déplacer.",
+  "Change the contact": "Changer le contact",
+  "Enter the new contact's name.": "Saisissez le nom du nouveau contact.",
+  "This is already your trusted contact.": "C'est déjà votre contact de confiance.",
+  "The trusted contact must be a third party (not you, not Swissquote).": "Le contact de confiance doit être un tiers (ni vous, ni Swissquote).",
+  "the signed transaction does not match the prepared one": "la transaction signée ne correspond pas à celle qui a été préparée",
+  "the transaction is not signed": "la transaction n'est pas signée",
+  "Swissquote could not be updated:": "Swissquote n'a pas pu être mise à jour :",
+  "Change of trusted contact in progress": "Changement de contact de confiance en cours",
+  "New contact: {n}.": "Nouveau contact : {n}.",
+  "Your coins were moved to the new rule:": "Vos coins ont été déplacés vers la nouvelle règle :",
+  "No coins had to be moved.": "Aucun coin n'a dû être déplacé.",
+  "Swissquote registry updated": "Registre Swissquote mis à jour",
+  "New rule saved in your Client Wallet": "Nouvelle règle enregistrée dans votre Client Wallet",
+  "Save in my Client Wallet": "Enregistrer dans mon Client Wallet",
+  "Finish and open my updated account": "Terminer et ouvrir mon compte mis à jour",
 };

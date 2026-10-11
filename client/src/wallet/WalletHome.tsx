@@ -21,8 +21,8 @@ const short = (a: string) => `${a.slice(0, 7)}…${a.slice(-5)}`;
 // Changer de réseau depuis le reste de l'appli (accueil, rail) : événement « sq-network ».
 export const selectNetwork = (n: Network) => window.dispatchEvent(new CustomEvent("sq-network", { detail: n }));
 
-export function WalletHome({ customerId, cfg, account, custodySats = 0, onLost, onBalance, onUsdc }: {
-  customerId: string; cfg: WalletConfig; account: BtcAccount; custodySats?: number; onLost: () => void; onBalance: (s: bigint) => void; onUsdc?: (u: bigint) => void;
+export function WalletHome({ customerId, cfg, account, custodySats = 0, onLost, onBalance, onUsdc, onContactChanged }: {
+  customerId: string; cfg: WalletConfig; account: BtcAccount; custodySats?: number; onLost: () => void; onBalance: (s: bigint) => void; onUsdc?: (u: bigint) => void; onContactChanged: (a: BtcAccount) => void;
 }) {
   const mobile = useIsMobile();
   const { tr } = useT();
@@ -141,7 +141,7 @@ export function WalletHome({ customerId, cfg, account, custodySats = 0, onLost, 
         )}
       </div>
       <div hidden={net !== "btc"}>
-        <Account key={cfg.client.raw} cfg={cfg} account={account} onLost={onLost} onBalance={(s) => { setBtcSats(s); onBalance(s); }} />
+        <Account key={cfg.client.raw} cfg={cfg} account={account} onLost={onLost} onContactChanged={onContactChanged} onBalance={(s) => { setBtcSats(s); onBalance(s); }} />
       </div>
       <div hidden={net !== "evm"}>
         <Ethereum key={`evm:${account.client}`} customerId={customerId} accountKey={account.client} tiersName={account.tiersName} onInfo={setEvm} />

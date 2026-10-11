@@ -35,6 +35,10 @@ export const fetchSwissquoteKey = async (): Promise<string> => (await call(`/gua
 export const registerAccount = (a: { delay: number; client: string; tiers: string; tiersName?: string | null }) =>
   call("/accounts/register", { network: NETWORK, ...a }) as Promise<{ accountId: number }>;
 
+// Changement du contact de confiance : Swissquote met son registre à jour (verrou biométrique complet exigé).
+export const changeTiers = (client: string, tiers: string, tiersName: string) =>
+  call("/accounts/tiers", { network: NETWORK, client, tiers, tiersName }) as Promise<RegisteredAccount>;
+
 // --- Recovery ---
 export type KycForm = { lastName: string; birthDate: string; otp: string };
 export const verifyIdentity = (f: KycForm) => call("/identity/verify", { customerId: loadSession()?.customer.id, ...f }) as Promise<{ token: string; expiresAt: string }>;

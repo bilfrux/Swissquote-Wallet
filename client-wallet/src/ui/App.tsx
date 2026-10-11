@@ -58,6 +58,7 @@ type Description = {
   wallet: WalletView | null; path: "client" | "recovery" | "mixte"; delay: number | null;
   inputs: { value: string }[]; outputs: { address: string; value: string; mine: string | null }[]; fee: string;
   sent: string; high: boolean; highValueSats: string; confirmTarget: string | null;
+  contactChange: { from: string | null; to: string | null; key: string; delay: number } | null;
 };
 
 async function api(path: string, body?: unknown, method = body ? "POST" : "GET") {
@@ -196,15 +197,22 @@ function PolicyReq({ req, onDone, onError }: { req: Req; onDone: (d: unknown) =>
 function Sign({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unknown) => void; onRefuse: () => void; onError: (e: string) => void }) {
   const [d, setD] = useState<Description | null>(null);
   const [confirmDest, setConfirmDest] = useState("");
-  useEffect(() => { api("/api/describe", { psbt: req.payload.psbt, network: req.network }).then(setD, (e) => onError(e.message)); }, [req]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { api("/api/describe", { psbt: req.payload.psbt, network: req.network, nextPolicy: req.payload.nextPolicy }).then(setD, (e) => onError(e.message)); }, [req]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!d) return <section><p>Reading the transaction…</p></section>;
   const total = d.inputs.reduce((s, i) => s + BigInt(i.value), 0n);
   const ext = d.outputs.filter((o) => !o.mine);
   const sent = ext.reduce((s, o) => s + BigInt(o.value), 0n);
   return (
     <section>
-      <h2>Confirm the transfer</h2>
+      <h2>{d.contactChange ? "Confirm the change of trusted contact" : "Confirm the transfer"}</h2>
       <p className="small muted">Request from <strong>{req.origin}</strong> · wallet “{d.wallet?.label ?? "unknown"}”</p>
+      {d.contactChange && (
+        <div className="card" data-testid="contact-change">
+          <p><strong>Your trusted contact changes</strong> from {d.contactChange.from ?? "the current contact"} to <strong>{d.contactChange.to ?? "a new contact"}</strong>.</p>
+          <p className="small">New contact's public key: <span className="mono">{d.contactChange.key}</span></p>
+          <p className="small">All your coins move to a new address of your account. You alone can still spend them. Swissquote and the <strong>new</strong> contact together will be able to move them after {d.contactChange.delay} blocks without movement (the delay restarts). Check the key with your contact by another means.</p>
+        </div>
+      )}
       <div className="hero">
         <p className="hero-label">{ext.length ? "You are sending" : "Transfer to yourself"}</p>
         <p className="hero-amount">{btc(ext.length ? sent : total - BigInt(d.fee))}</p>
@@ -238,7 +246,7 @@ function Sign({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unknow
       )}
       <UnlockAction wallet={d.wallet} label="Confirm and sign" onRefuse={onRefuse} onError={onError}
         disabled={d.path !== "client" || !d.wallet || (d.high && confirmDest.length !== 6)}
-        onAuth={async (a) => onDone(await api("/api/sign", { psbt: req.payload.psbt, network: req.network, confirmDest, ...a }))} />
+        onAuth={async (a) => onDone(await api("/api/sign", { psbt: req.payload.psbt, network: req.network, nextPolicy: req.payload.nextPolicy, confirmDest, ...a }))} />
     </section>
   );
 }
