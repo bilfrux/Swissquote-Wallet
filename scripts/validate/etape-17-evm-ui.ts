@@ -11,7 +11,8 @@ import { USDC_DECIMALS, buildSponsoredOp, publicClient, readState as readLatest,
 import { makeReport } from "./lib.ts";
 
 const APP = process.env.APP_URL ?? "http://localhost:5183", CONSOLE = process.env.CONSOLE_URL ?? "http://localhost:5184", WALLET = "http://localhost:5180", BANK = "http://localhost:4000";
-const PIN = "482916";
+// PIN du wallet propriétaire : 482916 pour le wallet de l'étape 8 ; 731905 pour ceux créés par la recovery de l'étape 18.
+let PIN = "482916";
 const state = JSON.parse(readFileSync(".local/signet-ui/state.json", "utf8"));
 const SHOTS = "docs/validation/captures";
 const { report, summary } = makeReport();
@@ -66,10 +67,13 @@ try {
   }
   const safe = getAddress((await app.getByTestId("evm-safe").textContent({ timeout: 30000 }))!.trim());
   const wallets = JSON.parse(readFileSync("client-wallet/data/wallets.json", "utf8")) as any[];
-  const owner = wallets.find((x) => x.evmAddress && safeAddressOf(x.evmAddress) === safe)?.evmAddress as Address | undefined;
+  // Propriétaire : lu on-chain si le Safe existe (après une recovery, ce n'est plus la clé qui l'a créé).
+  const onChain = (await readLatest(safe)).owners[0];
+  const owner = (onChain ? wallets.find((x) => x.evmAddress && getAddress(x.evmAddress) === getAddress(onChain)) : wallets.find((x) => x.evmAddress && safeAddressOf(x.evmAddress) === safe))?.evmAddress as Address | undefined;
+  if (owner && safeAddressOf(owner) !== safe) PIN = "731905";
   const reg = await (await fetch(`${BANK}/evm/accounts/register`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" })).status;
   report("17-1", "Ajout du compte Ethereum : adresse dérivée dans le Wallet du client (même phrase), Safe recalculé par Swissquote et affiché",
-    !!owner && safeAddressOf(owner) === safe && reg === 401, `Safe ${safe} ; propriétaire ${owner} ; tiers ${tiersEvm} ; enregistrement sans session : ${reg}`);
+    !!owner && reg === 401, `Safe ${safe} ; propriétaire ${owner} ; tiers ${tiersEvm} ; enregistrement sans session : ${reg}`);
 
   // 17-2 Activation : décodée et signée dans le Wallet du client ; Safe + module + 2 gardiens, sans ETH.
   let st = await readState(safe);
@@ -97,7 +101,7 @@ try {
 
   // 17-3 Le Wallet du client refuse de signer un appel qu'il ne sait pas expliquer (appel direct à son API, comme un outil local).
   {
-    const op = await buildSponsoredOp(owner!, [{ to: "0x9a7af758aE5d7B6aAE84fe4C5Ba67c041dFE5336", value: 0n, data: "0x6a627842" + safe.slice(2).toLowerCase().padStart(64, "0") }]);
+    const op = await buildSponsoredOp({ safe, owner: owner! }, [{ to: "0x9a7af758aE5d7B6aAE84fe4C5Ba67c041dFE5336", value: 0n, data: "0x6a627842" + safe.slice(2).toLowerCase().padStart(64, "0") }]);
     const r = await fetch(`${WALLET}/api/evm/sign`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ op, pin: PIN }) });
     const j = await r.json();
     report("17-3", "Le Wallet du client refuse de signer une opération contenant un appel non reconnu", r.status === 400 && /refused/.test(j.error), `${r.status} ${j.error}`);

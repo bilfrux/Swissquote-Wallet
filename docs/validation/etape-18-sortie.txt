@@ -1,0 +1,144 @@
+$ npm run -s validate:18   # essai 1
+[OK ] 18-1 Swissquote refuse de signer sans re-KYC, et vers le propriétaire actuel
+       403 identity not verified: re-KYC required before any signature ; 403 the new owner must be a new key of the client (not the current owner, not a guardian)
+
+browserContext.waitForEvent: Timeout 30000ms exceeded while waiting for event "page"
+  log: [],
+  name: 'TimeoutError'
+}
+
+
+$ npm run -s validate:18   # essai 2
+[OK ] 18-1 Swissquote refuse de signer sans re-KYC, et vers le propriétaire actuel
+       403 identity not verified: re-KYC required before any signature ; 403 the new owner must be a new key of the client (not the current owner, not a guardian)
+[OK ] 18-2 Demande transmise au tiers par le relais : sa console affiche la nouvelle clé et signe (EIP-712), Swissquote vérifie que c'est la signature du tiers enregistré
+       lien http://localhost:5184/?req=2fa0f605e2d6a6d59bdbcbedbc4c4c78 ; nouvelle clé affichée 0x2270B6a9a83305158102798f57B2C58d2788a99a
+[OK ] 18-3 Recovery démarrée depuis l'interface (Swissquote + tiers), relayée et parrainée ; délai affiché, propriétaire inchangé pendant le délai
+       Recovery started: 0xce36edf78f1a5d0a00c60cb9bf554897874acd80495875847e8f680e70f5a41f ; applicable après 2026-10-11T00:05:00.000Z ; écran : 1Bc7fAE27F730BfceE8E68546d37e2527478f (Sepolia)Account created on-chain with this operationRelay the guardians' signatures to start the recovery of 0x292919c03fe12BEAD122998d128081
+
+locator.textContent: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for getByTestId('evm-card').getByTestId('evm-last-tx')[22m
+
+  log: [
+    "  - waiting for getByTestId('evm-card').getByTestId('evm-last-tx')"
+  ],
+  name: 'TimeoutError'
+}
+
+
+$ npm run -s validate:18   # essai 3
+[OK ] 18-1 Swissquote refuse de signer sans re-KYC, et vers le propriétaire actuel
+       403 identity not verified: re-KYC required before any signature ; 403 the new owner must be a new key of the client (not the current owner, not a guardian)
+[OK ] 18-2 Demande transmise au tiers par le relais : sa console affiche la nouvelle clé et signe (EIP-712), Swissquote vérifie que c'est la signature du tiers enregistré
+       lien http://localhost:5184/?req=3ac601e1f2ff6bc1747369a91163ffcb ; nouvelle clé affichée 0x66C8f060c15b4f66578c6C25bEafF5F415c89ADA
+
+locator.waitFor: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for getByTestId('evm-card').getByTestId('evm-recovery').getByTestId('evm-countdown') to be visible[22m
+
+  log: [
+    "  - waiting for getByTestId('evm-card').getByTestId('evm-recovery').getByTestId('evm-countdown') to be visible"
+  ],
+  name: 'TimeoutError'
+}
+
+
+$ npm run -s validate:18   # essai 4
+[OK ] 18-1 Swissquote refuse de signer sans re-KYC, et vers le propriétaire actuel
+       403 identity not verified: re-KYC required before any signature ; 403 the new owner must be a new key of the client (not the current owner, not a guardian)
+[OK ] 18-2 Demande transmise au tiers par le relais : sa console affiche la nouvelle clé et signe (EIP-712), Swissquote vérifie que c'est la signature du tiers enregistré
+       lien http://localhost:5184/?req=2d7141ce8da97ba24266ea22d9f731f0 ; nouvelle clé affichée 0x08F4A704fa0Df8ee2ECba4D7071AAa77e396cBB0
+[OK ] 18-3 Recovery démarrée depuis l'interface (Swissquote + tiers), relayée et parrainée ; délai affiché, propriétaire inchangé pendant le délai
+       Recovery started: 0xcebde0ee86ad175520d9f8846c26e4fab1b505805802e090aece7294f07e8792 ; applicable après 2026-10-11T00:14:00.000Z ; écran : 003D7a75384591026c5Bb10Ebd1220285eB74 (Sepolia)Account created on-chain with this operationRelay the guardians' signatures to start the recovery of 0x292919c03fe12BEAD122998d128081
+
+browserContext.waitForEvent: Timeout 30000ms exceeded while waiting for event "page"
+  log: [],
+  name: 'TimeoutError'
+}
+
+
+$ npm run -s validate:18   # essai 5
+[ménage] recovery en attente vers 0x08F4A704fa0Df8ee2ECba4D7071AAa77e396cBB0, applicable après 2026-10-11T00:14:00.000Z
+[ménage] finalisée : 0x51c28ab056a2ecf392799453eed9065d44ecc8b4ca52f952547621b34d690ea6
+[OK ] 18-1 Swissquote refuse de signer sans re-KYC, et vers le propriétaire actuel
+       403 identity not verified: re-KYC required before any signature ; 403 the new owner must be a new key of the client (not the current owner, not a guardian)
+
+locator.textContent: Timeout 15000ms exceeded.
+Call log:
+[2m  - waiting for getByTestId('evm-card').getByTestId('evm-recovery').getByTestId('evm-new-owner')[22m
+
+  log: [
+    "  - waiting for getByTestId('evm-card').getByTestId('evm-recovery').getByTestId('evm-new-owner')"
+  ],
+  name: 'TimeoutError'
+}
+
+
+$ npm run -s validate:18   # essai 6
+[OK ] 18-1 Swissquote refuse de signer sans re-KYC, et vers le propriétaire actuel
+       403 identity not verified: re-KYC required before any signature ; 403 the new owner must be a new key of the client (not the current owner, not a guardian)
+[OK ] 18-2 Demande transmise au tiers par le relais : sa console affiche la nouvelle clé et signe (EIP-712), Swissquote vérifie que c'est la signature du tiers enregistré
+       lien http://localhost:5184/?req=14844a8b243f3b7cf8c8c983d81a2ccd ; nouvelle clé affichée 0xea774fA90F13AE1E2d2631F3415C4CADC8AC83f7
+[OK ] 18-3 Recovery démarrée depuis l'interface (Swissquote + tiers), relayée et parrainée ; délai affiché, propriétaire inchangé pendant le délai
+       Recovery started: 0x7ba12353c6eec9b6364b3c911b66c13e90d9ff91994bddc829f9190d96463ded ; applicable après 2026-10-11T00:19:00.000Z ; écran : 03e15b1eC68b6ab0facD309AF5F9c98Fe5f16 (Sepolia)Account created on-chain with this operationRelay the guardians' signatures to start the recovery of 0x292919c03fe12BEAD122998d128081
+[OK ] 18-4 Après le délai : recovery finalisée depuis l'interface ; propriétaire = nouvelle clé ; Swissquote a mis à jour son enregistrement
+       Recovery completed: 0x00c6c3147a5213042f64c99a06c9341bd383c7e08026171049d532df0a06e47f ; propriétaires 0xea774fA90F13AE1E2d2631F3415C4CADC8AC83f7 ; enregistré chez Swissquote : 0xea774fA90F13AE1E2d2631F3415C4CADC8AC83f7
+[KO ] 18-5 La nouvelle clé signe depuis le Safe récupéré : invalidation des signatures de gardiens restantes (nonce du module)
+       nonce 3 -> 5 (démarrage +1, invalidation +1)
+[OK ] 18-x Aucune erreur dans les consoles des navigateurs
+       aucune
+
+RÉSUMÉ
+18-1 fonctionne         Swissquote refuse de signer sans re-KYC, et vers le propriétaire actuel
+18-2 fonctionne         Demande transmise au tiers par le relais : sa console affiche la nouvelle clé et signe (EIP-712), Swissquote vérifie que c'est la signature du tiers enregistré
+18-3 fonctionne         Recovery démarrée depuis l'interface (Swissquote + tiers), relayée et parrainée ; délai affiché, propriétaire inchangé pendant le délai
+18-4 fonctionne         Après le délai : recovery finalisée depuis l'interface ; propriétaire = nouvelle clé ; Swissquote a mis à jour son enregistrement
+18-5 ne fonctionne pas  La nouvelle clé signe depuis le Safe récupéré : invalidation des signatures de gardiens restantes (nonce du module)
+18-x fonctionne         Aucune erreur dans les consoles des navigateurs
+
+$ npm run -s validate:18   # essai 7
+[OK ] 18-1 Swissquote refuse de signer sans re-KYC, et vers le propriétaire actuel
+       403 identity not verified: re-KYC required before any signature ; 403 the new owner must be a new key of the client (not the current owner, not a guardian)
+[OK ] 18-2 Demande transmise au tiers par le relais : sa console affiche la nouvelle clé et signe (EIP-712), Swissquote vérifie que c'est la signature du tiers enregistré
+       lien http://localhost:5184/?req=cfdd1e39a6eca20dffe9d0e8d4acafa6 ; nouvelle clé affichée 0x1Dc9bcfC166fD52dAd32a9f0262579ac95497ff5
+[OK ] 18-3 Recovery démarrée depuis l'interface (Swissquote + tiers), relayée et parrainée ; délai affiché, propriétaire inchangé pendant le délai
+       Recovery started: 0xa5106aeba71064e9a33adf31279de2c72d31f1de23336811aef1d75c88bd6fbe ; applicable après 2026-10-11T00:23:00.000Z ; écran : 096bA39A8dF001FCE603f93D2CDAcF184C4aA (Sepolia)Account created on-chain with this operationRelay the guardians' signatures to start the recovery of 0x292919c03fe12BEAD122998d128081
+
+locator.click: Timeout 90000ms exceeded.
+Call log:
+[2m  - waiting for getByTestId('evm-card').getByRole('button', { name: 'Sign with my Client Wallet' })[22m
+
+  log: [
+    "  - waiting for getByTestId('evm-card').getByRole('button', { name: 'Sign with my Client Wallet' })"
+  ],
+  name: 'TimeoutError'
+}
+
+
+$ npm run -s validate:18   # essai 8
+[ménage] recovery en attente vers 0x1Dc9bcfC166fD52dAd32a9f0262579ac95497ff5, applicable après 2026-10-11T00:23:00.000Z
+[ménage] finalisée : 0xa59d7a6c7ff2b5ee1dca0f82f28391c74eacf5389550041104376b8f4cea2cb0
+[OK ] 18-1 Swissquote refuse de signer sans re-KYC, et vers le propriétaire actuel
+       403 identity not verified: re-KYC required before any signature ; 403 the new owner must be a new key of the client (not the current owner, not a guardian)
+[OK ] 18-2 Demande transmise au tiers par le relais : sa console affiche la nouvelle clé et signe (EIP-712), Swissquote vérifie que c'est la signature du tiers enregistré
+       lien http://localhost:5184/?req=0d59a217130bafef1c82732984b73c39 ; nouvelle clé affichée 0x085568B8A0d0cF806C73961Eb1b4129c7E62F82a
+[OK ] 18-3 Recovery démarrée depuis l'interface (Swissquote + tiers), relayée et parrainée ; délai affiché, propriétaire inchangé pendant le délai
+       Recovery started: 0x5586fb5e0b0c8580087df031ecae70416fc39cdc7eb8f24f042c0549345e3734 ; applicable après 2026-10-11T00:28:24.000Z ; écran : E2c10fcDfc158a511F75C7E25a45D2a410ce0 (Sepolia)Account created on-chain with this operationRelay the guardians' signatures to start the recovery of 0x292919c03fe12BEAD122998d128081
+[OK ] 18-4 Après le délai : recovery finalisée depuis l'interface ; propriétaire = nouvelle clé ; Swissquote a mis à jour son enregistrement
+       Recovery completed: 0x988c75c2411ec1ac8fa8e6fe193569fd881d361d6cde3571739370aa5e49c0bc ; propriétaires 0x085568B8A0d0cF806C73961Eb1b4129c7E62F82a ; enregistré chez Swissquote : 0x085568B8A0d0cF806C73961Eb1b4129c7E62F82a
+[OK ] 18-5 La nouvelle clé signe depuis le Safe récupéré : invalidation des signatures de gardiens restantes (nonce du module)
+       nonce 6 -> 8 (démarrage +1, invalidation +1)
+[OK ] 18-x Aucune erreur dans les consoles des navigateurs
+       aucune
+
+RÉSUMÉ
+18-1 fonctionne         Swissquote refuse de signer sans re-KYC, et vers le propriétaire actuel
+18-2 fonctionne         Demande transmise au tiers par le relais : sa console affiche la nouvelle clé et signe (EIP-712), Swissquote vérifie que c'est la signature du tiers enregistré
+18-3 fonctionne         Recovery démarrée depuis l'interface (Swissquote + tiers), relayée et parrainée ; délai affiché, propriétaire inchangé pendant le délai
+18-4 fonctionne         Après le délai : recovery finalisée depuis l'interface ; propriétaire = nouvelle clé ; Swissquote a mis à jour son enregistrement
+18-5 fonctionne         La nouvelle clé signe depuis le Safe récupéré : invalidation des signatures de gardiens restantes (nonce du module)
+18-x fonctionne         Aucune erreur dans les consoles des navigateurs
+
+$ (entre les essais 3 et 4) finalisation de la recovery restée en attente, par l API locale du Wallet du client (PIN)
+finalisation : 0x4d5e6fdcec9ed77f13b4ba2c0489ece685bf2853907f35d8da4248344d58e9d4 ; propriétaires -> [0x66C8f060c15b4f66578c6C25bEafF5F415c89ADA]

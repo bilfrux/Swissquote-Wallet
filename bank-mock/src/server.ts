@@ -8,8 +8,8 @@ import { Verifier } from "bip322-js";
 import { type NetworkName, type WalletConfig, addresses, clientKeyAddress, combinePsbts, createWalletConfig, inputsBelongTo, outputAt, simulate } from "@sq/bitcoin";
 import { db } from "./db.ts";
 import { signAsSwissquote, signEvmRecovery, swissquoteAccountKey, swissquoteEvmAddress } from "./guardian.ts";
-import { getAddress, isAddress } from "viem";
-import { safeAddressOf } from "@sq/evm";
+import { getAddress, isAddress, verifyTypedData, type Address } from "viem";
+import { ownersOf, readState, recoveryNonce, recoveryTypedData, safeAddressOf } from "@sq/evm";
 import { TEST_CUSTOMERS, customerFromToken, verifyIdentity } from "./kyc.ts";
 import { CUSTOMERS, createSession, customerFromSession, login } from "./bank.ts";
 import { authenticationOptions, passkeyCount, recordStepup, registrationOptions, verifyAuthentication, verifyRegistration } from "./passkeys.ts";
@@ -98,6 +98,47 @@ async function route(req: IncomingMessage, body: any, url: URL) {
       if (!customerId) throw new HttpError(401, "session expired: please log in again");
       const rows = db.prepare("select * from evm_accounts where customer_id = ? order by id").all(customerId) as any[];
       return { swissquote: swissquoteEvmAddress, accounts: rows.map((r) => ({ id: r.id, owner: r.owner, safe: r.safe, tiers: r.tiers, tiersName: r.tiers_name, createdAt: r.created_at })) };
+    }
+
+    case "POST /evm/accounts/sync": {
+      // Après une recovery : le propriétaire enregistré est remplacé par celui que la chaîne indique.
+      const customerId = customerFromSession(req.headers.authorization);
+      if (!customerId) throw new HttpError(401, "session expired: please log in again");
+      const row = db.prepare("select * from evm_accounts where customer_id = ? and safe = ?").get(customerId, getAddress(String(body.safe))) as any;
+      if (!row) throw new HttpError(404, "unknown account");
+      const owners = await ownersOf(row.safe);
+      if (owners.length === 1 && getAddress(owners[0]) !== getAddress(row.owner)) db.prepare("update evm_accounts set owner = ? where id = ?").run(getAddress(owners[0]), row.id);
+      const r = db.prepare("select * from evm_accounts where id = ?").get(row.id) as any;
+      return { id: r.id, owner: r.owner, safe: r.safe, tiers: r.tiers, tiersName: r.tiers_name };
+    }
+
+    case "POST /guardian/evm/sign-recovery": {
+      // Signature EIP-712 de Swissquote sur une demande de recovery : après re-KYC, pour un Safe du client, vers une
+      // nouvelle clé. Couche en plus : le contrat exige aussi le tiers, applique le délai, et le client peut annuler.
+      const customerId = customerFromToken(body.token);
+      const log = (decision: string, reason: string) =>
+        db.prepare("insert into sign_log (customer_id, network, decision, reason, psbt) values (?, ?, ?, ?, ?)").run(customerId, "sepolia", decision, reason, JSON.stringify({ safe: body.safe, newOwner: body.newOwner }));
+      try {
+        if (!customerId) throw new HttpError(403, "identity not verified: re-KYC required before any signature");
+        if (!isAddress(String(body.safe)) || !isAddress(String(body.newOwner))) throw new HttpError(400, "invalid Ethereum address");
+        const safe = getAddress(body.safe), newOwner = getAddress(body.newOwner);
+        const row = db.prepare("select * from evm_accounts where customer_id = ? and safe = ?").get(customerId, safe) as any;
+        if (!row) throw new HttpError(403, "this account does not belong to the verified client");
+        const st = await readState(safe);
+        if (!st.moduleEnabled) throw new HttpError(409, "recovery is not active on this account");
+        if (st.owners.map(getAddress).includes(newOwner) || st.guardians.map(getAddress).includes(newOwner) || newOwner === swissquoteEvmAddress)
+          throw new HttpError(403, "the new owner must be a new key of the client (not the current owner, not a guardian)");
+        const nonce = await recoveryNonce(safe);
+        const signature = await signEvmRecovery((await recoveryTypedData(safe, newOwner, nonce)) as any);
+        log("signé", `evm ${safe} -> ${newOwner} (nonce ${nonce})`);
+        notify(customerId, null, "recovery-signee", "Swissquote signed an Ethereum recovery request",
+          `Swissquote signed a request to give your Ethereum account ${safe} to the new key ${newOwner}, after identity verification. If this was not you, cancel it from your wallet as soon as it starts.`,
+          `evmsign:${customerId}:${safe}:${Date.now()}`);
+        return { signer: swissquoteEvmAddress, signature, nonce: nonce.toString() };
+      } catch (e: any) {
+        log("refusé", e.message);
+        throw e;
+      }
     }
 
     case "POST /auth/login": {
@@ -255,6 +296,16 @@ async function route(req: IncomingMessage, body: any, url: URL) {
     case "POST /relay/signed": {
       const row = db.prepare("select psbt from relay where id = ?").get(String(body.id ?? "")) as any;
       if (!row) throw new HttpError(404, "unknown request");
+      if (row.psbt.startsWith("{")) {
+        // Demande Ethereum : la signature doit être celle du tiers ENREGISTRÉ pour ce Safe, sur CETTE demande.
+        const r = JSON.parse(row.psbt);
+        const acc = db.prepare("select tiers from evm_accounts where safe = ?").get(r.safe) as any;
+        const td = await recoveryTypedData(r.safe, r.newOwner, BigInt(r.nonce));
+        const ok = acc && await verifyTypedData({ address: acc.tiers as Address, ...(td as any), signature: String(body.signature ?? "") as `0x${string}` }).catch(() => false);
+        if (!ok) throw new HttpError(400, "signature is not the registered trusted contact's signature of this request");
+        db.prepare("update relay set signed = ? where id = ?").run(JSON.stringify({ signer: acc.tiers, signature: body.signature }), String(body.id));
+        return { ok: true };
+      }
       // Doit être la MÊME transaction (sinon combinePsbts échoue) : le tiers ne peut pas substituer une autre dépense.
       try { combinePsbts([row.psbt, String(body.psbt ?? "")]); } catch { throw new HttpError(400, "signed PSBT unrelated to the request"); }
       db.prepare("update relay set signed = ? where id = ?").run(String(body.psbt), String(body.id));

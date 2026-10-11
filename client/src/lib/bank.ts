@@ -102,3 +102,6 @@ export type EvmAccount = { id: number; owner: `0x${string}`; safe: `0x${string}`
 export const evmAccounts = () => call("/evm/accounts") as Promise<{ swissquote: `0x${string}`; accounts: EvmAccount[] }>;
 export const registerEvm = (owner: string, tiers: string, tiersName?: string | null) =>
   call("/evm/accounts/register", { owner, tiers, tiersName }) as Promise<EvmAccount & { swissquote: `0x${string}` }>;
+export const evmSignRecovery = (token: string, safe: string, newOwner: string) =>
+  call("/guardian/evm/sign-recovery", { token, safe, newOwner }) as Promise<{ signer: `0x${string}`; signature: `0x${string}`; nonce: string }>;
+export const syncEvm = (safe: string) => call("/evm/accounts/sync", { safe }) as Promise<EvmAccount>;

@@ -7,7 +7,8 @@ import { base64 } from "@scure/base";
 import { type NetworkName, btcNetwork } from "@sq/bitcoin";
 import { accountKey, masterFromMnemonic, newMnemonic } from "@sq/bitcoin/keys";
 import { signPsbtWithMnemonic } from "@sq/bitcoin/sign";
-import { evmAddressFromMnemonic } from "@sq/evm/keys";
+import { evmAccountFromMnemonic, evmAddressFromMnemonic } from "@sq/evm/keys";
+import { EXPLORER, RECOVERY_DELAY_LABEL, readState, recoveryTypedData } from "@sq/evm";
 
 // Relais Swissquote (A3) : la demande arrive par un lien ?req=… ; la signature y est renvoyée. Swissquote transporte
 // seulement : la phrase du tiers ne quitte jamais cette console.
@@ -62,6 +63,9 @@ export function Console() {
     }
   };
 
+  // Demande de recovery Ethereum (relais A3, format JSON) : signée en EIP-712 par la clé Ethereum du tiers.
+  const evmReq: { kind: "evm-recovery"; safe: `0x${string}`; newOwner: `0x${string}`; nonce: string } | null = psbt.trim().startsWith("{") ? JSON.parse(psbt) : null;
+  if (evmReq) return <EvmRecovery req={evmReq} phraseRef={phraseRef} withPhrase={withPhrase} error={error} setError={setError} />;
   let decoded: ReturnType<typeof decode> | null = null;
   let decodeError: string | null = null;
   if (psbt.trim()) try { decoded = decode(psbt); } catch (e: any) { decodeError = `unreadable PSBT: ${e.message}`; }
@@ -156,6 +160,51 @@ export function Console() {
             ))}
           </div>
         )}
+      </section>
+    </main>
+  );
+}
+
+function EvmRecovery({ req, phraseRef, withPhrase, error, setError }: {
+  req: { safe: `0x${string}`; newOwner: `0x${string}`; nonce: string };
+  phraseRef: React.RefObject<HTMLTextAreaElement | null>;
+  withPhrase: <T,>(f: (p: string) => T) => T | undefined;
+  error: string | null; setError: (e: string | null) => void;
+}) {
+  const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  return (
+    <main>
+      <header>
+        <h1>Guardian console · trusted contact</h1>
+        <p className="badge">Independent of Swissquote and the client app · Ethereum Sepolia · no data stored</p>
+      </header>
+      <section>
+        <h2>Ethereum recovery request</h2>
+        <div className="summary">
+          <p><strong>Account:</strong> <a className="mono" href={`${EXPLORER}/address/${req.safe}`} target="_blank" rel="noreferrer">{req.safe}</a></p>
+          <p><strong>New owner (must be a NEW key of the client):</strong> <span className="mono" data-testid="evm-new-owner">{req.newOwner}</span></p>
+          <p><strong>Effect:</strong> once you and Swissquote have both signed, the request can be started; it applies only after the {RECOVERY_DELAY_LABEL} delay enforced by the contract, and the current owner can cancel it in the meantime.</p>
+        </div>
+        <p className="note">Check with the client, through another channel, that this new key is really theirs.</p>
+        <p><strong>Your guardian phrase</strong> (entered for this signature, erased immediately):</p>
+        <textarea ref={phraseRef} rows={2} className="mono" autoComplete="off" spellCheck={false} placeholder="word1 word2 … word24" />
+        {sent ? <p className="success" data-testid="relay-sent">Signature sent back to the client via Swissquote.</p> : (
+          <button disabled={busy} onClick={async () => {
+            setBusy(true);
+            try {
+              const signed = withPhrase((p) => evmAccountFromMnemonic(p).account);
+              if (!signed) return;
+              const st = await readState(req.safe);
+              if (!st.guardians.map((g) => g.toLowerCase()).includes(signed.address.toLowerCase())) throw new Error(`your Ethereum key ${signed.address} is not a guardian of this account`);
+              const signature = await signed.signTypedData((await recoveryTypedData(req.safe, req.newOwner, BigInt(req.nonce))) as any);
+              const r = await fetch(`${BANK_URL}/relay/signed`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: REQ, signature }) });
+              if (!r.ok) throw new Error((await r.json()).error);
+              setSent(true);
+            } catch (e: any) { setError(e.message); } finally { setBusy(false); }
+          }}>{busy ? "Signing…" : "Sign as trusted contact and send back via Swissquote"}</button>
+        )}
+        {error && <p className="error">{error}</p>}
       </section>
     </main>
   );

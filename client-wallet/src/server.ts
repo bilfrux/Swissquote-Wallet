@@ -15,7 +15,7 @@ import { Signer } from "bip322-js";
 import { type NetworkName, btcNetwork, createWalletConfig, keyAddressOf, simulate } from "@sq/bitcoin";
 import { accountKey, masterFromMnemonic, newMnemonic } from "@sq/bitcoin/keys";
 import { signPsbtWithMnemonic } from "@sq/bitcoin/sign";
-import { type JsonOp, describeOp, safeAddressOf, signOp } from "@sq/evm";
+import { type JsonOp, describeOp, ownersOf, safeAddressOf, signOp } from "@sq/evm";
 import { evmAccountFromMnemonic, evmAddressFromMnemonic } from "@sq/evm/keys";
 import { getAddress, type Address } from "viem";
 import { type Policy, type StoredWallet, load, publicView, save } from "./store.ts";
@@ -85,11 +85,16 @@ async function describe(psbt: string, network: NetworkName) {
 }
 
 // Opération Ethereum : à quel wallet appartient le Safe, et que fait-elle (décodée ici, sans faire confiance à l'appli).
-function describeEvm(op: JsonOp, wallets: StoredWallet[]) {
+// Propriétaire lu on-chain si le Safe existe (après une recovery, ce n'est plus la clé qui a servi à le créer),
+// sinon déduit de l'adresse (Safe pas encore déployé).
+async function describeEvm(op: JsonOp, wallets: StoredWallet[]) {
   if (!op?.sender || !op.callData) throw new HttpError(400, "operation missing");
   const sender = getAddress(op.sender);
-  const w = wallets.find((x) => x.evmAddress && safeAddressOf(x.evmAddress as Address) === sender);
-  if (!w) throw new HttpError(400, "this operation is not for an account of your wallets");
+  const owners = (await ownersOf(sender).catch(() => { throw new HttpError(502, "cannot read the account on-chain"); })).map(getAddress);
+  const w = owners.length
+    ? wallets.find((x) => x.evmAddress && owners.includes(getAddress(x.evmAddress)))
+    : wallets.find((x) => x.evmAddress && safeAddressOf(x.evmAddress as Address) === sender);
+  if (!w) throw new HttpError(400, "this operation is not for an account controlled by your wallets");
   let d;
   try { d = describeOp(op); } catch (e: any) { throw new HttpError(400, `operation not decodable: ${e.message}`); }
   return { wallet: publicView(w), owner: w.evmAddress, ...d };
@@ -153,10 +158,10 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
     }
 
     case "POST /api/evm/describe":
-      return describeEvm(body.op, wallets);
+      return await describeEvm(body.op, wallets);
 
     case "POST /api/evm/sign": {
-      const d = describeEvm(body.op, wallets);
+      const d = await describeEvm(body.op, wallets);
       const unknown = d.calls.filter((c) => c.kind === "unknown" || c.risk);
       if (unknown.length) throw new HttpError(400, `refused: ${unknown.map((c) => c.risk ?? c.text).join("; ")}`);
       const w = wallets.find((x) => x.id === d.wallet.id)!;

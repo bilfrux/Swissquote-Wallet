@@ -8,7 +8,7 @@ import { sepolia } from "viem/chains";
 
 export const CHAIN = sepolia;
 export const CHAIN_ID = BigInt(sepolia.id);
-const env = (k: string): string | undefined => (typeof process !== "undefined" ? process.env?.[k] : undefined) ?? (import.meta as any).env?.[k];
+const env = (k: string): string | undefined => (globalThis as any).process?.env?.[k] ?? (import.meta as any).env?.[k];
 export const NODE_URL = env("VITE_EVM_RPC_URL") ?? env("EVM_RPC_URL") ?? "https://ethereum-sepolia-rpc.publicnode.com";
 // Bundler et paymaster PUBLICS de Candide (sans clé API, limités par IP) : opérés par un tiers, pas par Swissquote.
 export const BUNDLER_URL = env("VITE_EVM_BUNDLER_URL") ?? env("EVM_BUNDLER_URL") ?? "https://api.candide.dev/public/v3/11155111";
@@ -57,7 +57,14 @@ const accountFor = (owner: Address, deployed: boolean) => (deployed ? new SafeAc
 export const isDeployed = async (a: Address) => { const c = await publicClient.getCode({ address: a }); return !!c && c !== "0x"; };
 
 // ---- Lecture de l'état (au bloc donné : le nœud public peut renvoyer un état en retard, voir étape 16) ----
-export async function readState(safe: Address, blockNumber?: bigint) {
+// Lecture à un bloc précis : le nœud public peut ne pas l'avoir encore (« block not found ») : on réessaie ~40 s.
+export async function readState(safe: Address, blockNumber?: bigint): ReturnType<typeof readStateOnce> {
+  for (let i = 0; ; i++) {
+    try { return await readStateOnce(safe, blockNumber); }
+    catch (e) { if (blockNumber === undefined || i >= 20) throw e; await new Promise((r) => setTimeout(r, 2000)); }
+  }
+}
+async function readStateOnce(safe: Address, blockNumber?: bigint) {
   const deployed = !!(await publicClient.getCode({ address: safe, blockNumber })) && (await publicClient.getCode({ address: safe, blockNumber })) !== "0x";
   const usdc = await publicClient.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [safe], blockNumber });
   if (!deployed) return { deployed, usdc, owners: [] as Address[], guardians: [] as Address[], threshold: 0n, moduleEnabled: false, pending: null };
@@ -94,13 +101,20 @@ const BIG = ["nonce", "callGasLimit", "verificationGasLimit", "preVerificationGa
 export const opFromJson = (j: JsonOp): UserOperationV7 =>
   Object.fromEntries(Object.entries(j).map(([k, v]) => [k, BIG.includes(k) && v != null ? BigInt(v) : v])) as unknown as UserOperationV7;
 
-// Construit une opération du Safe de `owner` (déploiement inclus si besoin) et la fait parrainer par le paymaster.
-export async function buildSponsoredOp(owner: Address, calls: MetaTransaction[]) {
-  const safe = safeAddressOf(owner);
-  const account = accountFor(owner, await isDeployed(safe));
+// Construit une opération du Safe `safe` (déploiement inclus si besoin, à partir de `owner`) et la fait parrainer.
+// Après une recovery, l'adresse du Safe ne se déduit plus du propriétaire : on la passe explicitement.
+export async function buildSponsoredOp(acc: { safe: Address; owner: Address }, calls: MetaTransaction[]) {
+  const deployed = await isDeployed(acc.safe);
+  if (!deployed && safeAddressOf(acc.owner) !== getAddress(acc.safe)) throw new Error("undeployed account that does not match its owner");
+  const account = deployed ? new SafeAccountV0_3_0(acc.safe) : SafeAccountV0_3_0.initializeNewAccount([acc.owner]);
   let op = await account.createUserOperation(calls, NODE_URL, BUNDLER_URL);
   ({ userOperation: op } = await new Erc7677Paymaster(BUNDLER_URL).createPaymasterUserOperation(account, op, BUNDLER_URL));
   return opToJson(op);
+}
+// Propriétaires actuels d'un Safe (lecture on-chain ; [] s'il n'est pas déployé).
+export async function ownersOf(safe: Address, blockNumber?: bigint): Promise<Address[]> {
+  if (!(await isDeployed(safe))) return [];
+  return [...(await publicClient.readContract({ address: safe, abi: safeAbi, functionName: "getOwners", blockNumber }))] as Address[];
 }
 // Signature par l'EOA propriétaire (format Safe 4337, EIP-712) : appelée UNIQUEMENT dans le Wallet du client.
 export const signOp = (j: JsonOp, ownerPrivateKey: Hex): string =>
