@@ -104,6 +104,7 @@ try {
   await app.getByRole("button", { name: "Log in", exact: true }).click();
   await app.getByText(MOBILE ? "Savings" : "Private account").first().waitFor();
   await app.getByText(/8[’']420\.15/).first().waitFor(); // comptes CHF chargés
+  await app.getByText(MOBILE ? "Create" : "Create my wallet").first().waitFor(); // état du wallet lu (« … » pendant le chargement)
   const overview = await app.locator("main").textContent();
   report("6-2", "Connexion e-banking simulée (mauvais mot de passe refusé), aperçu avec comptes CHF et tuile « Créer mon wallet »",
     !!badLogin?.includes("incorrect") && (MOBILE ? !!overview?.includes("Total value") && !!overview?.includes("Cash") && !!overview?.includes("Create") : !!overview?.includes("Private account") && !!overview?.includes("Create my wallet")), `${badLogin} ; aperçu affiché`);
@@ -223,7 +224,10 @@ try {
   await app.getByText(/0\.399/).first().waitFor({ timeout: 15000 });
   await app.getByRole("button", { name: "Home", exact: true }).click();
   const tile = await app.getByTestId("home-crypto").textContent();
-  report("6-8", "Accueil : la ligne / tuile Crypto affiche le solde du wallet (contre-valeur CHF)", MOBILE ? /33[’']99\d\.\d\d/.test(tile ?? "") : !!tile?.includes("0.39") && !!tile?.includes("CHF"), tile?.replace(/\s+/g, " ") ?? "");
+  // Contre-valeur au prix du marché fourni par Swissquote (étape 20), ou au cours simulé s'il est indisponible.
+  const px = await fetch(`${BANK}/market/prices`).then((r) => r.json()).then((j) => j.data.bitcoin.chf as number, () => 85000);
+  const shown = Number((tile ?? "").replace(/[’'\s]/g, "").match(/(\d+\.\d\d)/)?.[1] ?? NaN);
+  report("6-8", "Accueil : la ligne / tuile Crypto affiche le solde du wallet (contre-valeur CHF)", MOBILE ? Math.abs(shown - 0.4 * px) < 0.01 * px : !!tile?.includes("0.39") && !!tile?.includes("CHF"), `${tile?.replace(/\s+/g, " ") ?? ""} ; prix BTC ${px} CHF`);
 
   // --- Montant élevé : ré-authentification par passkey (Swissquote) + confirmation renforcée dans le wallet ---
   await app.getByRole("button", { name: "Crypto", exact: true }).click();

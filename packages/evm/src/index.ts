@@ -21,7 +21,8 @@ export const USDC_DECIMALS = 6;
 const MULTISEND = getAddress(SafeAccountV0_3_0.DEFAULT_MULTISEND_CONTRACT_ADDRESS);
 export const EXPLORER = "https://sepolia.etherscan.io";
 
-export const publicClient = createPublicClient({ chain: sepolia, transport: http(NODE_URL) });
+// Requêtes regroupées (JSON-RPC batch) : le nœud public limite le débit (429) ; une page en émettait ~100 en 25 s.
+export const publicClient = createPublicClient({ chain: sepolia, transport: http(NODE_URL, { batch: { batchSize: 50, wait: 20 } }) });
 const module_ = new SocialRecoveryModule(RECOVERY_MODULE);
 
 export const erc20Abi = parseAbi([

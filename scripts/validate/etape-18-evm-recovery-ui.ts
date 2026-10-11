@@ -15,10 +15,13 @@ const state = JSON.parse(readFileSync(".local/signet-ui/state.json", "utf8"));
 const SHOTS = "docs/validation/captures";
 const { report, summary } = makeReport();
 const browser = await chromium.launch({ executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", headless: true });
-const errors: string[] = [];
+const errors: string[] = [], failed: string[] = [];
 const device = async () => {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 1300 } });
-  ctx.on("page", (p) => { p.on("pageerror", (e) => errors.push(e.message)); p.on("console", (m) => m.type() === "error" && errors.push(m.text())); });
+  ctx.on("page", (p) => {
+    p.on("pageerror", (e) => errors.push(e.message)); p.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+    p.on("response", (r) => { if (r.status() >= 400) failed.push(`${r.status()} ${new URL(r.url()).host}`); }); // quel serveur refuse
+  });
   return ctx;
 };
 const popupOf = async (ctx: BrowserContext, click: () => Promise<void>) => { const [p] = await Promise.all([ctx.waitForEvent("page", { timeout: 150000 }), click()]); await p.waitForLoadState(); return p; };
@@ -126,9 +129,24 @@ try {
     !!pending.pending && pending.pending.newOwners.map(getAddress).includes(newOwner) && getAddress(pending.owners[0]) === getAddress(before.owners[0]) && startScreen.includes("Relay the guardians' signatures"),
     `${started.trim()} ; applicable après ${pending.pending ? new Date(pending.pending.executeAfter * 1000).toISOString() : "?"} ; écran : ${startScreen.replace(/\s+/g, " ").slice(80, 260)}`);
 
+  // 18-6 La progression survit à un rechargement de la page (mémorisée dans la session, étape 20).
+  await app.reload();
+  await app.getByRole("button", { name: "Crypto", exact: true }).click();
+  await toEthereum(app);
+  await card.getByTestId("evm-guardians").waitFor({ timeout: 60000 });
+  await card.getByRole("button", { name: "Recover", exact: true }).click();
+  const kept = await rec.getByTestId("evm-countdown").waitFor({ timeout: 30000 }).then(() => true, () => false);
+  report("18-6", "Après un rechargement de la page pendant le délai, la recovery reprend où elle en était (compte à rebours, bouton de finalisation)", kept, `compte à rebours retrouvé : ${kept}`);
+
   // Finalisation après le délai, puis invalidation des signatures restantes (règle du projet).
   const fin = rec.getByRole("button", { name: "Complete the recovery" });
-  await fin.waitFor({ timeout: 300000 });
+  try { await fin.waitFor({ timeout: 300000 }); }
+  catch (e) {
+    await shot(app, "ECHEC-finalisation");
+    console.log("PANNEAU :", (await rec.textContent().catch(() => "(absent)"))?.replace(/\s+/g, " "));
+    console.log("CARTE :", (await card.textContent())?.replace(/\s+/g, " ").slice(0, 600));
+    throw e;
+  }
   await fin.click();
   const w4 = await popupOf(ctx, () => card.getByRole("button", { name: "Sign with my Client Wallet" }).click({ timeout: 90000 }));
   await w4.getByLabel("Wallet PIN").fill(NEW_PIN);
@@ -156,5 +174,5 @@ try {
 } finally {
   await browser.close();
 }
-report("18-x", "Aucune erreur dans les consoles des navigateurs", errors.length === 0, errors.join(" | ") || "aucune");
+report("18-x", "Aucune erreur dans les consoles des navigateurs", errors.length === 0, `${errors.join(" | ") || "aucune"} ; réponses en erreur : ${[...new Set(failed)].join(", ") || "aucune"}`);
 process.exit(summary() ? 0 : 1);

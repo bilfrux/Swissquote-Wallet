@@ -1,0 +1,177 @@
+$ npm run -s validate:20   # e20-run1
+[OK ] 20-1 Flux de prix fourni par bank-mock (CoinGecko), deuxième appel servi par le cache (même horodatage)
+       BTC 68916 CHF, USDC 0.83045 CHF ; source à 2026-10-11T01:33:44.097Z ; périmé : false
+[KO ] 20-2 Positions : valeur CHF = quantité × prix du marché ; self-custody (vos clés) séparée du compte en garde chez Swissquote
+       BTC NaN × 68916 → 0.00 ; USDC 17 × 0.83045 → 14.12 ; groupes : Self-custody · your keys | Held by Swissquote · custody
+
+locator.textContent: Timeout 5000ms exceeded.
+Call log:
+[2m  - waiting for getByTestId('price-chart-bitcoin').locator('.pc-tip-price')[22m
+
+  log: [
+    "  - waiting for getByTestId('price-chart-bitcoin').locator('.pc-tip-price')"
+  ],
+  name: 'TimeoutError'
+}
+
+
+$ npm run -s validate:20   # e20-run2
+[OK ] 20-1 Flux de prix fourni par bank-mock (CoinGecko), deuxième appel servi par le cache (même horodatage)
+       BTC 68916 CHF, USDC 0.83045 CHF ; source à 2026-10-11T01:33:44.097Z ; périmé : false
+[OK ] 20-2 Positions : valeur CHF = quantité × prix du marché ; self-custody (vos clés) séparée du compte en garde chez Swissquote
+       BTC 0.00008898 × 68916 → 6.13 ; USDC 17 × 0.83045 → 14.12 ; groupes : Self-custody · your keys | Held by Swissquote · custody
+[OK ] 20-3 Courbe Bitcoin : période 1W chargée, réticule au survol avec prix et date
+       info-bulle : CHF 69'277
+[KO ] 20-4 Pastilles des positions : « Send BTC » ouvre l'envoi Bitcoin ; « Receive USDC » affiche Ethereum et sa réception
+       envoi Bitcoin ouvert : false
+[OK ] 20-5 Total crypto identique sur la page Crypto et dans le pied de page (BTC + USDC + compte en garde)
+       page : 55'153.05 ; pied : Total value 78'573.20 CHFCHF accounts 23'420.15 CHFCrypto 55'153.05 CHFBitcoin network signetSimulated bank for the demo
+[OK ] 20-6 Flux de prix indisponible : la page reste utilisable, cours simulé signalé, message à la place de la courbe
+       Simulated rates (market data unavailable). ; …≈ 0.00 CHF (simulated rate)
+[OK ] 20-x Aucune erreur dans les consoles (contexte normal)
+       aucune
+
+RÉSUMÉ
+20-1 fonctionne         Flux de prix fourni par bank-mock (CoinGecko), deuxième appel servi par le cache (même horodatage)
+20-2 fonctionne         Positions : valeur CHF = quantité × prix du marché ; self-custody (vos clés) séparée du compte en garde chez Swissquote
+20-3 fonctionne         Courbe Bitcoin : période 1W chargée, réticule au survol avec prix et date
+20-4 ne fonctionne pas  Pastilles des positions : « Send BTC » ouvre l'envoi Bitcoin ; « Receive USDC » affiche Ethereum et sa réception
+20-5 fonctionne         Total crypto identique sur la page Crypto et dans le pied de page (BTC + USDC + compte en garde)
+20-6 fonctionne         Flux de prix indisponible : la page reste utilisable, cours simulé signalé, message à la place de la courbe
+20-x fonctionne         Aucune erreur dans les consoles (contexte normal)
+
+$ npm run -s validate:20   # e20-run3
+[OK ] 20-1 Flux de prix fourni par bank-mock (CoinGecko), deuxième appel servi par le cache (même horodatage)
+       BTC 68916 CHF, USDC 0.830465 CHF ; source à 2026-10-11T01:34:54.627Z ; périmé : false
+[OK ] 20-2 Positions : valeur CHF = quantité × prix du marché ; self-custody (vos clés) séparée du compte en garde chez Swissquote
+       BTC 0.00008898 × 68916 → 6.13 ; USDC 17 × 0.830465 → 14.12 ; groupes : Self-custody · your keys | Held by Swissquote · custody
+[OK ] 20-3 Courbe Bitcoin : période 1W chargée, réticule au survol avec prix et date
+       info-bulle : CHF 69'277
+[OK ] 20-4 Pastilles des positions : « Send BTC » ouvre l'envoi Bitcoin ; « Receive USDC » affiche Ethereum et sa réception
+       envoi Bitcoin ouvert : true
+[OK ] 20-5 Total crypto identique sur la page Crypto et dans le pied de page (BTC + USDC + compte en garde)
+       page : 55'153.05 ; pied : Total value 78'573.20 CHFCHF accounts 23'420.15 CHFCrypto 55'153.05 CHFBitcoin network signetSimulated bank for the demo
+[OK ] 20-6 Flux de prix indisponible : la page reste utilisable, cours simulé signalé, message à la place de la courbe
+       Simulated rates (market data unavailable). ; …≈ 0.00 CHF (simulated rate)
+[OK ] 20-x Aucune erreur dans les consoles (contexte normal)
+       aucune
+
+RÉSUMÉ
+20-1 fonctionne         Flux de prix fourni par bank-mock (CoinGecko), deuxième appel servi par le cache (même horodatage)
+20-2 fonctionne         Positions : valeur CHF = quantité × prix du marché ; self-custody (vos clés) séparée du compte en garde chez Swissquote
+20-3 fonctionne         Courbe Bitcoin : période 1W chargée, réticule au survol avec prix et date
+20-4 fonctionne         Pastilles des positions : « Send BTC » ouvre l'envoi Bitcoin ; « Receive USDC » affiche Ethereum et sa réception
+20-5 fonctionne         Total crypto identique sur la page Crypto et dans le pied de page (BTC + USDC + compte en garde)
+20-6 fonctionne         Flux de prix indisponible : la page reste utilisable, cours simulé signalé, message à la place de la courbe
+20-x fonctionne         Aucune erreur dans les consoles (contexte normal)
+
+$ npm run -s validate:20   # dernier essai, API Bitcoin signet limitée (429 blockstream.info)
+[OK ] 20-1 Flux de prix fourni par bank-mock (CoinGecko), deuxième appel servi par le cache (même horodatage)
+       BTC 68951 CHF, USDC 0.83044 CHF ; source à 2026-10-11T02:26:37.030Z ; périmé : false
+
+locator.waitFor: Timeout 60000ms exceeded.
+Call log:
+[2m  - waiting for getByTestId('positions').locator('tr.pos-row').first().getByText(/\d BTC/) to be visible[22m
+
+  log: [
+    "  - waiting for getByTestId('positions').locator('tr.pos-row').first().getByText(/\\d BTC/) to be visible"
+  ],
+  name: 'TimeoutError'
+}
+
+
+$ diagnostic : requêtes externes à l ouverture de la page Ethereum (25 s)
+avant : {"ethereum-sepolia-rpc.publicnode.com":109,"blockstream.info":1} ; après regroupement : {"ethereum-sepolia-rpc.publicnode.com":12,"blockstream.info":1}
+
+$ npm run -s validate:18   # e20-v18
+[OK ] 18-1 Swissquote refuse de signer sans re-KYC, et vers le propriétaire actuel
+       403 identity not verified: re-KYC required before any signature ; 403 the new owner must be a new key of the client (not the current owner, not a guardian)
+[OK ] 18-2 Demande transmise au tiers par le relais : sa console affiche la nouvelle clé et signe (EIP-712), Swissquote vérifie que c'est la signature du tiers enregistré
+       lien http://localhost:5184/?req=c27c8eb22061ea8f92779e890918d04f ; nouvelle clé affichée 0xeee34319189430C32bcC3D722a70Fe2Ad63f5a79
+[OK ] 18-3 Recovery démarrée depuis l'interface (Swissquote + tiers), relayée et parrainée ; délai affiché, propriétaire inchangé pendant le délai
+       Recovery started: 0x64a96d24239a53c2be1de59733c0ed2d3a5d528374fe858103353a60a98a4433 ; applicable après 2026-10-11T01:54:00.000Z ; écran : E33b3c96d0d42dEc255C55f30853b0a3e4396 (Sepolia)Account created on-chain with this operationRelay the guardians' signatures to start the recovery of 0x292919c03fe12BEAD122998d128081
+
+locator.waitFor: Timeout 300000ms exceeded.
+Call log:
+[2m  - waiting for getByTestId('evm-card').getByTestId('evm-recovery').getByRole('button', { name: 'Complete the recovery' }) to be visible[22m
+
+  log: [
+    "  - waiting for getByTestId('evm-card').getByTestId('evm-recovery').getByRole('button', { name: 'Complete the recovery' }) to be visible"
+  ],
+  name: 'TimeoutError'
+}
+
+
+$ npm run -s validate:18   # e20-v18c
+[OK ] 18-1 Swissquote refuse de signer sans re-KYC, et vers le propriétaire actuel
+       403 identity not verified: re-KYC required before any signature ; 403 the new owner must be a new key of the client (not the current owner, not a guardian)
+[OK ] 18-2 Demande transmise au tiers par le relais : sa console affiche la nouvelle clé et signe (EIP-712), Swissquote vérifie que c'est la signature du tiers enregistré
+       lien http://localhost:5184/?req=be8185d0a10f086451919857e07954fe ; nouvelle clé affichée 0x6a3d210Ec1a82f551Fc61a6B723A0E7616E45Fc5
+[OK ] 18-3 Recovery démarrée depuis l'interface (Swissquote + tiers), relayée et parrainée ; délai affiché, propriétaire inchangé pendant le délai
+       Recovery started: 0x379b13c52ef6fd5d6fd20ecbad93e0765d904f9233419922927d604312740121 ; applicable après 2026-10-11T02:06:24.000Z ; écran : 52C964d7871990EDc5024847008a928536c95 (Sepolia)Account created on-chain with this operationRelay the guardians' signatures to start the recovery of 0x292919c03fe12BEAD122998d128081
+[KO ] 18-4 Après le délai : recovery finalisée depuis l'interface ; propriétaire = nouvelle clé ; Swissquote a mis à jour son enregistrement
+       Recovery completed: 0x34520a44590e96a7c219912d8397f8aea1a7dfb55c0698ef003cc4c7cb482b9b ; propriétaires 0x6a3d210Ec1a82f551Fc61a6B723A0E7616E45Fc5 ; enregistré chez Swissquote : 0xD639ac84E3415c61de72c604Df150c5003f6f1a2
+[OK ] 18-5 La nouvelle clé signe depuis le Safe récupéré : invalidation des signatures de gardiens restantes (nonce du module)
+       nonce 14 -> 16 (démarrage +1, invalidation +1)
+[KO ] 18-x Aucune erreur dans les consoles des navigateurs
+       Failed to load resource: the server responded with a status of 429 (Too Many Requests)
+
+RÉSUMÉ
+18-1 fonctionne         Swissquote refuse de signer sans re-KYC, et vers le propriétaire actuel
+18-2 fonctionne         Demande transmise au tiers par le relais : sa console affiche la nouvelle clé et signe (EIP-712), Swissquote vérifie que c'est la signature du tiers enregistré
+18-3 fonctionne         Recovery démarrée depuis l'interface (Swissquote + tiers), relayée et parrainée ; délai affiché, propriétaire inchangé pendant le délai
+18-4 ne fonctionne pas  Après le délai : recovery finalisée depuis l'interface ; propriétaire = nouvelle clé ; Swissquote a mis à jour son enregistrement
+18-5 fonctionne         La nouvelle clé signe depuis le Safe récupéré : invalidation des signatures de gardiens restantes (nonce du module)
+18-x ne fonctionne pas  Aucune erreur dans les consoles des navigateurs
+
+$ npm run -s validate:18   # e20-v18e
+[ménage] recovery en attente vers 0x58fBc1f40fC49aB945fcf1e7855a4f328c331007, applicable après 2026-10-11T02:11:12.000Z
+[ménage] finalisée : 0x46ab5fea225bac5228d6319a735a2740f6e31f86195ca3043d37cc7914df0bd0
+[OK ] 18-1 Swissquote refuse de signer sans re-KYC, et vers le propriétaire actuel
+       403 identity not verified: re-KYC required before any signature ; 403 the new owner must be a new key of the client (not the current owner, not a guardian)
+[OK ] 18-2 Demande transmise au tiers par le relais : sa console affiche la nouvelle clé et signe (EIP-712), Swissquote vérifie que c'est la signature du tiers enregistré
+       lien http://localhost:5184/?req=2e1a226f3ea0bc3d54c7460080d4b84e ; nouvelle clé affichée 0xbb21717cF3aCc92b4313A215e46e85E31AD7e65d
+[OK ] 18-3 Recovery démarrée depuis l'interface (Swissquote + tiers), relayée et parrainée ; délai affiché, propriétaire inchangé pendant le délai
+       Recovery started: 0x15692c8812d02615af3c3d9f51cf96d446f8e099b49ba1fcd41fa281e2bb2fe9 ; applicable après 2026-10-11T02:18:12.000Z ; écran : c12C9E38256754b36fb5A7A1d791C15D599b5 (Sepolia)Account created on-chain with this operationRelay the guardians' signatures to start the recovery of 0x292919c03fe12BEAD122998d128081
+[montages] départ : wallet-page=1791684890740 evm-card=1791684890768 evm-recovery=1791684917152
+PANNEAU : Recover this Ethereum accountSwissquote and Marie Dupont must both sign; the contract then waits 3 minutes, during which the current key can cancel.1. Verify your identity with SwissquoteVerify my identity
+CARTE : Recovery in progress on this account: ownership would go to 0xbb2171…D7e65d after 11/10/2026, 04:18:12. If you did not ask for it, cancel it now.Cancel this recoveryRecovery started: 0x15692c8812d02615af3c3d9f51cf96d446f8e099b49ba1fcd41fa281e2bb2fe9Ethereum · USDCself-custody · Sepolia · 0x292919…5723AA ⧉0x292919c03fe12BEAD122998d1280812eeD5723AA Reload15 USDC≈ 12.44 CHF (market price, tes
+
+locator.waitFor: Timeout 300000ms exceeded.
+Call log:
+[2m  - waiting for getByTestId('evm-card').getByTestId('evm-recovery').getByRole('button', { name: 'Complete the recovery' }) to be visible[22m
+
+  log: [
+    "  - waiting for getByTestId('evm-card').getByTestId('evm-recovery').getByRole('button', { name: 'Complete the recovery' }) to be visible"
+  ],
+  name: 'TimeoutError'
+}
+
+
+$ npm run -s validate:18   # e20-v18f
+[ménage] recovery en attente vers 0xbb21717cF3aCc92b4313A215e46e85E31AD7e65d, applicable après 2026-10-11T02:18:12.000Z
+[ménage] finalisée : 0x985e35889ec48cdc8d03330361ef4ea1a2645a4b53b30b9ee2bd9370dbee5d41
+[OK ] 18-1 Swissquote refuse de signer sans re-KYC, et vers le propriétaire actuel
+       403 identity not verified: re-KYC required before any signature ; 403 the new owner must be a new key of the client (not the current owner, not a guardian)
+[OK ] 18-2 Demande transmise au tiers par le relais : sa console affiche la nouvelle clé et signe (EIP-712), Swissquote vérifie que c'est la signature du tiers enregistré
+       lien http://localhost:5184/?req=dd64d1054c0b9a6dd94428b50bc9cd6d ; nouvelle clé affichée 0x60454e99C2749267200AD960d1115BD55A91532b
+[OK ] 18-3 Recovery démarrée depuis l'interface (Swissquote + tiers), relayée et parrainée ; délai affiché, propriétaire inchangé pendant le délai
+       Recovery started: 0x65119b7686faeec260cd67cf329658fafa2233fd5cc494eebb9a295e3ba583a7 ; applicable après 2026-10-11T02:25:12.000Z ; écran : 26fb2E4Bf6186030b4abB8E688f5E146383Dc (Sepolia)Account created on-chain with this operationRelay the guardians' signatures to start the recovery of 0x292919c03fe12BEAD122998d128081
+[OK ] 18-6 Après un rechargement de la page pendant le délai, la recovery reprend où elle en était (compte à rebours, bouton de finalisation)
+       compte à rebours retrouvé : true
+[OK ] 18-4 Après le délai : recovery finalisée depuis l'interface ; propriétaire = nouvelle clé ; Swissquote a mis à jour son enregistrement
+       Recovery completed: 0xe84a76101d3597cb6aac19dd27721e9d338893a9463b5cb3747cad3d2cfcafd0 ; propriétaires 0x60454e99C2749267200AD960d1115BD55A91532b ; enregistré chez Swissquote : 0x60454e99C2749267200AD960d1115BD55A91532b
+[OK ] 18-5 La nouvelle clé signe depuis le Safe récupéré : invalidation des signatures de gardiens restantes (nonce du module)
+       nonce 18 -> 20 (démarrage +1, invalidation +1)
+[KO ] 18-x Aucune erreur dans les consoles des navigateurs
+       Failed to load resource: the server responded with a status of 429 (Too Many Requests) | Failed to load resource: the server responded with a status of 429 (Too Many Requests) | Failed to load resource: the server responded with a status of 429 (Too Many Requests)
+
+RÉSUMÉ
+18-1 fonctionne         Swissquote refuse de signer sans re-KYC, et vers le propriétaire actuel
+18-2 fonctionne         Demande transmise au tiers par le relais : sa console affiche la nouvelle clé et signe (EIP-712), Swissquote vérifie que c'est la signature du tiers enregistré
+18-3 fonctionne         Recovery démarrée depuis l'interface (Swissquote + tiers), relayée et parrainée ; délai affiché, propriétaire inchangé pendant le délai
+18-6 fonctionne         Après un rechargement de la page pendant le délai, la recovery reprend où elle en était (compte à rebours, bouton de finalisation)
+18-4 fonctionne         Après le délai : recovery finalisée depuis l'interface ; propriétaire = nouvelle clé ; Swissquote a mis à jour son enregistrement
+18-5 fonctionne         La nouvelle clé signe depuis le Safe récupéré : invalidation des signatures de gardiens restantes (nonce du module)
+18-x ne fonctionne pas  Aucune erreur dans les consoles des navigateurs
+

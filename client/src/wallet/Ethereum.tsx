@@ -8,7 +8,8 @@ import QRCode from "qrcode";
 import { type Address, encodeFunctionData, formatUnits, getAddress, isAddress, parseUnits } from "viem";
 import { type Activity, EXPLORER, USDC_DECIMALS, publicClient, RECOVERY_DELAY_LABEL, RECOVERY_MODULE, activationCalls, activity, buildSponsoredOp, cancelRecoveryCalls, finalizeRecoveryCall, readState, recoveryAbi, safeAddressOf, sendOp, startRecoveryCall, usdcTransferCall } from "@sq/evm";
 import { type EvmAccount, evmAccounts, evmSignRecovery, registerEvm, relayCreate, relayGet, syncEvm, verifyIdentity } from "../lib/bank";
-import { USDC_CHF } from "../lib/config";
+import { priceOf, usePrices } from "../lib/market";
+import { PriceChart } from "../ui/PriceChart";
 import { walletRequest } from "../lib/walletBridge";
 import { num } from "../ui/format";
 import { IconBank, IconReceive, IconRefresh, IconSend, IconShield } from "../ui/icons";
@@ -34,6 +35,8 @@ export const EthIcon = ({ size = 44 }: { size?: number }) => (
 
 export function Ethereum({ customerId, accountKey, tiersName, onInfo }: { customerId: string; accountKey: string; tiersName?: string | null; onInfo?: (i: EvmInfo) => void }) {
   const mobile = useIsMobile();
+  const market = usePrices();
+  const USDC_CHF = priceOf(market, "usd-coin");
   const [acc, setAcc] = useState<EvmAccount | null | undefined>(undefined);
   const [sq, setSq] = useState<Address | null>(null);
   const [state, setState] = useState<State | null>(null);
@@ -89,6 +92,11 @@ export function Ethereum({ customerId, accountKey, tiersName, onInfo }: { custom
     await refresh(r.blockNumber);
     if (after) await after(r.blockNumber);
   };
+  useEffect(() => {
+    const on = (e: Event) => { const t = (e as CustomEvent<Panel>).detail; if (t === "receive" || t === "send" || t === "recover") setPanel(t); };
+    window.addEventListener("sq-evm", on);
+    return () => window.removeEventListener("sq-evm", on);
+  }, []);
   const open = (p: Panel) => { setPanel(p); if (mobile) setTimeout(() => panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 30); };
 
   if (acc === undefined) return <section className="card" data-testid="evm-card"><p className="muted">Loading…</p></section>;
@@ -125,7 +133,7 @@ export function Ethereum({ customerId, accountKey, tiersName, onInfo }: { custom
       </div>
       <div className="asset-balance">
         <p className="asset-btc" data-testid="evm-usdc">{state ? usdc(balance) : "…"}</p>
-        <p className="muted">≈ {num((Number(balance) / 10 ** USDC_DECIMALS) * USDC_CHF)} CHF <span className="small">(simulated rate) · 0 ETH needed</span></p>
+        <p className="muted">≈ {num((Number(balance) / 10 ** USDC_DECIMALS) * USDC_CHF)} CHF <span className="small">({market?.["usd-coin"].source === "CoinGecko" ? "market price, test coins have no value" : "simulated rate"}) · 0 ETH needed</span></p>
         {status && <span className={`chip ${status.cls}`}><IconShield /> {status.text}</span>}
       </div>
       <div className="round-actions asset-actions">
@@ -179,12 +187,12 @@ export function Ethereum({ customerId, accountKey, tiersName, onInfo }: { custom
         <p className="muted small">Fees sponsored by a paymaster (third party, not Swissquote). Your Client Wallet shows the transfer in clear before signing.</p>
       </div>
     </section>
-  ) : panel === "recover" && active && state ? (
+  ) : panel === "recover" && state ? (
     <section className="card side-panel">
       <div className="panel-head"><h2>Recover this account</h2><button className="link" aria-label="Close" onClick={() => setPanel("receive")}>✕</button></div>
       <EvmRecovery acc={acc} state={state} busy={busy} run={run} prepare={prepare}
         onRecovered={async (blockNumber) => {
-          const a = await syncEvm(acc.safe);
+          const a = await syncEvm(acc.safe, blockNumber);
           setAcc(a); localStorage.setItem(cacheKey(customerId), JSON.stringify({ ...a, swissquote: sq }));
           await refresh(blockNumber);
           // Règle du projet après toute recovery : invalider les signatures de gardiens déjà collectées (nonce du module).
@@ -205,6 +213,7 @@ export function Ethereum({ customerId, accountKey, tiersName, onInfo }: { custom
     </section>
   );
 
+  const chart = <section className="card"><PriceChart coin="usd-coin" label="USDC · USDC/CHF" /></section>;
   const tabs = (
     <section className="card">
       <div className="segmented crypto-tabs evm-tabs">
@@ -267,10 +276,10 @@ export function Ethereum({ customerId, accountKey, tiersName, onInfo }: { custom
     <div className={mobile ? "crypto m evm" : "d-page crypto evm"} data-testid="evm-card">
       {alerts}
       {mobile ? (
-        <>{header}<div ref={panelRef}>{sidePanel}</div>{tabs}</>
+        <>{header}<div ref={panelRef}>{sidePanel}</div>{chart}{tabs}</>
       ) : (
         <div className="crypto-grid">
-          <div>{header}{tabs}</div>
+          <div>{header}{chart}{tabs}</div>
           <div ref={panelRef} className="crypto-side">{sidePanel}</div>
         </div>
       )}
@@ -287,23 +296,34 @@ function EvmRecovery({ acc, state, busy, run, prepare, onRecovered }: {
   prepare: (label: string, calls: Parameters<typeof buildSponsoredOp>[1], from?: { safe: Address; owner: Address }, after?: (b: bigint) => Promise<void>) => Promise<void>;
   onRecovered: (blockNumber: bigint) => Promise<void>;
 }) {
+  // Progression mémorisée dans la session (comme la recovery Bitcoin) : un remontage ou un rechargement ne la perd pas.
+  // Données publiques ou à usage unique (jeton de re-KYC de 10 min, signatures des gardiens, clés publiques).
+  const persisted = <T,>(name: string, initial: T) => {
+    const key = `sq-evm-recovery:${acc.safe}:${name}`;
+    const [v, setV] = useState<T>(() => JSON.parse(sessionStorage.getItem(key) ?? "null") ?? initial);
+    return [v, (x: T) => { sessionStorage.setItem(key, JSON.stringify(x)); setV(x); }] as const;
+  };
   const [kyc, setKyc] = useState({ lastName: "", birthDate: "", otp: "" });
-  const [token, setToken] = useState<string | null>(null);
-  const [newWallet, setNewWallet] = useState<string | null>(null); // clé publique Bitcoin du nouveau wallet (le désigne)
-  const [newOwner, setNewOwner] = useState<Address | null>(null);
-  const [sqSig, setSqSig] = useState<{ signer: Address; signature: `0x${string}`; nonce: string } | null>(null);
-  const [relayId, setRelayId] = useState<string | null>(null);
-  const [tSig, setTSig] = useState<{ signer: Address; signature: `0x${string}` } | null>(null);
+  const [token, setToken] = persisted<string | null>("token", null);
+  const [newWallet, setNewWallet] = persisted<string | null>("newWallet", null); // clé publique Bitcoin du nouveau wallet (le désigne)
+  const [newOwner, setNewOwner] = persisted<Address | null>("newOwner", null);
+  const [sqSig, setSqSig] = persisted<{ signer: Address; signature: `0x${string}`; nonce: string } | null>("sqSig", null);
+  const [relayId, setRelayId] = persisted<string | null>("relayId", null);
+  const [tSig, setTSig] = persisted<{ signer: Address; signature: `0x${string}` } | null>("tSig", null);
+  const restart = () => { for (const k of Object.keys(sessionStorage)) if (k.startsWith(`sq-evm-recovery:${acc.safe}:`)) sessionStorage.removeItem(k); location.reload(); };
   const [now, setNow] = useState(Date.now());
   // Le contrat compare le délai à l'horodatage du DERNIER BLOC, pas à l'horloge du navigateur.
   const [chainTime, setChainTime] = useState(0);
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
+  // Heure de la chaîne interrogée seulement autour de l'échéance (le nœud public limite le débit).
+  const due = state.pending ? state.pending.executeAfter * 1000 - now <= 0 : false;
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
+    if (!due) return;
     const poll = () => publicClient.getBlock().then((b) => setChainTime(Number(b.timestamp)), () => undefined);
     poll();
-    const c = setInterval(poll, 6000);
-    return () => { clearInterval(t); clearInterval(c); };
-  }, []);
+    const c = setInterval(poll, 5000);
+    return () => clearInterval(c);
+  }, [due]);
   const relaySafe = newOwner ? { safe: safeAddressOf(newOwner), owner: newOwner } : null;
   const pendingToMe = state.pending && newOwner && state.pending.newOwners.map((o) => o.toLowerCase()).includes(newOwner.toLowerCase());
   const left = state.pending ? state.pending.executeAfter * 1000 - now : 0;
@@ -344,13 +364,15 @@ function EvmRecovery({ acc, state, busy, run, prepare, onRecovered }: {
           )}
         </div>
       )}
+      {token && <p className="small"><button className="link" onClick={restart}>Restart this recovery</button></p>}
       {pendingToMe && (
         <div className="step" data-testid="evm-countdown">
           {left > 0
             ? <p>Recovery started. The contract allows it to complete in <strong>{Math.ceil(left / 1000)} s</strong>.</p>
-            : chainTime <= state.pending!.executeAfter
+            : chainTime <= state.pending!.executeAfter && now < (state.pending!.executeAfter + 60) * 1000 // repli si l'heure de la chaîne reste illisible
             ? <p>Delay elapsed: waiting for the next block to confirm it on-chain…</p>
             : <button disabled={!!busy} onClick={run("finalize", () => prepare("Recovery completed", [finalizeRecoveryCall(acc.safe)], relaySafe!, async (b) => {
+                for (const k of Object.keys(sessionStorage)) if (k.startsWith(`sq-evm-recovery:${acc.safe}:`)) sessionStorage.removeItem(k);
                 await onRecovered(b);
               }))}>Complete the recovery</button>}
         </div>

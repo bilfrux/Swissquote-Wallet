@@ -126,7 +126,16 @@ export class BitcoindBackend implements ChainBackend {
     // scantxoutset ne voit que les UTXO confirmés ; on retrouve l'adresse par le scriptPubKey.
     const spk = new Map<string, string>();
     for (const a of addresses) spk.set((await this.call("validateaddress", [a])).scriptPubKey, a);
-    const scanning = this.scanQueue.then(() => this.call("scantxoutset", ["start", addresses.map((a) => `addr(${a})`)]));
+    // D'autres clients du même nœud (bank-mock surveille les comptes toutes les 30 s en regtest) peuvent scanner en
+    // même temps : on attend la fin de leur scan (« status ») et on réessaie si le nœud répond « already in progress ».
+    const scan = async () => {
+      for (let i = 0; ; i++) {
+        if (i < 40 && (await this.call("scantxoutset", ["status"]).catch(() => null))) { await new Promise((r) => setTimeout(r, 250)); continue; }
+        try { return await this.call("scantxoutset", ["start", addresses.map((a) => `addr(${a})`)]); }
+        catch (e: any) { if (!/already in progress/i.test(e?.message ?? "") || i >= 60) throw e; await new Promise((r) => setTimeout(r, 250)); }
+      }
+    };
+    const scanning = this.scanQueue.then(scan);
     this.scanQueue = scanning.catch(() => undefined);
     const r = await scanning;
     return r.unspents.map((u: any) => ({

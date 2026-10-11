@@ -246,3 +246,55 @@ button.account-pill { background: none; color: var(--text); padding: 6px 8px; fo
 
 /* Enveloppe neutre du contenu en mise en page téléphone (même arbre que sur ordinateur, voir Shell). */
 .m-body { display: contents; }
+
+/* Page wallet en colonnes (plateforme Swissquote) : vue d'ensemble et positions | fiche de l'actif | panneau d'action */
+.wallet-page { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 14px; align-items: start; }
+.wallet-page .crypto-grid { grid-template-columns: minmax(0, 1fr) 330px; }
+.wallet-page .d-page { max-width: none; }
+.wallet-left { position: sticky; top: 74px; display: flex; flex-direction: column; gap: 14px; }
+.wallet-left .card { margin: 0; }
+.wallet-page.m { grid-template-columns: 1fr; }
+.wallet-page.m .wallet-left { position: static; }
+@media (max-width: 1400px) { .wallet-page:not(.m) { grid-template-columns: 1fr; } .wallet-page:not(.m) .wallet-left { position: static; flex-direction: row; } .wallet-page:not(.m) .wallet-left > * { flex: 1; } }
+.kpis { display: grid; grid-template-columns: 1fr 1fr 0.6fr; gap: 6px 10px; }
+.kpi-label { margin: 0; font-size: 12px; color: var(--muted); }
+.kpi { margin: 2px 0 0; font-size: 13px; }
+.kpi strong { font-size: 19px; letter-spacing: -.2px; }
+.kpi.up strong { color: var(--green); } .kpi.down strong { color: var(--red-text); }
+.kpi-note { grid-column: 1 / -1; margin: 6px 0 0; }
+.positions h3 { margin: 0 0 6px; }
+.positions table { width: 100%; font-size: 13px; }
+.positions th.num, .positions td.num { text-align: right; white-space: nowrap; }
+.positions tr.group td { background: #f3f5f9; color: var(--muted); font-size: 12px; font-weight: 600; padding: 5px 8px; }
+.pos-row { cursor: pointer; }
+.pos-row:hover td { background: #f7f9fd; }
+.pos-row.on td { background: var(--blue-soft); }
+.pos-name { display: flex; align-items: center; gap: 8px; }
+.pos-name > span { display: flex; flex-direction: column; line-height: 1.2; }
+.pos-actions { display: flex; gap: 5px; margin: 6px 0 2px 30px; flex-wrap: wrap; }
+.positions td { vertical-align: top; }
+.pill { white-space: nowrap; }
+.pill { font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 5px; background: #eef1f7; color: var(--text); }
+.pill.blue { background: #1e63d6; color: #fff; } .pill.red { background: #e5413b; color: #fff; }
+/* Courbe de prix */
+.price-chart .pc-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+.pc-title { margin: 0; font-weight: 600; }
+.pc-last { margin: 2px 0 0; }
+.pc-last strong { font-size: 18px; }
+.pc-periods { margin: 0; }
+.pc-periods button { padding: 5px 10px; flex: none; }
+.pc-svg { width: 100%; height: auto; display: block; margin-top: 8px; cursor: crosshair; }
+.pc-axis { font-size: 10.5px; fill: #7a8496; }
+.pc-tag { font-size: 11px; font-weight: 700; fill: #fff; }
+.pc-tip-price { font-size: 12px; font-weight: 700; fill: #1b2333; }
+.pc-empty { height: 200px; display: flex; align-items: center; justify-content: center; text-align: center; }
+.pc-source { margin: 6px 0 0; }
+.up { color: var(--green); } .down { color: var(--red-text); }
+.asset-id h1 { white-space: nowrap; }
+.asset-head { grid-template-columns: minmax(0, 1fr) auto; }
+@media (max-width: 1400px) { .wallet-page:not(.m) .wallet-left .positions { flex: 1.6; } }
+.wallet-page .asset-id { flex-wrap: wrap; min-width: 0; }
+.wallet-page .asset-id .refresh { margin-left: 0; }
+.wallet-page .asset-id > div { min-width: 0; }
+.wallet-page .asset-id p { overflow-wrap: anywhere; }
+@media (max-width: 1400px) { .wallet-page:not(.m) .wallet-left { align-items: flex-start; } }

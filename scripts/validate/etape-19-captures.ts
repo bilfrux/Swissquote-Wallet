@@ -4,10 +4,10 @@ import { makeReport } from "./lib.ts";
 const APP = process.env.APP_URL ?? "http://localhost:5183";
 const { report, summary } = makeReport();
 const b = await chromium.launch({ executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", headless: true });
-const errs: string[] = [];
+const errs: string[] = [], failed: string[] = [];
 for (const [name, vp] of [["ordinateur", { width: 1280, height: 1000 }], ["telephone", { width: 390, height: 844 }]] as const) {
   const ctx = await b.newContext({ viewport: vp });
-  const p = await ctx.newPage(); p.on("console", (m) => m.type() === "error" && errs.push(m.text())); p.on("pageerror", (e) => errs.push(e.message));
+  const p = await ctx.newPage(); p.on("console", (m) => m.type() === "error" && errs.push(m.text())); p.on("pageerror", (e) => errs.push(e.message)); p.on("response", (r) => { if (r.status() >= 400) failed.push(`${r.status()} ${new URL(r.url()).host}`); });
   await p.goto(APP); await p.evaluate(() => { localStorage.clear(); sessionStorage.clear(); }); await p.reload();
   await p.getByLabel("Client ID").fill("CH-0003"); await p.getByLabel("Password").fill("demo0003");
   await p.getByRole("button", { name: "Log in", exact: true }).click();
@@ -38,5 +38,5 @@ for (const [name, vp] of [["ordinateur", { width: 1280, height: 1000 }], ["telep
     `menu : ${menu.replace(/\s+/g, " ").slice(0, 200)} ; lignes d'activité Ethereum affichées : ${rows} ; réseau mémorisé après rechargement : ${remembered}`);
 }
 await b.close();
-report("19-x", "Aucune erreur dans les consoles des navigateurs", errs.length === 0, errs.join(" | ") || "aucune");
+report("19-x", "Aucune erreur dans les consoles des navigateurs", errs.length === 0, `${errs.join(" | ") || "aucune"} ; réponses en erreur : ${[...new Set(failed)].join(", ") || "aucune"}`);
 process.exit(summary() ? 0 : 1);

@@ -5,7 +5,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { type HistoryEntry, type WalletConfig, type WalletUtxo, history, outputAt, scan } from "@sq/bitcoin";
 import { addrLink, chain, txLink } from "../lib/chain";
-import { BTC_CHF, type BtcAccount } from "../lib/config";
+import type { BtcAccount } from "../lib/config";
+import { priceOf, usePrices } from "../lib/market";
+import { PriceChart } from "../ui/PriceChart";
 import { btcFmt } from "../lib/format";
 import { proveOwnership } from "../lib/ownership";
 import { num } from "../ui/format";
@@ -29,6 +31,7 @@ export const BtcIcon = ({ size = 44 }: { size?: number }) => (
 
 export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig; account: BtcAccount; onLost: () => void; onBalance: (s: bigint) => void }) {
   const mobile = useIsMobile();
+  const market = usePrices();
   const [utxos, setUtxos] = useState<WalletUtxo[] | null>(null);
   const [hist, setHist] = useState<HistoryEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -79,7 +82,7 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
   const open = (p: Panel) => { setPanel(p); if (mobile) setTimeout(() => panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 30); };
 
   const balance = (utxos ?? []).reduce((s, u) => s + u.value, 0n);
-  const balanceChf = (Number(balance) / 1e8) * BTC_CHF;
+  const balanceChf = (Number(balance) / 1e8) * priceOf(market, "bitcoin");
   const nextOpen = utxos?.length ? Math.min(...utxos.map((u) => u.recoveryOpensIn)) : null;
   const soon = (utxos ?? []).filter((u) => u.recoveryOpensIn <= Math.ceil(cfg.delay / 3));
   const link = addrLink(address);
@@ -94,7 +97,7 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
       </div>
       <div className="asset-balance">
         <p className="asset-btc" data-testid="btc-balance">{utxos ? btcFmt(balance) : "…"}</p>
-        <p className="muted">≈ {num(balanceChf)} CHF <span className="small">(simulated rate)</span>{mobile && <> · <button className="link" onClick={refresh}>Reload</button></>}</p>
+        <p className="muted">≈ {num(balanceChf)} CHF <span className="small">({market?.bitcoin.source === "CoinGecko" ? "market price, test coins have no value" : "simulated rate"})</span>{mobile && <> · <button className="link" onClick={refresh}>Reload</button></>}</p>
         {status && <span className={`chip ${status.cls}`}><IconShield /> {status.text}</span>}
       </div>
       <div className="round-actions asset-actions">
@@ -142,6 +145,7 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
     </section>
   );
 
+  const chart = <section className="card"><PriceChart coin="bitcoin" label="Bitcoin · BTC/CHF" /></section>;
   const tabs = (
     <section className="card">
       <div className="segmented crypto-tabs">
@@ -215,10 +219,10 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
         </p>
       )}
       {mobile ? (
-        <>{header}<div ref={panelRef}>{sidePanel}</div>{tabs}</>
+        <>{header}<div ref={panelRef}>{sidePanel}</div>{chart}{tabs}</>
       ) : (
         <div className="crypto-grid">
-          <div>{header}{tabs}</div>
+          <div>{header}{chart}{tabs}</div>
           <div ref={panelRef} className="crypto-side">{sidePanel}</div>
         </div>
       )}

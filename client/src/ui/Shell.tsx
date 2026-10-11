@@ -15,7 +15,7 @@ type Props = {
   onTab: (t: Tab, anchor?: string) => void;
   user: { firstName: string; lastName: string };
   onLogout: () => void;
-  totals: { totalChf: number; cashChf: number; btc: string | null };
+  totals: { totalChf: number; cashChf: number; crypto: string | null };
   children: React.ReactNode;
 };
 
@@ -99,7 +99,7 @@ export function Shell(p: Props) {
         <footer className="d-status">
           <span>Total value <strong>{num(p.totals.totalChf)} CHF</strong></span>
           <span>CHF accounts <strong>{num(p.totals.cashChf)} CHF</strong></span>
-          <span>Crypto <strong>{p.totals.btc ?? "—"}</strong></span>
+          <span>Crypto <strong>{p.totals.crypto ?? "—"}</strong></span>
           <span>Bitcoin network <strong>{NETWORK}</strong></span>
           <span className="sim">Simulated bank for the demo</span>
         </footer>

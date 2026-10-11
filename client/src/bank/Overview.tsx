@@ -1,7 +1,7 @@
 // Accueil : patrimoine (comptes CHF SIMULÉS + wallet Bitcoin réel), sur le modèle de l'appli et de la plateforme Swissquote.
 import { useMemo, useState } from "react";
 import type { BankAccount } from "../lib/bank";
-import { BTC_CHF } from "../lib/config";
+import { priceOf, usePrices } from "../lib/market";
 import { btcFmt } from "../lib/format";
 import { Chart } from "../ui/Chart";
 import { num, signed } from "../ui/format";
@@ -18,15 +18,19 @@ function series(total: number, period: Period) {
   return Array.from({ length: n }, (_, i) => total * (1 - amp * (1 - i / (n - 1)) + amp * 0.35 * Math.sin(i * 1.7 + n)));
 }
 
-type Props = { accounts: BankAccount[] | null; btcSats: bigint | null; custodySats?: number; customerId: string; onTab: (t: Tab, anchor?: string) => void };
+type Props = { accounts: BankAccount[] | null; btcSats: bigint | null | undefined; custodySats?: number; usdc?: bigint | null; customerId: string; onTab: (t: Tab, anchor?: string) => void };
 
-export function Overview({ accounts, btcSats, custodySats = 0, customerId, onTab }: Props) {
+export function Overview({ accounts, btcSats, custodySats = 0, usdc = null, customerId, onTab }: Props) {
+  const market = usePrices();
   const mobile = useIsMobile();
   const [period, setPeriod] = useState<Period>("1W");
   const cash = (accounts ?? []).reduce((s, a) => s + a.balance, 0);
-  const btcChf = btcSats === null ? 0 : (Number(btcSats) / 1e8) * BTC_CHF;
-  const custodyChf = (custodySats / 1e8) * BTC_CHF;
-  const total = cash + btcChf + custodyChf;
+  // Prix du marché (CoinGecko) ou cours simulé ; « Crypto » = wallet self-custody (BTC + USDC).
+  const usdcChf = usdc === null ? 0 : (Number(usdc) / 1e6) * priceOf(market, "usd-coin");
+  const btcChf = btcSats == null ? 0 : (Number(btcSats) / 1e8) * priceOf(market, "bitcoin");
+  const selfChf = btcChf + usdcChf;
+  const custodyChf = (custodySats / 1e8) * priceOf(market, "bitcoin");
+  const total = cash + selfChf + custodyChf;
   const points = useMemo(() => series(total || 1, period), [total, period]);
   const change = total - points[points.length - 2];
   const pct = points[points.length - 2] ? (change / points[points.length - 2]) * 100 : 0;
@@ -56,7 +60,7 @@ export function Overview({ accounts, btcSats, custodySats = 0, customerId, onTab
           {periodSelector}
           <div className="tiles">
             <button className="tile-btn" onClick={() => onTab("banque")}><span><IconPortfolio /> Accounts</span><strong>{num(cash)}</strong><IconChevron /></button>
-            <button className="tile-btn" data-testid="home-crypto" onClick={() => onTab("crypto")}><span><IconCrypto /> Crypto</span><strong>{btcSats === null ? "Create" : num(btcChf)}</strong><IconChevron /></button>
+            <button className="tile-btn" data-testid="home-crypto" onClick={() => onTab("crypto")}><span><IconCrypto /> Crypto</span><strong>{btcSats === undefined ? "…" : btcSats === null ? "Create" : num(selfChf)}</strong><IconChevron /></button>
             <button className="tile-btn" onClick={() => onTab("banque")}><span><IconCash /> Cash</span><strong>{num(priv?.balance ?? 0)}</strong><IconChevron /></button>
             <button className="tile-btn" onClick={() => onTab("banque")}><span><IconSavings /> Savings</span><strong>{num(save?.balance ?? 0)}</strong><IconChevron /></button>
           </div>
@@ -79,7 +83,7 @@ export function Overview({ accounts, btcSats, custodySats = 0, customerId, onTab
         <div className="d-col-main">
           <section className="card stats">
             <div><p className="stat-label"><IconCash /> CHF accounts</p><p className="stat">{num(cash)} <small>CHF</small></p></div>
-            <div><p className="stat-label"><IconCrypto /> Crypto</p><p className="stat">{num(btcChf)} <small>CHF</small></p></div>
+            <div><p className="stat-label"><IconCrypto /> Crypto</p><p className="stat">{num(selfChf)} <small>CHF</small></p></div>
             <div><p className="stat-label"><IconPortfolio /> Total value</p><p className="stat">{num(total)} <small>CHF</small></p></div>
           </section>
           <section className="card rows">
@@ -99,8 +103,14 @@ export function Overview({ accounts, btcSats, custodySats = 0, customerId, onTab
             <h2>Crypto · self-custody</h2>
             <button className="row-line" onClick={() => onTab("crypto")}>
               <span>Bitcoin wallet <small className="muted">only you hold the key</small></span>
-              <strong>{btcSats === null ? "Create my wallet" : `${btcFmt(btcSats)} · ${num(btcChf)} CHF`}</strong><IconChevron />
+              <strong>{btcSats === undefined ? "…" : btcSats === null ? "Create my wallet" : `${btcFmt(btcSats)} · ${num(btcChf)} CHF`}</strong><IconChevron />
             </button>
+            {usdc !== null && (
+              <button className="row-line" onClick={() => onTab("crypto")}>
+                <span>USDC on Ethereum <small className="muted">same wallet, only you hold the key</small></span>
+                <strong>{`${(Number(usdc) / 1e6).toFixed(2)} USDC · ${num(usdcChf)} CHF`}</strong><IconChevron />
+              </button>
+            )}
           </section>
           <section className="card rows">
             <h2>Recent transactions</h2>
@@ -120,7 +130,7 @@ export function Overview({ accounts, btcSats, custodySats = 0, customerId, onTab
           <section className="card highlight">
             <h2>Your Bitcoin wallet</h2>
             <p className="small">Only you hold the key. If you lose it, Swissquote and your trusted contact can together help you recover your funds, without ever being able to act alone.</p>
-            <button className="btn-primary" onClick={() => onTab("crypto")}>{btcSats === null ? "Create my wallet" : "Open my wallet"}</button>
+            <button className="btn-primary" onClick={() => onTab("crypto")}>{btcSats === undefined ? "Open" : btcSats === null ? "Create my wallet" : "Open my wallet"}</button>
           </section>
         </div>
       </div>

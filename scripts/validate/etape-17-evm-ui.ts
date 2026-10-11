@@ -17,10 +17,13 @@ const state = JSON.parse(readFileSync(".local/signet-ui/state.json", "utf8"));
 const SHOTS = "docs/validation/captures";
 const { report, summary } = makeReport();
 const browser = await chromium.launch({ executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", headless: true });
-const errors: string[] = [];
+const errors: string[] = [], failed: string[] = [];
 const device = async () => {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 1100 } });
-  ctx.on("page", (p) => { p.on("pageerror", (e) => errors.push(e.message)); p.on("console", (m) => m.type() === "error" && errors.push(m.text())); });
+  ctx.on("page", (p) => {
+    p.on("pageerror", (e) => errors.push(e.message)); p.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+    p.on("response", (r) => { if (r.status() >= 400) failed.push(`${r.status()} ${new URL(r.url()).host}`); }); // quel serveur refuse
+  });
   return ctx;
 };
 const popupOf = async (ctx: BrowserContext, click: () => Promise<void>) => { const [p] = await Promise.all([ctx.waitForEvent("page"), click()]); await p.waitForLoadState(); return p; };
@@ -136,5 +139,5 @@ try {
 } finally {
   await browser.close();
 }
-report("17-x", "Aucune erreur dans les consoles des navigateurs", errors.length === 0, errors.join(" | ") || "aucune");
+report("17-x", "Aucune erreur dans les consoles des navigateurs", errors.length === 0, `${errors.join(" | ") || "aucune"} ; réponses en erreur : ${[...new Set(failed)].join(", ") || "aucune"}`);
 process.exit(summary() ? 0 : 1);

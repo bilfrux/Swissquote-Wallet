@@ -8,7 +8,7 @@ import { Recovery } from "../recovery/Recovery";
 import { CreateWallet } from "./CreateWallet";
 import { WalletHome } from "./WalletHome";
 
-export function CryptoTab({ session, onBalance }: { session: Session; onBalance: (s: bigint | null) => void }) {
+export function CryptoTab({ session, onBalance, custodySats = 0, onUsdc }: { session: Session; onBalance: (s: bigint | null) => void; custodySats?: number; onUsdc?: (u: bigint) => void }) {
   const cid = session.customer.id;
   const [account, setAccount] = useState<BtcAccount | null | undefined>(undefined);
   const [cfg, setCfg] = useState<WalletConfig | null>(null);
@@ -48,7 +48,7 @@ export function CryptoTab({ session, onBalance }: { session: Session; onBalance:
           <p className="center"><button className="link" onClick={() => setRecovering(true)}>I had a wallet and lost it: recover my bitcoin</button></p>
         </>
       )}
-      {account && cfg && <WalletHome key={cfg.client.raw} customerId={cid} cfg={cfg} account={account} onLost={() => setRecovering(true)} onBalance={onBalance} />}
+      {account && cfg && <WalletHome key={cfg.client.raw} customerId={cid} cfg={cfg} account={account} custodySats={custodySats} onLost={() => setRecovering(true)} onBalance={onBalance} onUsdc={onUsdc} />}
     </>
   );
 }

@@ -14,6 +14,7 @@ import { TEST_CUSTOMERS, customerFromToken, verifyIdentity } from "./kyc.ts";
 import { CUSTOMERS, createSession, customerFromSession, login } from "./bank.ts";
 import { authenticationOptions, passkeyCount, recordStepup, registrationOptions, verifyAuthentication, verifyRegistration } from "./passkeys.ts";
 import { notify, runAlerts } from "./alerts.ts";
+import { marketHistory, marketPrices } from "./market.ts";
 import { CustodyError, balance, depositAddress, records, syncDeposits, withdraw } from "./custody.ts";
 
 const PORT = Number(process.env.BANK_MOCK_PORT ?? 4000);
@@ -76,6 +77,12 @@ async function route(req: IncomingMessage, body: any, url: URL) {
     }
 
     // ---- Ethereum (étape 17) : Safe du client, Swissquote est l'un des deux gardiens du module de recovery ----
+    // ---- Flux de prix (information ; relais CoinGecko avec cache partagé) ----
+    case "GET /market/prices":
+      return marketPrices().catch((e) => { throw new HttpError(503, `market data unavailable: ${e.message}`); });
+    case "GET /market/history":
+      return Promise.resolve().then(() => marketHistory(String(url.searchParams.get("coin")), String(url.searchParams.get("period")))).catch((e) => { throw new HttpError(503, `market data unavailable: ${e.message}`); });
+
     case "GET /guardian/evm-address":
       return { address: swissquoteEvmAddress };
 
@@ -106,7 +113,13 @@ async function route(req: IncomingMessage, body: any, url: URL) {
       if (!customerId) throw new HttpError(401, "session expired: please log in again");
       const row = db.prepare("select * from evm_accounts where customer_id = ? and safe = ?").get(customerId, getAddress(String(body.safe))) as any;
       if (!row) throw new HttpError(404, "unknown account");
-      const owners = await ownersOf(row.safe);
+      // Lecture AU bloc de la finalisation (le nœud public peut renvoyer un état en retard juste après), avec réessais.
+      const block = body.blockNumber ? BigInt(body.blockNumber) : undefined;
+      let owners: Address[] = [];
+      for (let i = 0; ; i++) {
+        try { owners = await ownersOf(row.safe, block); break; }
+        catch (e) { if (!block || i >= 15) throw e; await new Promise((r) => setTimeout(r, 2000)); }
+      }
       if (owners.length === 1 && getAddress(owners[0]) !== getAddress(row.owner)) db.prepare("update evm_accounts set owner = ? where id = ?").run(getAddress(owners[0]), row.id);
       const r = db.prepare("select * from evm_accounts where id = ?").get(row.id) as any;
       return { id: r.id, owner: r.owner, safe: r.safe, tiers: r.tiers, tiersName: r.tiers_name };
