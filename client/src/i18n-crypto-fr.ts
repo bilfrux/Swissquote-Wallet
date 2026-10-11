@@ -279,6 +279,7 @@ export const CRYPTO_FR: Record<string, string> = {
   "To my Swissquote account": "Vers mon compte Swissquote",
   "To my wallet": "Vers mon wallet",
   "Total crypto value": "Valeur crypto totale",
+  "Testnet quantities valued at current mainnet token prices.": "Les quantités des testnets sont valorisées aux prix actuels des tokens sur le mainnet.",
   "Test-network assets are not valued in CHF.": "Les actifs de test ne sont pas valorisés en CHF.",
   "Transaction broadcast:": "Transaction diffusée :",
   "Transaction signed by your wallet.": "Transaction signée par votre wallet.",
