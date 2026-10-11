@@ -48,17 +48,28 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
 
   // Seule la réponse du DERNIER scan lancé est prise en compte (un scan plus ancien ne peut pas écraser le solde).
   const lastScan = useRef(0);
+  // API Esplora publique limitée : données servies depuis le cache si elle refuse (date affichée), erreurs lisibles.
+  const [stale, setStale] = useState<number | null>(null);
+  const [histError, setHistError] = useState<string | null>(null);
+  const esplora = chain as { staleSince?: number | null; resetStale?: () => void; invalidate?: () => void };
   const refresh = useCallback(async () => {
     const n = ++lastScan.current;
     setError(null);
+    esplora.resetStale?.();
     try {
       const u = await scan(cfg, chain);
       if (n !== lastScan.current) return;
       setUtxos(u);
       onBalance(u.reduce((s, x) => s + x.value, 0n));
-      history(cfg, chain).then((h) => { if (n === lastScan.current) setHist(h); }, () => undefined);
-    } catch (e: any) { if (n === lastScan.current) setError(`cannot read the chain: ${e.message}`); }
+      setStale(esplora.staleSince ?? null);
+      history(cfg, chain).then(
+        (h) => { if (n === lastScan.current) { setHist(h); setHistError(null); setStale(esplora.staleSince ?? null); } },
+        (e) => { if (n === lastScan.current) setHistError(e.message); },
+      );
+    } catch (e: any) { if (n === lastScan.current) { setError(`Bitcoin network data unavailable: ${e.message}`); setHistError(e.message); } }
   }, [cfg]); // eslint-disable-line react-hooks/exhaustive-deps
+  // « Reload » demandé par le client : relecture réelle (le cache est sinon valable une minute).
+  const reload = () => { esplora.invalidate?.(); refresh(); };
   useEffect(() => { refresh(); }, [refresh]);
   useEffect(() => { QRCode.toString(`bitcoin:${address}`, { type: "svg", margin: 1, width: 180 }).then(setQr, () => setQr("")); }, [address]);
   useEffect(() => {
@@ -93,11 +104,11 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
       <div className="asset-id">
         <BtcIcon />
         <div><h1>Bitcoin</h1><p className="muted small">BTC · self-custody · {cfg.network}</p></div>
-        {!mobile && <button className="link refresh" onClick={refresh}><IconRefresh /> Reload</button>}
+        {!mobile && <button className="link refresh" onClick={reload}><IconRefresh /> Reload</button>}
       </div>
       <div className="asset-balance">
         <p className="asset-btc" data-testid="btc-balance">{utxos ? btcFmt(balance) : "…"}</p>
-        <p className="muted">≈ {num(balanceChf)} CHF <span className="small">({market?.bitcoin.source === "CoinGecko" ? "market price, test coins have no value" : "simulated rate"})</span>{mobile && <> · <button className="link" onClick={refresh}>Reload</button></>}</p>
+        <p className="muted">≈ {num(balanceChf)} CHF <span className="small">({market?.bitcoin.source === "CoinGecko" ? "market price, test coins have no value" : "simulated rate"})</span>{mobile && <> · <button className="link" onClick={reload}>Reload</button></>}</p>
         {status && <span className={`chip ${status.cls}`}><IconShield /> {status.text}</span>}
       </div>
       <div className="round-actions asset-actions">
@@ -155,7 +166,8 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
       </div>
       {sub === "historique" && (
         <div data-testid="history">
-          {!hist && <p className="muted small">Loading…</p>}
+          {!hist && !histError && <p className="muted small">Loading…</p>}
+          {!hist && histError && <p className="error small">Activity unavailable: {histError}</p>}
           {hist && hist.length === 0 && <p className="muted small">No transactions.</p>}
           {hist && hist.length > 0 && (
             <div className="tx-list">
@@ -213,6 +225,7 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
   return (
     <div className={mobile ? "crypto m" : "d-page crypto"} id="crypto-top">
       {error && <p className="error">{error}</p>}
+      {stale && <p className="note banner" data-testid="btc-stale">The public Bitcoin API is rate-limited (700 requests/hour): balance and activity as of {new Date(stale).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}. Your coins are not affected.</p>}
       {soon.length > 0 && (
         <p className="warning">
           {soon.length} coin(s) soon spendable by Swissquote + {tiers}. If this is not a recovery you asked for, use “Refresh” to reset the delay.

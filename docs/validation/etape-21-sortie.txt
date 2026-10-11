@@ -1,0 +1,22 @@
+$ npm run -s validate:21   (faux serveur Esplora local + faux stockage navigateur)
+[OK ] 21-1 Lecture mise en cache dans le stockage du navigateur : après rechargement, aucune nouvelle requête pendant la durée de validité
+       requêtes au faux serveur : 1
+[OK ] 21-2 API limitée (429) et cache expiré : la dernière valeur connue est servie et datée (staleSince)
+       valeur 325900 ; données du 2026-10-11T01:42:59.619Z
+[OK ] 21-3 API limitée sans donnée en cache : message lisible
+       the public Bitcoin API is rate-limited (700 requests/hour per IP): retry in a few minutes
+[OK ] 21-4 Après une diffusion, le cache persistant est vidé (relecture réelle du solde)
+       entrées avant 1, après 0
+[OK ] 21-5 « Reload » : invalidate() force une vraie relecture
+       requêtes 6 -> 7
+
+RÉSUMÉ
+21-1 fonctionne         Lecture mise en cache dans le stockage du navigateur : après rechargement, aucune nouvelle requête pendant la durée de validité
+21-2 fonctionne         API limitée (429) et cache expiré : la dernière valeur connue est servie et datée (staleSince)
+21-3 fonctionne         API limitée sans donnée en cache : message lisible
+21-4 fonctionne         Après une diffusion, le cache persistant est vidé (relecture réelle du solde)
+21-5 fonctionne         « Reload » : invalidate() force une vraie relecture
+
+$ curl https://blockstream.info/signet/api/blocks/tip/height ; curl https://mempool.space/signet/api/blocks/tip/height
+429 {"message":"Blockstream Explorer API NOTICE: Your request rate exceeds the curre…
+000 (mempool.space injoignable depuis ce réseau)

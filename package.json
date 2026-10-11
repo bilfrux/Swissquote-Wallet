@@ -36,6 +36,7 @@
     "validate:18": "tsx scripts/validate/etape-18-evm-recovery-ui.ts",
     "validate:19": "tsx scripts/validate/etape-19-captures.ts",
     "validate:20": "tsx scripts/validate/etape-20-market-ui.ts",
+    "validate:21": "tsx scripts/validate/etape-21-esplora-cache.ts",
     "demo:signet:ports": "./scripts/demo/signet-ports.sh",
     "validate:8:pin": "tsx scripts/validate/etape-8-pin.ts",
     "validate:8:alerts": "tsx scripts/validate/etape-8-alerts.ts",

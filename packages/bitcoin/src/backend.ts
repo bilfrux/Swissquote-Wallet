@@ -31,15 +31,38 @@ export interface ChainBackend {
 
 export class EsploraBackend implements ChainBackend {
   constructor(private base: string) {}
-  // API publique limitée (ex. 700 requêtes/heure/IP chez blockstream) : cache court des lectures par adresse.
+  // API publique limitée (blockstream : 700 requêtes/heure/IP, 429 au-delà) :
+  //  - cache en mémoire ET dans le stockage du navigateur (survit au rechargement de la page) ;
+  //  - si l'API refuse (429, réseau), on sert la dernière valeur connue et on le signale (`staleSince`).
   private cache = new Map<string, { t: number; v: Promise<any> }>();
-  private cached(path: string, ttl = 20_000): Promise<any> {
+  private store: Storage | undefined = (globalThis as any).localStorage;
+  private key = (path: string) => `sq-esplora:${this.base}:${path}`;
+  /** Horodatage (ms) des plus anciennes données servies faute de réponse de l'API depuis le dernier `resetStale()`. */
+  staleSince: number | null = null;
+  resetStale() { this.staleSince = null; }
+  private cached(path: string, ttl = 60_000): Promise<any> {
     const hit = this.cache.get(path);
     if (hit && Date.now() - hit.t < ttl) return hit.v;
-    const v = this.get(path).then((b) => JSON.parse(b));
+    const saved = (() => { try { return JSON.parse(this.store?.getItem(this.key(path)) ?? "null") as { t: number; v: any } | null; } catch { return null; } })();
+    if (saved && Date.now() - saved.t < ttl) { const v = Promise.resolve(saved.v); this.cache.set(path, { t: saved.t, v }); return v; }
+    const v = this.get(path).then(
+      (b) => { const j = JSON.parse(b); try { this.store?.setItem(this.key(path), JSON.stringify({ t: Date.now(), v: j })); } catch { /* stockage plein */ } return j; },
+      (e) => {
+        if (!saved) throw e;
+        this.staleSince = Math.min(this.staleSince ?? saved.t, saved.t);
+        return saved.v;
+      },
+    );
     v.catch(() => this.cache.delete(path));
     this.cache.set(path, { t: Date.now(), v });
     return v;
+  }
+  // Après une diffusion : tout relire (mémoire et stockage), pour que le solde reflète la transaction.
+  invalidate() { this.clearAll(); }
+  private clearAll() {
+    this.cache.clear();
+    if (!this.store) return;
+    for (let i = this.store.length - 1; i >= 0; i--) { const k = this.store.key(i); if (k?.startsWith(`sq-esplora:${this.base}:`)) this.store.removeItem(k); }
   }
   async isUsed(address: string) {
     return (await this.cached(`/address/${address}/txs`)).length > 0;
@@ -47,17 +70,18 @@ export class EsploraBackend implements ChainBackend {
   private async get(path: string, init?: RequestInit) {
     const r = await fetch(this.base + path, init);
     const body = await r.text();
+    if (r.status === 429) throw new Error("the public Bitcoin API is rate-limited (700 requests/hour per IP): retry in a few minutes");
     if (!r.ok) throw new Error(body || `HTTP ${r.status}`);
     return body;
   }
   async tipHeight() {
-    return Number(await this.cached("/blocks/tip/height", 10_000));
+    return Number(await this.cached("/blocks/tip/height", 30_000));
   }
   async utxos(addresses: string[]) {
     const out: ChainUtxo[] = [];
     for (const address of addresses) {
       if (!(await this.isUsed(address))) continue; // adresse jamais utilisée : pas d'UTXO, pas de requête de plus
-      const list = await this.cached(`/address/${address}/utxo`, 5_000);
+      const list = await this.cached(`/address/${address}/utxo`, 60_000);
       for (const u of list)
         out.push({ txid: u.txid, vout: u.vout, value: BigInt(u.value), height: u.status.confirmed ? u.status.block_height : null, address });
     }
@@ -67,7 +91,7 @@ export class EsploraBackend implements ChainBackend {
     return this.get(`/tx/${txid}/hex`);
   }
   broadcast(hex: string) {
-    this.cache.clear(); // après une diffusion, relire l'état réel
+    this.clearAll(); // après une diffusion, relire l'état réel
     return this.get("/tx", { method: "POST", body: hex });
   }
   async history(addresses: string[]) {
@@ -88,7 +112,7 @@ export class EsploraBackend implements ChainBackend {
     return [...seen.values()];
   }
   async feeRates(): Promise<FeeRates> {
-    const e = await this.cached("/fee-estimates", 60_000);
+    const e = await this.cached("/fee-estimates", 300_000);
     return { fast: floorRate(e["1"], 2), normal: floorRate(e["3"] ?? e["6"], 1), slow: floorRate(e["144"], 1), source: "réseau" };
   }
 }

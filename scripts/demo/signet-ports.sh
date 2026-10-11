@@ -4,6 +4,9 @@
 export BANK_MOCK_ORIGINS=http://localhost:5183,http://localhost:5184
 export VITE_WALLET_ALLOWED_ORIGINS=http://localhost:5183
 export VITE_GUARDIAN_CONSOLE_URL=http://localhost:5184
+# Surveillance des comptes signet par bank-mock : 1 fois par heure (l'API Esplora publique est limitée à 700 requêtes/h/IP,
+# partagées avec l'appli sur la même machine).
+export ALERT_SIGNET_INTERVAL_MS=${ALERT_SIGNET_INTERVAL_MS:-3600000}
 exec npx concurrently -n appli,bank,console,wallet \
   "VITE_BTC_NETWORK=signet npm run dev -w client -- --port 5183 --strictPort" \
   "npm run dev -w bank-mock" \
