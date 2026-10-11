@@ -8,6 +8,7 @@ export const ESPLORA_URL = import.meta.env.VITE_ESPLORA_URL ?? "https://blockstr
 export const EXPLORER_URL = import.meta.env.VITE_EXPLORER_URL ?? "https://blockstream.info/signet";
 // Cours indicatif SIMULÉ, pour l'affichage en CHF uniquement.
 export const BTC_CHF = Number(import.meta.env.VITE_BTC_CHF ?? 85000);
+export const USDC_CHF = Number(import.meta.env.VITE_USDC_CHF ?? 0.8);
 
 // Compte Bitcoin actif (données publiques), mis en cache localement : l'appli peut dépenser même si Swissquote est arrêtée.
 export type BtcAccount = { id?: number; client: string; swissquote: string; tiers: string; tiersName?: string | null; delay: number; walletId?: string };

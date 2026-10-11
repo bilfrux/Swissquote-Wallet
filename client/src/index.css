@@ -226,3 +226,23 @@ button.account-pill { background: none; color: var(--text); padding: 6px 8px; fo
 .tr-item { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
 .tr-item p { margin: 2px 0; }
 .tr-item.held { border-color: #f3d27a; background: #fffaf0; }
+
+/* Sélecteur de réseau (façon MetaMask) */
+.wallet-bar { position: relative; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; max-width: 1180px; margin: 0 0 14px; }
+.wallet-name { margin: 0 0 6px; font-size: 13px; color: var(--muted); font-weight: 500; }
+.net-pill { display: inline-flex; align-items: center; gap: 10px; background: #fff; color: var(--text); border: 1px solid #d9dee8; border-radius: 22px; padding: 6px 14px 6px 6px; box-shadow: 0 1px 3px #0001; }
+.net-pill .net-name { font-weight: 600; font-size: 16px; }
+.net-pill .caret { color: var(--muted); }
+.net-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 30; width: min(460px, 100%); background: #fff; border: 1px solid #d9dee8; border-radius: 14px; box-shadow: 0 10px 30px #0002; padding: 8px; }
+.net-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 6px; border-radius: 10px; padding: 2px 6px 2px 2px; }
+.net-row.on { background: var(--blue-soft); }
+.net-choose { display: flex; align-items: center; gap: 10px; background: none; color: var(--text); padding: 8px; text-align: left; width: 100%; }
+.net-text { display: flex; flex-direction: column; flex: 1; }
+.net-balance { font-weight: 600; white-space: nowrap; }
+.net-addr { white-space: nowrap; }
+.net-foot { margin: 8px 6px 4px; border-top: 1px solid #eef1f7; padding-top: 8px; }
+.span-all { grid-column: 1 / -1; margin: 6px 0 0; }
+.round-actions button:disabled { opacity: .45; }
+
+/* Enveloppe neutre du contenu en mise en page téléphone (même arbre que sur ordinateur, voir Shell). */
+.m-body { display: contents; }

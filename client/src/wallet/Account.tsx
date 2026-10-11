@@ -14,7 +14,7 @@ import { useIsMobile } from "../ui/useIsMobile";
 import { Send } from "./Send";
 import { Transfer } from "./Transfer";
 
-const RECEIVE_KEY = (cfg: WalletConfig) => `sq-wallet:receive-index:${cfg.network}:${cfg.client.fingerprint}`;
+export const RECEIVE_KEY = (cfg: WalletConfig) => `sq-wallet:receive-index:${cfg.network}:${cfg.client.fingerprint}`;
 const KIND: Record<HistoryEntry["kind"], string> = {
   "reçu": "Received", "reçu par recovery": "Received by recovery", "envoyé": "Sent", "rafraîchissement": "Refresh", "recovery sortante": "Recovery (Swissquote + trusted contact)",
 };
@@ -23,8 +23,8 @@ type SubTab = "historique" | "coins" | "securite";
 // Navigation depuis le reste de l'appli (accueil, rail) : événement « sq-crypto » avec le panneau ou l'onglet visé.
 export const openCrypto = (target: string) => window.dispatchEvent(new CustomEvent("sq-crypto", { detail: target }));
 
-const BtcIcon = () => (
-  <svg width="44" height="44" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="22" fill="#f7931a" /><text x="22" y="30" textAnchor="middle" fontSize="24" fontWeight="700" fill="#fff" fontFamily="Arial">₿</text></svg>
+export const BtcIcon = ({ size = 44 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="22" fill="#f7931a" /><text x="22" y="30" textAnchor="middle" fontSize="24" fontWeight="700" fill="#fff" fontFamily="Arial">₿</text></svg>
 );
 
 export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig; account: BtcAccount; onLost: () => void; onBalance: (s: bigint) => void }) {
@@ -145,7 +145,7 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
   const tabs = (
     <section className="card">
       <div className="segmented crypto-tabs">
-        {([["historique", "History"], ["coins", "Coins"], ["securite", "Security"]] as const).map(([k, l]) => (
+        {([["historique", "Activity"], ["coins", "Coins"], ["securite", "Security"]] as const).map(([k, l]) => (
           <button key={k} className={sub === k ? "on" : ""} onClick={() => setSub(k)}>{l}</button>
         ))}
       </div>

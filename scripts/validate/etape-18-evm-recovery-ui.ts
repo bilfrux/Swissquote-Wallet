@@ -22,6 +22,8 @@ const device = async () => {
   return ctx;
 };
 const popupOf = async (ctx: BrowserContext, click: () => Promise<void>) => { const [p] = await Promise.all([ctx.waitForEvent("page", { timeout: 150000 }), click()]); await p.waitForLoadState(); return p; };
+// Choix du réseau Ethereum dans le sélecteur (un seul réseau affiché à la fois, étape 19).
+const toEthereum = async (p: Page) => { await p.getByTestId("network-switcher").click(); await p.getByTestId("network-evm").click(); };
 const shot = (p: Page, n: string) => p.screenshot({ path: `${SHOTS}/etape-18-${n}.png`, fullPage: true });
 let atBlock: bigint | undefined;
 const seen = async (text: string) => { const h = text.match(/0x[0-9a-f]{64}/)?.[0] as `0x${string}` | undefined; if (h) atBlock = (await publicClient.waitForTransactionReceipt({ hash: h })).blockNumber; return h; };
@@ -38,6 +40,7 @@ try {
   await app.getByLabel("Password").fill("demo0003");
   await app.getByRole("button", { name: "Log in", exact: true }).click();
   await app.getByRole("button", { name: "Crypto", exact: true }).click();
+  await toEthereum(app);
   const card = app.getByTestId("evm-card");
   await card.getByTestId("evm-guardians").waitFor({ timeout: 60000 });
   const safe = getAddress((await card.getByTestId("evm-safe").textContent())!.trim());
@@ -56,6 +59,8 @@ try {
     console.log(`[ménage] finalisée : ${sent.txHash}`);
     await app.reload(); // l'appli avait chargé l'état d'avant le ménage
     await app.getByRole("button", { name: "Crypto", exact: true }).click();
+    await toEthereum(app);
+  await toEthereum(app);
     await card.getByTestId("evm-guardians").waitFor({ timeout: 60000 });
   }
   const before = await readState(safe);
@@ -68,7 +73,7 @@ try {
   report("18-1", "Swissquote refuse de signer sans re-KYC, et vers le propriétaire actuel", noKyc.status === 403 && toOwner.status === 403, `${noKyc.status} ${noKyc.json.error} ; ${toOwner.status} ${toOwner.json.error}`);
 
   // Parcours dans l'interface, nouvel appareil (nouveau contexte de navigateur).
-  await card.getByRole("button", { name: /Lost the key of this Ethereum account/ }).click();
+  await card.getByRole("button", { name: "Recover", exact: true }).click();
   const rec = card.getByTestId("evm-recovery");
   await rec.getByPlaceholder("Last name").fill("Martin");
   await rec.getByPlaceholder("Date of birth (YYYY-MM-DD)").fill("1992-03-21");
@@ -130,7 +135,7 @@ try {
   await w4.getByRole("button", { name: "Confirm and sign" }).click();
   await card.getByRole("button", { name: "Sign with my Client Wallet" }).waitFor({ timeout: 240000 }); // invalidation préparée
   await w4.close();
-  const finalized = (await card.getByText(/^Recovery completed:/).textContent()) ?? "";
+  const finalized = (await card.getByText(/^Recovery completed: 0x/).textContent()) ?? "";
   await seen(finalized);
   const after = await readState(safe);
   const reg = (await (await fetch(`${BANK}/evm/accounts`, { headers: { authorization: `Bearer ${JSON.parse(await app.evaluate(() => sessionStorage.getItem("sq-bank:session") ?? "null"))?.token}` } })).json()).accounts.find((a: any) => getAddress(a.safe) === safe);
@@ -142,7 +147,7 @@ try {
   const invScreen = (await w5.locator("section").first().textContent()) ?? "";
   await w5.getByLabel("Wallet PIN").fill(NEW_PIN);
   await w5.getByRole("button", { name: "Confirm and sign" }).click();
-  await card.getByText(/Leftover guardian signatures invalidated:/).waitFor({ timeout: 180000 });
+  await card.getByText(/^Leftover guardian signatures invalidated: 0x/).waitFor({ timeout: 180000 });
   await seen((await card.getByTestId("evm-last-tx").textContent()) ?? "");
   const nonceAfter = await recoveryNonce(safe, atBlock);
   await shot(app, "3-recovery-terminee");

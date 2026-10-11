@@ -201,3 +201,60 @@ export const recoveryNonce = (safe: Address, blockNumber?: bigint) =>
 export const startRecoveryCall = (safe: Address, newOwner: Address, sigs: { signer: Address; signature: Hex }[]) =>
   module_.createMultiConfirmRecoveryMetaTransaction(safe, [newOwner], 1, [...sigs].sort((a, b) => (BigInt(a.signer) < BigInt(b.signer) ? -1 : 1)), true);
 export const finalizeRecoveryCall = (safe: Address) => module_.createFinalizeRecoveryMetaTransaction(safe);
+
+// ---- Historique lu sur la chaîne (logs) ----
+// Événements du module vérifiés sur des transactions réelles (étape 19) : le hash de chaque signature correspond au
+// topic0 observé, et le premier champ indexé (topic1) est le Safe.
+const TRANSFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+const MODULE_EVENTS: Record<string, string> = {
+  "0x1fa74635dcccfa96011b50295a26dd08b8c3c6ca7d66ede450288192674ebf01": "recovery-started", // RecoveryExecuted(address,address[],uint256,uint256,uint64,uint256)
+  "0x8f02bbdd0d302f6cdd4a448157ae4156c07384b648beae077292ba804d60ad5a": "recovery-completed", // RecoveryFinalized(address,address[],uint256,uint256)
+  "0x81da66c7aac3ee4365918a5d70f73e846a59e8a8af01ef155e86518190490519": "recovery-cancelled", // RecoveryCanceled(address,uint256)
+  "0x1800cd2301fbc20790ed94f3d55a28ef2306a9c31cd3c72b5b71b6e4cf5c6241": "signatures-invalidated", // NonceInvalidated(address,uint256)
+};
+export type Activity = { kind: "usdc-in" | "usdc-out" | "recovery-started" | "recovery-completed" | "recovery-cancelled" | "signatures-invalidated"; txHash: Hex; blockNumber: bigint; logIndex: number; amount?: bigint; counterparty?: Address; time?: number };
+const topicOf = (a: Address) => ("0x" + a.slice(2).toLowerCase().padStart(64, "0")) as Hex;
+// Le nœud public a élagué son historique (« pruned history unavailable » au-delà de quelques milliers de blocs) :
+// on lit à reculons par tranches et on s'arrête à la première tranche élaguée. `since` = premier bloc couvert.
+export async function activity(safe: Address, lookback = 50_000n, chunk = 2_000n): Promise<{ items: Activity[]; since: bigint }> {
+  const latest = await publicClient.getBlockNumber();
+  const floor = latest > lookback ? latest - lookback : 0n;
+  const raw: { log: any; kind: Activity["kind"] }[] = [];
+  const t = topicOf(safe);
+  let since = latest + 1n;
+  for (let to = latest; to >= floor; to -= chunk) {
+    const from = to - chunk + 1n > floor ? to - chunk + 1n : floor;
+    const range = { fromBlock: "0x" + from.toString(16), toBlock: "0x" + to.toString(16) };
+    const get = (params: object) => publicClient.request({ method: "eth_getLogs", params: [{ ...range, ...params }] as any }) as Promise<any[]>;
+    let parts: any[][] | null = null;
+    // Nœud public derrière un répartiteur de charge : un serveur en retard peut refuser une plage (« bloc introuvable ») ;
+    // on réessaie. Une plage élaguée (« pruned ») marque la fin de l'historique disponible.
+    for (let attempt = 0; !parts; attempt++) {
+      try {
+        parts = await Promise.all([
+          get({ address: USDC, topics: [TRANSFER, null, t] }),
+          get({ address: USDC, topics: [TRANSFER, t] }),
+          get({ address: RECOVERY_MODULE, topics: [Object.keys(MODULE_EVENTS), t] }),
+        ]);
+      } catch (e: any) {
+        if (/pruned/i.test(e?.details ?? e?.message ?? "")) break;
+        if (attempt >= 3) throw e;
+        await new Promise((r) => setTimeout(r, 1500));
+      }
+    }
+    if (!parts) break;
+    const [inc, out, mod] = parts;
+    for (const l of inc) raw.push({ log: l, kind: "usdc-in" });
+    for (const l of out) raw.push({ log: l, kind: "usdc-out" });
+    for (const l of mod) raw.push({ log: l, kind: MODULE_EVENTS[l.topics[0]] as Activity["kind"] });
+    since = from;
+    if (from === floor) break;
+  }
+  const blocks = [...new Set(raw.map((r) => r.log.blockNumber as string))];
+  const times = new Map(await Promise.all(blocks.map(async (b) => [b, Number((await publicClient.getBlock({ blockNumber: BigInt(b) })).timestamp)] as const)));
+  const items = raw.map(({ log, kind }) => ({
+    kind, txHash: log.transactionHash, blockNumber: BigInt(log.blockNumber), logIndex: Number(log.logIndex), time: times.get(log.blockNumber),
+    ...(kind === "usdc-in" || kind === "usdc-out" ? { amount: BigInt(log.data), counterparty: getAddress("0x" + log.topics[kind === "usdc-in" ? 1 : 2].slice(26)) } : {}),
+  } as Activity)).sort((a, b) => (a.blockNumber === b.blockNumber ? b.logIndex - a.logIndex : Number(b.blockNumber - a.blockNumber)));
+  return { items, since };
+}

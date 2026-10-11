@@ -5,9 +5,8 @@ import { type WalletConfig, createWalletConfig } from "@sq/bitcoin";
 import { type Session, walletAccounts } from "../lib/bank";
 import { type BtcAccount, NETWORK, loadActiveAccount, saveActiveAccount } from "../lib/config";
 import { Recovery } from "../recovery/Recovery";
-import { Account } from "./Account";
 import { CreateWallet } from "./CreateWallet";
-import { Ethereum } from "./Ethereum";
+import { WalletHome } from "./WalletHome";
 
 export function CryptoTab({ session, onBalance }: { session: Session; onBalance: (s: bigint | null) => void }) {
   const cid = session.customer.id;
@@ -49,8 +48,7 @@ export function CryptoTab({ session, onBalance }: { session: Session; onBalance:
           <p className="center"><button className="link" onClick={() => setRecovering(true)}>I had a wallet and lost it: recover my bitcoin</button></p>
         </>
       )}
-      {account && cfg && <Account key={cfg.client.raw} cfg={cfg} account={account} onLost={() => setRecovering(true)} onBalance={onBalance} />}
-      {account && <Ethereum key={`evm:${account.client}`} customerId={cid} accountKey={account.client} tiersName={account.tiersName} />}
+      {account && cfg && <WalletHome key={cfg.client.raw} customerId={cid} cfg={cfg} account={account} onLost={() => setRecovering(true)} onBalance={onBalance} />}
     </>
   );
 }

@@ -34,6 +34,8 @@ const seen = async (text: string) => {
 async function readState(safe: Address) {
   for (let i = 0; ; i++) { try { return await readLatest(safe, atBlock); } catch (e) { if (i > 15) throw e; await new Promise((r) => setTimeout(r, 2000)); } }
 }
+// Choix du réseau Ethereum dans le sélecteur (un seul réseau affiché à la fois, étape 19).
+const toEthereum = async (p: Page) => { await p.getByTestId("network-switcher").click(); await p.getByTestId("network-evm").click(); };
 const shot = (p: Page, n: string) => p.screenshot({ path: `${SHOTS}/etape-17-${n}.png`, fullPage: true });
 
 try {
@@ -54,6 +56,7 @@ try {
   await app.getByLabel("Password").fill("demo0003");
   await app.getByRole("button", { name: "Log in", exact: true }).click();
   await app.getByRole("button", { name: "Crypto", exact: true }).click();
+  await toEthereum(app);
   const card = app.getByTestId("evm-card");
   await card.waitFor({ timeout: 30000 });
 
@@ -96,6 +99,7 @@ try {
   } else report("17-2", "Activation (déjà faite lors d'un essai précédent)", true, `gardiens ${st.guardians.join(", ")} ; seuil ${st.threshold}`);
   await app.reload();
   await app.getByRole("button", { name: "Crypto", exact: true }).click();
+  await toEthereum(app);
   await app.getByTestId("evm-guardians").waitFor({ timeout: 30000 });
   await shot(app, "2-compte-ethereum");
 
@@ -111,6 +115,7 @@ try {
   st = await readState(safe);
   if (st.usdc >= parseUnits("1", USDC_DECIMALS)) {
     const before = st.usdc;
+    await card.getByRole("button", { name: "Send", exact: true }).click();
     await card.getByPlaceholder("0x…").fill(tiersEvm);
     await card.getByPlaceholder("1").fill("1");
     await card.getByRole("button", { name: "Send USDC" }).click();
@@ -121,7 +126,7 @@ try {
     await typePinIfAsked(w);
     await w.getByRole("button", { name: "Confirm and sign" }).click();
     const done = (await app.getByTestId("evm-last-tx").textContent({ timeout: 180000 })) ?? "";
-    await app.getByText(/USDC sent/).waitFor({ timeout: 10000 });
+    await app.getByText(/^USDC sent: 0x/).waitFor({ timeout: 10000 });
     await seen(done);
     const after = (await readState(safe)).usdc;
     await shot(app, "4-envoi-usdc");

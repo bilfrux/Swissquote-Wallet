@@ -29,25 +29,64 @@ const TABS: { id: Tab; label: string; icon: () => React.ReactElement }[] = [
 export function Shell(p: Props) {
   const mobile = useIsMobile();
   const [sheet, setSheet] = useState(false);
-  if (mobile)
-    return (
-      <div className="m-app">
-        <div className="m-top">
-          <Logo size={26} />
-          <div className="m-top-actions">
-            <NotificationBell round />
-            <button className="round" aria-label="My account" onClick={() => setSheet(!sheet)}><IconUser /></button>
+  const RAIL: { label: string; icon: () => React.ReactElement; go: () => void; on: boolean }[] = [
+    { label: "Portfolio", icon: IconPortfolio, go: () => p.onTab("accueil"), on: p.tab === "accueil" },
+    { label: "Accounts", icon: IconBank, go: () => p.onTab("banque"), on: p.tab === "banque" },
+    { label: "Crypto assets", icon: IconCrypto, go: () => p.onTab("crypto"), on: p.tab === "crypto" },
+    { label: "Security", icon: IconShield, go: () => p.onTab("crypto", "securite"), on: false },
+    ...(NETWORK === "regtest" ? [{ label: "Attacks", icon: IconBolt, go: () => p.onTab("demo"), on: p.tab === "demo" }] : []),
+  ];
+  // Même arbre pour les deux mises en page : le contenu (<main>) garde sa position, donc franchir le seuil
+  // téléphone/ordinateur (rotation, redimensionnement) ne démonte pas l'appli et ne perd pas son état.
+  return (
+    <div className={mobile ? "m-app" : "d-app"}>
+      {mobile ? (
+        <>
+          <div className="m-top">
+            <Logo size={26} />
+            <div className="m-top-actions">
+              <NotificationBell round />
+              <button className="round" aria-label="My account" onClick={() => setSheet(!sheet)}><IconUser /></button>
+            </div>
           </div>
-        </div>
-        {sheet && (
-          <div className="m-sheet">
-            <p><strong>{p.user.firstName} {p.user.lastName}</strong></p>
-            <p className="muted small">Simulated bank · Bitcoin {NETWORK}</p>
-            <AccountSecurity />
+          {sheet && (
+            <div className="m-sheet">
+              <p><strong>{p.user.firstName} {p.user.lastName}</strong></p>
+              <p className="muted small">Simulated bank · Bitcoin {NETWORK}</p>
+              <AccountSecurity />
+              <button className="btn-outline-red" onClick={p.onLogout}>Log out</button>
+            </div>
+          )}
+        </>
+      ) : (
+        <header className="d-header">
+          <Logo />
+          <nav className="d-topnav">
+            {TABS.map((t) => (
+              <button key={t.id} className={p.tab === t.id ? "active" : ""} onClick={() => p.onTab(t.id)}>{t.label}</button>
+            ))}
+          </nav>
+          <div className="d-header-right">
+            <NotificationBell />
+            <div className="bell-wrap">
+              <button className="account-pill" aria-label="My account" onClick={() => setSheet(!sheet)}><IconUser /> {p.user.firstName} {p.user.lastName}</button>
+              {sheet && <div className="bell-panel"><p><strong>{p.user.firstName} {p.user.lastName}</strong></p><AccountSecurity /></div>}
+            </div>
             <button className="btn-outline-red" onClick={p.onLogout}>Log out</button>
           </div>
+        </header>
+      )}
+      <div className={mobile ? "m-body" : "d-body"}>
+        {!mobile && (
+          <aside className="d-rail">
+            {RAIL.map((r) => (
+              <button key={r.label} className={r.on ? "on" : ""} onClick={r.go}><r.icon /><span>{r.label}</span></button>
+            ))}
+          </aside>
         )}
-        <main className="m-main">{p.children}</main>
+        <main className={mobile ? "m-main" : "d-main"}>{p.children}</main>
+      </div>
+      {mobile ? (
         <nav className="m-tabbar">
           {TABS.map((t) => (
             <button key={t.id} className={p.tab === t.id ? "active" : ""} onClick={() => p.onTab(t.id)}>
@@ -56,49 +95,15 @@ export function Shell(p: Props) {
             </button>
           ))}
         </nav>
-      </div>
-    );
-
-  const RAIL: { label: string; icon: () => React.ReactElement; go: () => void; on: boolean }[] = [
-    { label: "Portfolio", icon: IconPortfolio, go: () => p.onTab("accueil"), on: p.tab === "accueil" },
-    { label: "Accounts", icon: IconBank, go: () => p.onTab("banque"), on: p.tab === "banque" },
-    { label: "Crypto assets", icon: IconCrypto, go: () => p.onTab("crypto"), on: p.tab === "crypto" },
-    { label: "Security", icon: IconShield, go: () => p.onTab("crypto", "securite"), on: false },
-    ...(NETWORK === "regtest" ? [{ label: "Attacks", icon: IconBolt, go: () => p.onTab("demo"), on: p.tab === "demo" }] : []),
-  ];
-  return (
-    <div className="d-app">
-      <header className="d-header">
-        <Logo />
-        <nav className="d-topnav">
-          {TABS.map((t) => (
-            <button key={t.id} className={p.tab === t.id ? "active" : ""} onClick={() => p.onTab(t.id)}>{t.label}</button>
-          ))}
-        </nav>
-        <div className="d-header-right">
-          <NotificationBell />
-          <div className="bell-wrap">
-            <button className="account-pill" aria-label="My account" onClick={() => setSheet(!sheet)}><IconUser /> {p.user.firstName} {p.user.lastName}</button>
-            {sheet && <div className="bell-panel"><p><strong>{p.user.firstName} {p.user.lastName}</strong></p><AccountSecurity /></div>}
-          </div>
-          <button className="btn-outline-red" onClick={p.onLogout}>Log out</button>
-        </div>
-      </header>
-      <div className="d-body">
-        <aside className="d-rail">
-          {RAIL.map((r) => (
-            <button key={r.label} className={r.on ? "on" : ""} onClick={r.go}><r.icon /><span>{r.label}</span></button>
-          ))}
-        </aside>
-        <main className="d-main">{p.children}</main>
-      </div>
-      <footer className="d-status">
-        <span>Total value <strong>{num(p.totals.totalChf)} CHF</strong></span>
-        <span>CHF accounts <strong>{num(p.totals.cashChf)} CHF</strong></span>
-        <span>Crypto <strong>{p.totals.btc ?? "—"}</strong></span>
-        <span>Bitcoin network <strong>{NETWORK}</strong></span>
-        <span className="sim">Simulated bank for the demo</span>
-      </footer>
+      ) : (
+        <footer className="d-status">
+          <span>Total value <strong>{num(p.totals.totalChf)} CHF</strong></span>
+          <span>CHF accounts <strong>{num(p.totals.cashChf)} CHF</strong></span>
+          <span>Crypto <strong>{p.totals.btc ?? "—"}</strong></span>
+          <span>Bitcoin network <strong>{NETWORK}</strong></span>
+          <span className="sim">Simulated bank for the demo</span>
+        </footer>
+      )}
     </div>
   );
 }

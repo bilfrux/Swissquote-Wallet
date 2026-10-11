@@ -2,23 +2,43 @@
 // le Bitcoin). Swissquote et le tiers sont les deux gardiens du module de recovery (seuil 2, délai appliqué par le contrat).
 // L'appli prépare les opérations ; le Wallet du client les décode, les fait confirmer et les signe ; un paymaster
 // (tiers, pas Swissquote) paie les frais : le client n'a pas besoin d'ETH.
-import { useEffect, useState } from "react";
-import { type Address, formatUnits, getAddress, isAddress, parseUnits } from "viem";
-import { EXPLORER, USDC_DECIMALS, publicClient, RECOVERY_DELAY_LABEL, RECOVERY_MODULE, activationCalls, buildSponsoredOp, cancelRecoveryCalls, finalizeRecoveryCall, readState, recoveryAbi, safeAddressOf, sendOp, startRecoveryCall, usdcTransferCall } from "@sq/evm";
+// Même mise en page que la fiche Bitcoin : en-tête (solde, état, actions), panneau d'action, onglets.
+import { useCallback, useEffect, useRef, useState } from "react";
+import QRCode from "qrcode";
+import { type Address, encodeFunctionData, formatUnits, getAddress, isAddress, parseUnits } from "viem";
+import { type Activity, EXPLORER, USDC_DECIMALS, publicClient, RECOVERY_DELAY_LABEL, RECOVERY_MODULE, activationCalls, activity, buildSponsoredOp, cancelRecoveryCalls, finalizeRecoveryCall, readState, recoveryAbi, safeAddressOf, sendOp, startRecoveryCall, usdcTransferCall } from "@sq/evm";
 import { type EvmAccount, evmAccounts, evmSignRecovery, registerEvm, relayCreate, relayGet, syncEvm, verifyIdentity } from "../lib/bank";
-import { encodeFunctionData } from "viem";
+import { USDC_CHF } from "../lib/config";
 import { walletRequest } from "../lib/walletBridge";
+import { num } from "../ui/format";
+import { IconBank, IconReceive, IconRefresh, IconSend, IconShield } from "../ui/icons";
+import { useIsMobile } from "../ui/useIsMobile";
 
 const CONSOLE_URL = import.meta.env.VITE_GUARDIAN_CONSOLE_URL ?? "http://localhost:5174";
 
 type State = Awaited<ReturnType<typeof readState>>;
 const cacheKey = (cid: string) => `sq-wallet:evm:${cid}`;
 const short = (a: string) => `${a.slice(0, 8)}…${a.slice(-6)}`;
+const usdc = (v: bigint) => `${formatUnits(v, USDC_DECIMALS)} USDC`;
+export type EvmInfo = { added: boolean; safe?: Address; usdc?: bigint };
+type Panel = "receive" | "send" | "recover";
+type SubTab = "activity" | "assets" | "security";
+const KIND: Record<Activity["kind"], string> = {
+  "usdc-in": "USDC received", "usdc-out": "USDC sent", "recovery-started": "Recovery started (Swissquote + trusted contact)",
+  "recovery-completed": "Recovery completed: new owner", "recovery-cancelled": "Recovery cancelled", "signatures-invalidated": "Leftover guardian signatures invalidated",
+};
 
-export function Ethereum({ customerId, accountKey, tiersName }: { customerId: string; accountKey: string; tiersName?: string | null }) {
+export const EthIcon = ({ size = 44 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="22" fill="#627eea" /><path d="M22 7 13 22.3l9 5.3 9-5.3L22 7Z" fill="#fff" /><path d="m13 24.1 9 12.9 9-12.9-9 5.3-9-5.3Z" fill="#fff" fillOpacity=".75" /></svg>
+);
+
+export function Ethereum({ customerId, accountKey, tiersName, onInfo }: { customerId: string; accountKey: string; tiersName?: string | null; onInfo?: (i: EvmInfo) => void }) {
+  const mobile = useIsMobile();
   const [acc, setAcc] = useState<EvmAccount | null | undefined>(undefined);
   const [sq, setSq] = useState<Address | null>(null);
   const [state, setState] = useState<State | null>(null);
+  const [acts, setActs] = useState<{ items: Activity[]; since: bigint } | null>(null);
+  const [actsError, setActsError] = useState<string | null>(null);
   const [tiersAddr, setTiersAddr] = useState("");
   const [to, setTo] = useState("");
   const [amount, setAmount] = useState("");
@@ -27,7 +47,12 @@ export function Ethereum({ customerId, accountKey, tiersName }: { customerId: st
   const [txs, setTxs] = useState<{ label: string; hash: string }[]>([]); // opérations de cette session, la plus récente d'abord
   // Opération préparée, en attente de signature : la fenêtre du wallet s'ouvre sur un clic (sinon le navigateur la bloque).
   const [ready, setReady] = useState<{ label: string; op: Awaited<ReturnType<typeof buildSponsoredOp>>; after?: (blockNumber: bigint) => Promise<void> } | null>(null);
-  const [recovering, setRecovering] = useState(false);
+  const [panel, setPanel] = useState<Panel>("receive");
+  const [sub, setSub] = useState<SubTab>("activity");
+  const [qr, setQr] = useState("");
+  const [allActs, setAllActs] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const cached = JSON.parse(localStorage.getItem(cacheKey(customerId)) ?? "null");
@@ -36,8 +61,15 @@ export function Ethereum({ customerId, accountKey, tiersName }: { customerId: st
       () => { setAcc(cached); setSq(cached?.swissquote ?? null); },
     );
   }, [customerId]);
-  const refresh = (blockNumber?: bigint) => acc && readState(acc.safe, blockNumber).then(setState, (e) => setError(`chain read failed: ${e.message}`));
-  useEffect(() => { refresh(); }, [acc]); // eslint-disable-line react-hooks/exhaustive-deps
+  const refresh = useCallback(async (blockNumber?: bigint) => {
+    if (!acc) return;
+    try { setState(await readState(acc.safe, blockNumber)); } catch (e: any) { setError(`chain read failed: ${e.message}`); }
+    setActsError(null);
+    activity(acc.safe).then(setActs, (e) => setActsError(e?.shortMessage ?? e?.message ?? String(e)));
+  }, [acc]);
+  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => { onInfo?.({ added: !!acc, safe: acc?.safe, usdc: state?.usdc }); }, [acc, state]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (acc) QRCode.toString(`ethereum:${acc.safe}@11155111`, { type: "svg", margin: 1, width: 180 }).then(setQr, () => setQr("")); }, [acc]);
 
   const run = (label: string, f: () => Promise<void>) => async () => {
     setError(null); setBusy(label);
@@ -57,18 +89,19 @@ export function Ethereum({ customerId, accountKey, tiersName }: { customerId: st
     await refresh(r.blockNumber);
     if (after) await after(r.blockNumber);
   };
+  const open = (p: Panel) => { setPanel(p); if (mobile) setTimeout(() => panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 30); };
 
-  if (acc === undefined) return null;
+  if (acc === undefined) return <section className="card" data-testid="evm-card"><p className="muted">Loading…</p></section>;
   if (!acc)
     return (
       <section className="card evm" data-testid="evm-card">
-        <h3>Ethereum · USDC (Sepolia testnet)</h3>
+        <div className="asset-id"><EthIcon /><div><h1>Ethereum · USDC</h1><p className="muted small">Sepolia testnet · not added yet</p></div></div>
         <p className="small">Add an Ethereum account to your wallet: same Client Wallet, same secret phrase. Recovery works as for Bitcoin: Swissquote and your trusted contact together, after a delay enforced by the contract, which you can cancel.</p>
         <label>{tiersName ?? "Trusted contact"}'s Ethereum address
           <input className="mono" placeholder="0x…" value={tiersAddr} onChange={(e) => setTiersAddr(e.target.value.trim())} />
         </label>
         <p className="muted small">Shown in their guardian console (same phrase as their Bitcoin key).</p>
-        <button disabled={!!busy || !isAddress(tiersAddr)} onClick={run("add", async () => {
+        <button className="btn-primary" disabled={!!busy || !isAddress(tiersAddr)} onClick={run("add", async () => {
           const { evmAddress } = await walletRequest<{ evmAddress: string }>("evm-address", { accountKey });
           const a = await registerEvm(evmAddress, getAddress(tiersAddr), tiersName);
           setSq(a.swissquote); setAcc(a);
@@ -79,14 +112,36 @@ export function Ethereum({ customerId, accountKey, tiersName }: { customerId: st
     );
 
   const label = (a: string) => (sq && a.toLowerCase() === sq.toLowerCase() ? "Swissquote" : a.toLowerCase() === acc.tiers.toLowerCase() ? acc.tiersName ?? "trusted contact" : short(a));
-  const active = state?.deployed && state.moduleEnabled && state.threshold === 2n;
-  return (
-    <section className="card evm" data-testid="evm-card">
-      <h3>Ethereum · USDC (Sepolia testnet)</h3>
-      <p className="small">Account <a className="mono" href={`${EXPLORER}/address/${acc.safe}`} target="_blank" rel="noreferrer" data-testid="evm-safe">{acc.safe}</a></p>
-      <p className="evm-balance" data-testid="evm-usdc">{state ? `${formatUnits(state.usdc, USDC_DECIMALS)} USDC` : "…"}</p>
+  const active = !!(state?.deployed && state.moduleEnabled && state.threshold === 2n);
+  const balance = state?.usdc ?? 0n;
+  const status = !state ? null : state.pending ? { cls: "bad", text: "Recovery in progress" } : active ? { cls: "ok", text: `Protected: Swissquote + ${acc.tiersName ?? "contact"}, ${RECOVERY_DELAY_LABEL} delay` } : { cls: "warn", text: "Not active yet" };
+
+  const header = (
+    <section className="card asset-head">
+      <div className="asset-id">
+        <EthIcon />
+        <div><h1>Ethereum · USDC</h1><p className="muted small">self-custody · Sepolia · <a className="mono" href={`${EXPLORER}/address/${acc.safe}`} target="_blank" rel="noreferrer" title={acc.safe}>{short(acc.safe)}</a> <button className="link small" onClick={() => { navigator.clipboard?.writeText(acc.safe); setCopied(true); setTimeout(() => setCopied(false), 1200); }}>{copied ? "copied" : "⧉"}</button><span hidden data-testid="evm-safe">{acc.safe}</span></p></div>
+        {!mobile && <button className="link refresh" onClick={() => refresh()}><IconRefresh /> Reload</button>}
+      </div>
+      <div className="asset-balance">
+        <p className="asset-btc" data-testid="evm-usdc">{state ? usdc(balance) : "…"}</p>
+        <p className="muted">≈ {num((Number(balance) / 10 ** USDC_DECIMALS) * USDC_CHF)} CHF <span className="small">(simulated rate) · 0 ETH needed</span></p>
+        {status && <span className={`chip ${status.cls}`}><IconShield /> {status.text}</span>}
+      </div>
+      <div className="round-actions asset-actions">
+        <button className={panel === "receive" ? "on" : ""} onClick={() => open("receive")}><span className="round dark"><IconReceive /></span>Receive</button>
+        <button className={panel === "send" ? "on" : ""} disabled={!active} onClick={() => open("send")}><span className="round dark"><IconSend /></span>Send</button>
+        <button className={panel === "recover" ? "on" : ""} disabled={!active} onClick={() => open("recover")}><span className="round dark"><IconShield /></span>Recover</button>
+        <button disabled title="Swissquote account ↔ wallet transfers: Bitcoin only for now"><span className="round dark"><IconBank /></span>Transfer (soon)</button>
+      </div>
+      {active && <p className="small muted span-all" data-testid="evm-guardians">Recovery guardians: {state!.guardians.map(label).join(" + ")} (both needed) · owner: your Client Wallet ({short(state!.owners[0])})</p>}
+    </section>
+  );
+
+  const alerts = (
+    <>
       {state && !active && (
-        <div className="note">
+        <div className="warning">
           <p>Not active yet. Activating creates your account on-chain and sets its two recovery guardians: Swissquote and {acc.tiersName ?? "your trusted contact"} (both needed, {RECOVERY_DELAY_LABEL} delay that you can cancel). Network fees are sponsored: you need no ETH.</p>
           <button disabled={!!busy || !sq} onClick={run("activate", () => prepare("Activation", activationCalls(acc.safe, sq!, acc.tiers)))}>
             {busy === "activate" ? "Preparing…" : "Activate my Ethereum account"}
@@ -99,41 +154,127 @@ export function Ethereum({ customerId, accountKey, tiersName }: { customerId: st
           <button disabled={!!busy} onClick={run("cancel", () => prepare("Recovery cancelled", cancelRecoveryCalls()))}>{busy === "cancel" ? "Preparing…" : "Cancel this recovery"}</button>
         </div>
       )}
-      {active && (
-        <>
-          <p className="small muted" data-testid="evm-guardians">Recovery guardians: {state!.guardians.map(label).join(" + ")} (both needed) · owner: your Client Wallet ({short(state!.owners[0])})</p>
-          <div className="send">
-            <label>Recipient<input className="mono" placeholder="0x…" value={to} onChange={(e) => setTo(e.target.value.trim())} /></label>
-            <label>Amount (USDC)<input placeholder="1" value={amount} onChange={(e) => setAmount(e.target.value.trim())} /></label>
-            <button disabled={!!busy || !isAddress(to) || !(Number(amount) > 0)} onClick={run("send", () => prepare("USDC sent", [usdcTransferCall(getAddress(to), parseUnits(amount, USDC_DECIMALS))]))}>
-              {busy === "send" ? "Preparing…" : "Send USDC"}
-            </button>
-            <p className="muted small">Fees sponsored by a paymaster (third party, not Swissquote).</p>
-          </div>
-        </>
-      )}
       {ready && (
-        <div className="note" data-testid="evm-ready">
+        <div className="note banner" data-testid="evm-ready">
           <p>{ready.label === "USDC sent" ? "Transfer" : ready.label} prepared, network fees sponsored. Confirm it in your Client Wallet: it decodes the operation itself.</p>
           <button disabled={!!busy} onClick={run("sign", signAndSend)}>{busy === "sign" ? "Waiting for your Client Wallet, then the network…" : "Sign with my Client Wallet"}</button>
         </div>
-      )}
-      {!recovering && active && <p><button className="link" onClick={() => setRecovering(true)}>Lost the key of this Ethereum account? Recover it</button></p>}
-      {recovering && state && (
-        <EvmRecovery acc={acc} state={state} busy={busy} run={run} prepare={prepare}
-          onRecovered={async (blockNumber) => {
-            const a = await syncEvm(acc.safe);
-            setAcc(a); localStorage.setItem(cacheKey(customerId), JSON.stringify({ ...a, swissquote: sq })); setRecovering(false);
-            await refresh(blockNumber);
-            // Règle du projet après toute recovery : invalider les signatures de gardiens déjà collectées (nonce du module).
-            await prepare("Leftover guardian signatures invalidated", [{ to: RECOVERY_MODULE, value: 0n, data: encodeFunctionData({ abi: recoveryAbi, functionName: "invalidateNonce" }) }], { safe: a.safe, owner: a.owner });
-          }} />
       )}
       {txs.map((t, i) => (
         <p key={t.hash} className={i === 0 ? "success" : "muted small"} data-testid={i === 0 ? "evm-last-tx" : "evm-tx"}>{t.label}: <a href={`${EXPLORER}/tx/${t.hash}`} target="_blank" rel="noreferrer" className="mono">{t.hash}</a></p>
       ))}
       {error && <p className="error">{error}</p>}
+    </>
+  );
+
+  const sidePanel = panel === "send" && active ? (
+    <section className="card side-panel">
+      <div className="panel-head"><h2>Send USDC</h2><button className="link" aria-label="Close" onClick={() => setPanel("receive")}>✕</button></div>
+      <div className="send">
+        <label>Recipient<input className="mono" placeholder="0x…" value={to} onChange={(e) => setTo(e.target.value.trim())} /></label>
+        <label>Amount (USDC)<input placeholder="1" value={amount} onChange={(e) => setAmount(e.target.value.trim())} /></label>
+        <button className="btn-primary wide" disabled={!!busy || !isAddress(to) || !(Number(amount) > 0)} onClick={run("send", () => prepare("USDC sent", [usdcTransferCall(getAddress(to), parseUnits(amount, USDC_DECIMALS))]))}>
+          {busy === "send" ? "Preparing…" : "Send USDC"}
+        </button>
+        <p className="muted small">Fees sponsored by a paymaster (third party, not Swissquote). Your Client Wallet shows the transfer in clear before signing.</p>
+      </div>
     </section>
+  ) : panel === "recover" && active && state ? (
+    <section className="card side-panel">
+      <div className="panel-head"><h2>Recover this account</h2><button className="link" aria-label="Close" onClick={() => setPanel("receive")}>✕</button></div>
+      <EvmRecovery acc={acc} state={state} busy={busy} run={run} prepare={prepare}
+        onRecovered={async (blockNumber) => {
+          const a = await syncEvm(acc.safe);
+          setAcc(a); localStorage.setItem(cacheKey(customerId), JSON.stringify({ ...a, swissquote: sq }));
+          await refresh(blockNumber);
+          // Règle du projet après toute recovery : invalider les signatures de gardiens déjà collectées (nonce du module).
+          await prepare("Leftover guardian signatures invalidated", [{ to: RECOVERY_MODULE, value: 0n, data: encodeFunctionData({ abi: recoveryAbi, functionName: "invalidateNonce" }) }], { safe: a.safe, owner: a.owner });
+          setPanel("receive");
+        }} />
+    </section>
+  ) : (
+    <section className="card side-panel">
+      <h2>Receive USDC</h2>
+      {qr && <div className="qr" dangerouslySetInnerHTML={{ __html: qr }} />}
+      <p className="mono address">{acc.safe}</p>
+      <div className="btn-row">
+        <button className="btn-secondary" onClick={() => navigator.clipboard?.writeText(acc.safe)}>Copy address</button>
+      </div>
+      <p className="muted small"><a href={`${EXPLORER}/address/${acc.safe}`} target="_blank" rel="noreferrer">View in explorer</a></p>
+      <p className="muted small">Ethereum Sepolia only. Send USDC (test) to this address; no ETH is needed to use it.</p>
+    </section>
+  );
+
+  const tabs = (
+    <section className="card">
+      <div className="segmented crypto-tabs evm-tabs">
+        {([["activity", "Activity"], ["assets", "Assets"], ["security", "Security"]] as const).map(([k, l]) => (
+          <button key={k} className={sub === k ? "on" : ""} onClick={() => setSub(k)}>{l}</button>
+        ))}
+      </div>
+      {sub === "activity" && (
+        <div data-testid="evm-activity">
+          {!acts && !actsError && <p className="muted small">Loading…</p>}
+          {!acts && actsError && <p className="error small">Activity unavailable (public node): {actsError} <button className="link" onClick={() => refresh()}>Retry</button></p>}
+          {acts && acts.items.length === 0 && <p className="muted small">No activity in the recent blocks.</p>}
+          {acts && acts.items.length > 0 && (
+            <div className="tx-list">
+              {(allActs ? acts.items : acts.items.slice(0, 8)).map((h) => {
+                const dir = h.kind === "usdc-in" ? "in" : h.kind === "usdc-out" ? "out" : "self";
+                return (
+                  <div key={`${h.txHash}:${h.logIndex}`} className={`tx-row kind-${h.kind}`}>
+                    <span className={`tx-icon ${dir}`}>{dir === "in" ? <IconReceive /> : dir === "out" ? <IconSend /> : <IconShield />}</span>
+                    <div className="tx-main">
+                      <p className="tx-kind">{KIND[h.kind]}</p>
+                      <p className="muted small">
+                        {h.time ? new Date(h.time * 1000).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : `block ${h.blockNumber}`}
+                        {h.counterparty && <> · {dir === "in" ? "from" : "to"} {label(h.counterparty)}</>} · <a href={`${EXPLORER}/tx/${h.txHash}`} target="_blank" rel="noreferrer">explorer</a>
+                      </p>
+                    </div>
+                    <p className={`tx-amount ${dir === "out" ? "neg" : dir === "in" ? "pos" : "muted"}`}>{h.amount !== undefined ? `${dir === "out" ? "−" : "+"}${usdc(h.amount)}` : ""}</p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {acts && acts.items.length > 8 && <button className="link" onClick={() => setAllActs(!allActs)}>{allActs ? "Show less" : `Show all (${acts.items.length})`}</button>}
+          {acts && <p className="muted small">Read on-chain since block {acts.since.toString()} (the public node keeps a limited history).</p>}
+        </div>
+      )}
+      {sub === "assets" && (
+        <table>
+          <thead><tr><th>Asset</th><th>Balance</th><th>Value</th></tr></thead>
+          <tbody>
+            <tr><td>USDC (test, Circle)</td><td>{usdc(balance)}</td><td>≈ {num((Number(balance) / 10 ** USDC_DECIMALS) * USDC_CHF)} CHF</td></tr>
+            <tr><td>ETH</td><td>0 ETH</td><td className="muted">not needed: fees are sponsored</td></tr>
+          </tbody>
+        </table>
+      )}
+      {sub === "security" && (
+        <div>
+          <div className="sec-grid">
+            <div className="sec-item"><p className="sec-who">You</p><p className="small">Spend on your own, at any time, with your Client Wallet{state?.owners[0] ? ` (${short(state.owners[0])})` : ""}.</p></div>
+            <div className="sec-item"><p className="sec-who">Swissquote + {acc.tiersName ?? "trusted contact"}</p><p className="small">Only together, then a {RECOVERY_DELAY_LABEL} delay enforced by the contract, during which you can cancel.</p></div>
+            <div className="sec-item"><p className="sec-who">Swissquote alone</p><p className="small">Cannot start a recovery, nor spend anything.</p></div>
+          </div>
+          {active && <button className="link" onClick={() => open("recover")}>Lost the key of this Ethereum account? Recover it</button>}
+        </div>
+      )}
+    </section>
+  );
+
+  return (
+    <div className={mobile ? "crypto m evm" : "d-page crypto evm"} data-testid="evm-card">
+      {alerts}
+      {mobile ? (
+        <>{header}<div ref={panelRef}>{sidePanel}</div>{tabs}</>
+      ) : (
+        <div className="crypto-grid">
+          <div>{header}{tabs}</div>
+          <div ref={panelRef} className="crypto-side">{sidePanel}</div>
+        </div>
+      )}
+    </div>
   );
 }
 

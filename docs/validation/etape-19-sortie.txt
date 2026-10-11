@@ -1,0 +1,105 @@
+$ npm run -s validate:19   # essai 1 (fullPage : capture « Loading… » sur ordinateur)
+[OK ] 19-ordinateur Accueil du wallet (ordinateur) : un seul réseau affiché, menu avec les deux comptes et leurs soldes, choix mémorisé, historique Ethereum lu on-chain
+       menu : ₿Bitcoinsignet · BTC0.00008898 BTCtb1qarp…ljknk ⧉EthereumSepolia · USDC17 USDC0x29291…723AA ⧉Both accounts come from the same secret phrase, kept in your Client Wallet. Swissquote never holds their ke ; lignes d'activité Ethereum affichées : 8 ; réseau mémorisé après rechargement : true
+[OK ] 19-telephone Accueil du wallet (telephone) : un seul réseau affiché, menu avec les deux comptes et leurs soldes, choix mémorisé, historique Ethereum lu on-chain
+       menu : ₿Bitcoinsignet · BTC0.00008898 BTCtb1qarp…ljknk ⧉EthereumSepolia · USDC17 USDC0x29291…723AA ⧉Both accounts come from the same secret phrase, kept in your Client Wallet. Swissquote never holds their ke ; lignes d'activité Ethereum affichées : 8 ; réseau mémorisé après rechargement : true
+[OK ] 19-x Aucune erreur dans les consoles des navigateurs
+       aucune
+
+RÉSUMÉ
+19-ordinateur fonctionne         Accueil du wallet (ordinateur) : un seul réseau affiché, menu avec les deux comptes et leurs soldes, choix mémorisé, historique Ethereum lu on-chain
+19-telephone fonctionne         Accueil du wallet (telephone) : un seul réseau affiché, menu avec les deux comptes et leurs soldes, choix mémorisé, historique Ethereum lu on-chain
+19-x fonctionne         Aucune erreur dans les consoles des navigateurs
+
+$ diagnostic : état de la page avant/après une capture pleine page (ordinateur)
+avant { switcher: true, usdcVisible: true } ... après capture { switcher: false, usdcVisible: false, loading: true }  -> Shell reconstruit l appli au passage du seuil 820 px
+
+$ npm run -s validate:19   # essai 2 (après correction de Shell, avec test de redimensionnement)
+
+locator.waitFor: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for getByTestId('evm-activity').locator('.tx-row').first() to be visible[22m
+
+  log: [
+    "  - waiting for getByTestId('evm-activity').locator('.tx-row').first() to be visible"
+  ],
+  name: 'TimeoutError'
+}
+
+
+$ npm run -s validate:19   # essai 3 (lecture des logs réessayée, erreur affichée au lieu de « Loading… »)
+[OK ] 19-resize Redimensionnement à travers le seuil téléphone/ordinateur : réseau choisi et page conservés (pas de rechargement)
+       page Ethereum toujours affichée : true
+[OK ] 19-ordinateur Accueil du wallet (ordinateur) : un seul réseau affiché, menu avec les deux comptes et leurs soldes, choix mémorisé, historique Ethereum lu on-chain
+       menu : ₿Bitcoinsignet · BTC0.00008898 BTCtb1qarp…ljknk ⧉EthereumSepolia · USDC17 USDC0x29291…723AA ⧉Both accounts come from the same secret phrase, kept in your Client Wallet. Swissquote never holds their ke ; lignes d'activité Ethereum affichées : 8 ; réseau mémorisé après rechargement : true
+[OK ] 19-telephone Accueil du wallet (telephone) : un seul réseau affiché, menu avec les deux comptes et leurs soldes, choix mémorisé, historique Ethereum lu on-chain
+       menu : ₿Bitcoinsignet · BTC0.00008898 BTCtb1qarp…ljknk ⧉EthereumSepolia · USDC17 USDC0x29291…723AA ⧉Both accounts come from the same secret phrase, kept in your Client Wallet. Swissquote never holds their ke ; lignes d'activité Ethereum affichées : 8 ; réseau mémorisé après rechargement : true
+[OK ] 19-x Aucune erreur dans les consoles des navigateurs
+       aucune
+
+RÉSUMÉ
+19-resize fonctionne         Redimensionnement à travers le seuil téléphone/ordinateur : réseau choisi et page conservés (pas de rechargement)
+19-ordinateur fonctionne         Accueil du wallet (ordinateur) : un seul réseau affiché, menu avec les deux comptes et leurs soldes, choix mémorisé, historique Ethereum lu on-chain
+19-telephone fonctionne         Accueil du wallet (telephone) : un seul réseau affiché, menu avec les deux comptes et leurs soldes, choix mémorisé, historique Ethereum lu on-chain
+19-x fonctionne         Aucune erreur dans les consoles des navigateurs
+
+$ npm run -s validate:17 (nouvelle navigation)
+[OK ] 17-1 Ajout du compte Ethereum : adresse dérivée dans le Wallet du client (même phrase), Safe recalculé par Swissquote et affiché
+       Safe 0x292919c03fe12BEAD122998d1280812eeD5723AA ; propriétaire 0x085568B8A0d0cF806C73961Eb1b4129c7E62F82a ; tiers 0x82436F79d37e0f9d41d7C3CF8925b8BC079F86Ee ; enregistrement sans session : 401
+[OK ] 17-2 Activation (déjà faite lors d'un essai précédent)
+       gardiens 0x82436F79d37e0f9d41d7C3CF8925b8BC079F86Ee, 0xd2D6c688BC62E6e8e89BdF22d7aC79a64BDBca17 ; seuil 2
+[OK ] 17-3 Le Wallet du client refuse de signer une opération contenant un appel non reconnu
+       400 refused: not decoded: do not sign unless you know what it does
+
+locator.waitFor: Error: strict mode violation: getByText(/USDC sent/) resolved to 2 elements:
+    1) <p class="success" data-testid="evm-last-tx">…</p> aka getByTestId('evm-last-tx')
+    2) <p class="tx-kind">USDC sent</p> aka getByTestId('evm-activity').getByText('USDC sent')
+
+Call log:
+[2m  - waiting for getByText(/USDC sent/) to be visible[22m
+
+  log: [ '  - waiting for getByText(/USDC sent/) to be visible' ]
+}
+
+--- après correction du sélecteur de bandeau
+RÉSUMÉ
+17-1 fonctionne         Ajout du compte Ethereum : adresse dérivée dans le Wallet du client (même phrase), Safe recalculé par Swissquote et affiché
+17-2 fonctionne         Activation (déjà faite lors d'un essai précédent)
+17-3 fonctionne         Le Wallet du client refuse de signer une opération contenant un appel non reconnu
+17-4 fonctionne         Envoi d'1 USDC depuis l'interface, signé dans le Wallet du client, frais parrainés
+17-x fonctionne         Aucune erreur dans les consoles des navigateurs
+
+$ npm run -s validate:18 (nouvelle navigation)
+[OK ] 18-1 Swissquote refuse de signer sans re-KYC, et vers le propriétaire actuel
+       403 identity not verified: re-KYC required before any signature ; 403 the new owner must be a new key of the client (not the current owner, not a guardian)
+[OK ] 18-2 Demande transmise au tiers par le relais : sa console affiche la nouvelle clé et signe (EIP-712), Swissquote vérifie que c'est la signature du tiers enregistré
+       lien http://localhost:5184/?req=b3442be803e7444a93a2eb56c1a4d312 ; nouvelle clé affichée 0xEe6d5965FDCf70f0661F49367ECdc0891B43f994
+[OK ] 18-3 Recovery démarrée depuis l'interface (Swissquote + tiers), relayée et parrainée ; délai affiché, propriétaire inchangé pendant le délai
+       Recovery started: 0xa97c4bf8401510760d1824187767d93aa6bed3216af6ac268849c7635080f781 ; applicable après 2026-10-11T01:04:36.000Z ; écran : B4C563A2659F77CC82b857dB36C680aD4F648 (Sepolia)Account created on-chain with this operationRelay the guardians' signatures to start the recovery of 0x292919c03fe12BEAD122998d128081
+
+locator.textContent: Error: strict mode violation: getByTestId('evm-card').getByText(/^Recovery completed:/) resolved to 3 elements:
+    1) <p class="success" data-testid="evm-last-tx">…</p> aka getByTestId('evm-last-tx')
+    2) <p class="tx-kind">Recovery completed: new owner</p> aka getByText('Recovery completed: new owner').first()
+    3) <p class="tx-kind">Recovery completed: new owner</p> aka getByText('Recovery completed: new owner').nth(1)
+
+--- après correction du sélecteur de bandeau
+[OK ] 18-1 Swissquote refuse de signer sans re-KYC, et vers le propriétaire actuel
+       403 identity not verified: re-KYC required before any signature ; 403 the new owner must be a new key of the client (not the current owner, not a guardian)
+[OK ] 18-2 Demande transmise au tiers par le relais : sa console affiche la nouvelle clé et signe (EIP-712), Swissquote vérifie que c'est la signature du tiers enregistré
+       lien http://localhost:5184/?req=21f9428b178237eb86b7f6d97a92619e ; nouvelle clé affichée 0xA1190eccEB2D2EaB2ff24AdCCF1C76ab230E449F
+[OK ] 18-3 Recovery démarrée depuis l'interface (Swissquote + tiers), relayée et parrainée ; délai affiché, propriétaire inchangé pendant le délai
+       Recovery started: 0x774f54449c2b02906dc86656e80719b53b30f6e79dfa7e39c9c5e9e5d499251f ; applicable après 2026-10-11T01:08:48.000Z ; écran : 29F587606d73E73F5149820ADc794Bb96576f (Sepolia)Account created on-chain with this operationRelay the guardians' signatures to start the recovery of 0x292919c03fe12BEAD122998d128081
+[OK ] 18-4 Après le délai : recovery finalisée depuis l'interface ; propriétaire = nouvelle clé ; Swissquote a mis à jour son enregistrement
+       Recovery completed: 0xef0df12cedc10a57c76ac3e38a9fa1a6085ab88dde0f0c668087bfcc0d58ec63 ; propriétaires 0xA1190eccEB2D2EaB2ff24AdCCF1C76ab230E449F ; enregistré chez Swissquote : 0xA1190eccEB2D2EaB2ff24AdCCF1C76ab230E449F
+[OK ] 18-5 La nouvelle clé signe depuis le Safe récupéré : invalidation des signatures de gardiens restantes (nonce du module)
+       nonce 9 -> 11 (démarrage +1, invalidation +1)
+[OK ] 18-x Aucune erreur dans les consoles des navigateurs
+       aucune
+
+RÉSUMÉ
+18-1 fonctionne         Swissquote refuse de signer sans re-KYC, et vers le propriétaire actuel
+18-2 fonctionne         Demande transmise au tiers par le relais : sa console affiche la nouvelle clé et signe (EIP-712), Swissquote vérifie que c'est la signature du tiers enregistré
+18-3 fonctionne         Recovery démarrée depuis l'interface (Swissquote + tiers), relayée et parrainée ; délai affiché, propriétaire inchangé pendant le délai
+18-4 fonctionne         Après le délai : recovery finalisée depuis l'interface ; propriétaire = nouvelle clé ; Swissquote a mis à jour son enregistrement
+18-5 fonctionne         La nouvelle clé signe depuis le Safe récupéré : invalidation des signatures de gardiens restantes (nonce du module)
+18-x fonctionne         Aucune erreur dans les consoles des navigateurs
