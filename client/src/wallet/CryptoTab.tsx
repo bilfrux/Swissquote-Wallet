@@ -1,8 +1,8 @@
 // Onglet « Wallet crypto » : création du wallet, compte actif, ou mode recovery (cas particulier).
-// Le compte actif (clés publiques) vient de Swissquote si elle répond, sinon du cache local : la dépense ne dépend pas d'elle.
+// Le compte actif (clés publiques) vient du cache local de l'appareil : ni la liste ni la dépense ne dépendent de Swissquote.
 import { useEffect, useState } from "react";
 import { type WalletConfig, createWalletConfig } from "@sq/bitcoin";
-import { type Session, registerPasskey, walletAccounts } from "../lib/bank";
+import { type Session, registerPasskey } from "../lib/bank";
 import { type BtcAccount, NETWORK, loadActiveAccount, saveActiveAccount } from "../lib/config";
 import { Recovery } from "../recovery/Recovery";
 import { CreateWallet } from "./CreateWallet";
@@ -22,20 +22,9 @@ export function CryptoTab({ session, onBalance, custodySats = 0, onUsdc, startIn
   const [recovering, setRecovering] = useState(() => startInRecovery || localStorage.getItem(`sq-wallet:recovery:${NETWORK}`) !== null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  useEffect(() => {
-    const cached = loadActiveAccount(cid);
-    walletAccounts().then(
-      (list) => {
-        if (cached && list.some((a) => a.client === cached.client)) return setAccount(cached);
-        const last = list[list.length - 1]; // nouvel appareil : le compte le plus récent du client
-        if (!last) return setAccount(cached ?? null);
-        const a: BtcAccount = { id: last.id, client: last.client, swissquote: last.swissquote, tiers: last.tiers, tiersName: last.tiersName, delay: last.delay };
-        saveActiveAccount(cid, a);
-        setAccount(a);
-      },
-      () => { setAccount(cached ?? null); if (cached) setNotice(tr("Swissquote is unreachable: account loaded from this device. You can still spend.")); },
-    );
-  }, [cid]);
+  // Le wallet appartient à l'appareil : on ne demande pas à Swissquote quels wallets existent. Sur un appareil qui n'en a
+  // pas, on propose d'en créer un, ou la recovery (qui, elle, passe volontairement par Swissquote et le contact de confiance).
+  useEffect(() => { setAccount(loadActiveAccount(cid)); }, [cid]);
   useEffect(() => {
     setCfg(null); // jamais l'ancienne configuration avec le nouveau compte
     if (!account) { if (account === null) onBalance(null); return; }

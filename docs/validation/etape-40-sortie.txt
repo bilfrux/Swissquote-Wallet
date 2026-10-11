@@ -1,0 +1,11 @@
+[OK ] 40-0 Préparation : un compte est bien enregistré chez Swissquote pour ce client
+       enregistrement 200 ; comptes côté Swissquote : 1
+[OK ] 40-1 Appareil sans wallet : le compte enregistré chez Swissquote n'est pas repris ; création ou recovery proposées ; aucune requête /wallet/accounts
+       lien recovery : 1 ; requêtes /wallet/accounts : 0 ; erreurs JS : 0
+[OK ] 40-2 Appareil qui a le wallet : il s'ouvre depuis le stockage local, aucune requête /wallet/accounts
+       requêtes /wallet/accounts : 0 ; erreurs JS : 0
+
+RÉSUMÉ
+40-0 fonctionne         Préparation : un compte est bien enregistré chez Swissquote pour ce client
+40-1 fonctionne         Appareil sans wallet : le compte enregistré chez Swissquote n'est pas repris ; création ou recovery proposées ; aucune requête /wallet/accounts
+40-2 fonctionne         Appareil qui a le wallet : il s'ouvre depuis le stockage local, aucune requête /wallet/accounts
