@@ -8,8 +8,10 @@ import { useT } from "../i18n";
 
 const POLL_MS = 15_000;
 
-export function CryptoGate({ onScope, children }: {
+export function CryptoGate({ onScope, lockSignal, children }: {
   onScope: (s: "full" | null) => void;
+  lockSignal: number; // incrémenté par l'appli à chaque fois qu'il faut reverrouiller
+
   children: (o: { recovery: boolean; onRecovered: () => void; onLeave: () => void }) => ReactNode;
 }) {
   const { tr } = useT();
@@ -22,6 +24,12 @@ export function CryptoGate({ onScope, children }: {
     try { setLock(await cryptoLockStatus()); } catch (e: any) { if (e instanceof TypeError) setLock("offline"); else setError(e.message); }
   }, []);
   useEffect(() => { refresh(); const t = setInterval(refresh, POLL_MS); return () => clearInterval(t); }, [refresh]);
+  // Signal de l'appli (sortie de l'onglet Crypto, page du navigateur masquée) : on reverrouille tout de suite, côté serveur d'abord.
+  useEffect(() => {
+    if (lockSignal === 0) return;
+    setRecovery(false);
+    cryptoLock().then(refresh);
+  }, [lockSignal, refresh]);
 
   const offline = lock === "offline";
   const open = offline || (!!lock && (!lock.enabled || lock.scope === "full"));

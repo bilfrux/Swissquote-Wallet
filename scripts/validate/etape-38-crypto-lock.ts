@@ -107,6 +107,27 @@ try {
   report("38-5", "Nouvelle connexion : verrouillée, déverrouillée par la passkey existante (assertion vérifiée par le serveur)",
     reopened.status === 200 && withdraw.status !== 403, `/wallet/accounts ${reopened.status} ; /custody/withdraw ${withdraw.status} (refus métier, plus de verrou : ${withdraw.body.error})`);
 
+  // 38-8 Quitter l'onglet Crypto reverrouille tout de suite (serveur compris) ; y revenir redemande la biométrie.
+  await p.locator(".d-topnav").getByRole("button", { name: "Home", exact: true }).click();
+  let leftStatus = 200;
+  for (let i = 0; i < 20 && leftStatus !== 403; i++) { await new Promise((r) => setTimeout(r, 250)); leftStatus = (await call("GET", "/wallet/accounts?network=regtest", tokB)).status; }
+  await openCrypto();
+  await p.getByTestId("crypto-locked").waitFor({ timeout: 20000 });
+  await p.getByRole("button", { name: "Unlock with biometrics" }).click();
+  await p.getByRole("heading", { name: "Create my Bitcoin wallet" }).waitFor({ timeout: 20000 });
+  // Page du navigateur masquée : même effet (événement visibilitychange, simulé).
+  const tokD = await token();
+  await p.evaluate(() => { Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true }); document.dispatchEvent(new Event("visibilitychange")); });
+  let hiddenStatus = 200;
+  for (let i = 0; i < 20 && hiddenStatus !== 403; i++) { await new Promise((r) => setTimeout(r, 250)); hiddenStatus = (await call("GET", "/wallet/accounts?network=regtest", tokD)).status; }
+  report("38-8", "Quitter l'onglet Crypto, ou masquer la page du navigateur, reverrouille côté serveur ; y revenir redemande la biométrie",
+    leftStatus === 403 && hiddenStatus === 403, `après changement d'onglet : ${leftStatus} ; après page masquée : ${hiddenStatus}`);
+  await p.evaluate(() => { Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true }); });
+  await p.getByRole("button", { name: "Log out" }).first().click();
+  await login();
+  await openCrypto();
+  await p.getByTestId("crypto-locked").waitFor({ timeout: 20000 });
+
   // 38-6 Appareil perdu : re-KYC → niveau « recovery » seulement (pas de retrait du compte crypto).
   await p.getByRole("button", { name: "Log out" }).first().click();
   await login();

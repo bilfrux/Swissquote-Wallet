@@ -40,7 +40,7 @@ git diff --check
 npm run validate:38        # sortie : docs/validation/etape-38-sortie.txt
 ```
 
-Résultat observé : typecheck, build et `git diff --check` réussissent ; `validate:38` : 7 critères sur 7 réussis.
+Résultat observé : typecheck, build et `git diff --check` réussissent ; `validate:38` : 8 critères sur 8 réussis.
 
 | # | Critère | Observé |
 | --- | --- | --- |
@@ -51,6 +51,11 @@ Résultat observé : typecheck, build et `git diff --check` réussissent ; `vali
 | 38-5 | Nouvelle connexion : verrouillée, puis déverrouillée par la passkey existante | `/wallet/accounts` 200 ; `/custody/withdraw` passe le verrou (refus métier 400, montant minimal) |
 | 38-6 | Appareil perdu : le re-KYC ouvre la recovery, pas le compte crypto Swissquote | `/wallet/accounts` 200 ; `/custody`, `/custody/withdraw`, `/ownership/challenge` : 403 |
 | 38-7 | Aucune erreur JavaScript | aucune |
+| 38-8 | Quitter l'onglet Crypto, ou masquer la page du navigateur, reverrouille côté serveur ; y revenir redemande la biométrie | 403 après changement d'onglet ; 403 après page masquée (événement `visibilitychange` simulé) |
+
+Reverrouillage (ajouté après coup) : changer d'onglet de l'appli (Home, Banking…) ou masquer la page du navigateur
+reverrouille tout de suite. Conséquence : un envoi en cours dans l'onglet Crypto est abandonné si on quitte la page.
+La page masquée n'a été testée que par l'événement simulé, pas en changeant réellement d'onglet dans Chrome.
 
 Captures : `captures/etape-38-1-crypto-verrouille.png`, `etape-38-2-crypto-deverrouille.png`, `etape-38-3-recovery-sans-biometrie.png`.
 

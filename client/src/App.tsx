@@ -1,5 +1,5 @@
 // Appli Swissquote (banque SIMULÉE) : connexion, accueil, banque, crypto self-custody, démo.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { type BankAccount, type Session, clearSession, cryptoLock, custody, loadSession, me } from "./lib/bank";
 import { priceOf, usePrices } from "./lib/market";
 import { num } from "./ui/format";
@@ -25,6 +25,18 @@ export function App() {
 
   // Solde du compte crypto Swissquote : bank-mock ne le donne qu'une fois la partie crypto déverrouillée par la biométrie.
   const [cryptoOpen, setCryptoOpen] = useState<"full" | null>(null);
+  // Reverrouillage à chaque sortie de l'onglet Crypto et quand la page du navigateur passe en arrière-plan.
+  const [lockSignal, setLockSignal] = useState(0);
+  const prevTab = useRef(tab);
+  useEffect(() => {
+    if (prevTab.current === "crypto" && tab !== "crypto") setLockSignal((n) => n + 1);
+    prevTab.current = tab;
+  }, [tab]);
+  useEffect(() => {
+    const onHide = () => { if (document.visibilityState === "hidden") setLockSignal((n) => n + 1); };
+    document.addEventListener("visibilitychange", onHide);
+    return () => document.removeEventListener("visibilitychange", onHide);
+  }, []);
   useEffect(() => {
     if (!session) return;
     if (cryptoOpen) custody().then((c) => setCustodySats(c.balanceSats), () => setCustodySats(0));
@@ -62,7 +74,7 @@ export function App() {
       {tab === "banque" && <Accounts accounts={accounts} />}
       {/* L'onglet crypto reste monté (masqué) pour que le solde BTC de l'accueil soit à jour. */}
       <div hidden={tab !== "crypto"}>
-        <CryptoGate onScope={setCryptoOpen}>
+        <CryptoGate onScope={setCryptoOpen} lockSignal={lockSignal}>
           {({ recovery, onRecovered, onLeave }) => <CryptoTab session={session} onBalance={setBtcSats} custodySats={custodySats} onUsdc={setUsdc} startInRecovery={recovery} onRecovered={recovery ? onRecovered : undefined} onLeave={onLeave} />}
         </CryptoGate>
       </div>
