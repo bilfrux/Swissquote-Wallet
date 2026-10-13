@@ -15,7 +15,7 @@ import { Signer } from "bip322-js";
 import { BitcoindBackend, type ChainBackend, EsploraBackend, type NetworkName, addresses, btcNetwork, buildSpend, createWalletConfig, finalizePsbt, keyAddressOf, scan, simulate } from "@sq/bitcoin";
 import { accountKey, masterFromMnemonic, newMnemonic } from "@sq/bitcoin/keys";
 import { signPsbtWithMnemonic } from "@sq/bitcoin/sign";
-import { type JsonOp, describeOp, ownersOf, safeAddressOf, signOp } from "@sq/evm";
+import { type JsonOp, describeOp, ownersOf, readState, safeAddressOf, signOp } from "@sq/evm";
 import { evmAccountFromMnemonic, evmAddressFromMnemonic } from "@sq/evm/keys";
 import { getAddress, type Address } from "viem";
 import { type Policy, type StoredWallet, load, publicView, save } from "./store.ts";
@@ -127,8 +127,10 @@ async function describeEvm(op: JsonOp, wallets: StoredWallet[]) {
     ? wallets.find((x) => x.evmAddress && owners.includes(getAddress(x.evmAddress)))
     : wallets.find((x) => x.evmAddress && safeAddressOf(x.evmAddress as Address) === sender);
   if (!w) throw new HttpError(400, "this operation is not for an account controlled by your wallets");
+  // Gardiens actuels, lus on-chain par le wallet lui-même : seule base pour accepter un changement de contact (étape 58).
+  const guardians = owners.length ? (await readState(sender).catch(() => { throw new HttpError(502, "cannot read the account on-chain"); })).guardians : [];
   let d;
-  try { d = describeOp(op, {}, getAddress(w.evmAddress!)); } catch (e: any) { throw new HttpError(400, `operation not decodable: ${e.message}`); }
+  try { d = describeOp(op, {}, getAddress(w.evmAddress!), guardians); } catch (e: any) { throw new HttpError(400, `operation not decodable: ${e.message}`); }
   return { wallet: publicView(w), owner: w.evmAddress, ...d };
 }
 

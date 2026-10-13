@@ -90,6 +90,22 @@ export const activationCalls = (safe: Address, swissquote: Address, tiers: Addre
   module_.createAddGuardianWithThresholdMetaTransaction(tiers, 2n),
 ];
 export const usdcTransferCall = (to: Address, amount: bigint) => tx(USDC, encodeFunctionData({ abi: erc20Abi, functionName: "transfer", args: [getAddress(to), amount] }));
+// Changement de contact de confiance (étape 58), en un seul lot : annulation d'une recovery en cours (si besoin : le retrait
+// d'un gardien n'annule pas sa recovery, module v0.0.1), retrait de l'ancien contact (seuil 1 le temps du lot), ajout du
+// nouveau (seuil final 2), invalidation des signatures de gardiens déjà collectées. `guardians` : liste lue on-chain, dans
+// l'ordre de la liste chaînée du module (le précédent du premier est la sentinelle).
+const SENTINEL = "0x0000000000000000000000000000000000000001" as Address;
+export function contactChangeCalls(oldContact: Address, newContact: Address, guardians: Address[], pending: boolean): MetaTransaction[] {
+  const i = guardians.findIndex((g) => getAddress(g) === getAddress(oldContact));
+  if (i < 0) throw new Error(`${oldContact} is not a current guardian`);
+  const prev = i === 0 ? SENTINEL : getAddress(guardians[i - 1]);
+  return [
+    ...(pending ? [module_.createCancelRecoveryMetaTransaction()] : []),
+    module_.createStandardRevokeGuardianWithThresholdMetaTransaction(prev, getAddress(oldContact), 1n),
+    module_.createAddGuardianWithThresholdMetaTransaction(getAddress(newContact), 2n),
+    tx(RECOVERY_MODULE, encodeFunctionData({ abi: recoveryAbi, functionName: "invalidateNonce" })),
+  ];
+}
 export const cancelRecoveryCalls = (): MetaTransaction[] => [
   module_.createCancelRecoveryMetaTransaction(),
   tx(RECOVERY_MODULE, encodeFunctionData({ abi: recoveryAbi, functionName: "invalidateNonce" })),
@@ -188,12 +204,16 @@ export function describeCall(c: Call, safe: Address, labels: Record<string, stri
   return { kind: "unknown", text: `Unrecognised call to ${c.to}${c.value ? ` with ${formatUnits(c.value, 18)} ETH` : ""} (data ${c.data.slice(0, 10)}…)`, risk: "not decoded: do not sign unless you know what it does" };
 }
 // Règles sur les gardiens, pour toute l'opération (les appels d'un lot s'exécutent ensemble) : la recovery ne doit jamais
-// pouvoir être faite par un seul gardien (invariant 1). Le seul changement de gardiens accepté est l'ACTIVATION du module
-// (activationCalls) : module de recovery activé dans le même lot, exactement deux gardiens distincts ajoutés (ni le Safe,
-// ni son propriétaire), seuil final 2. Tout autre ajout ou retrait de gardien est refusé par ce wallet.
-const guardianRules = (calls: Call[], described: Described[], safe: Address, owner?: Address): Described[] => {
+// pouvoir être faite par un seul gardien (invariant 1). Deux changements de gardiens seulement sont acceptés :
+//  - l'ACTIVATION du module (activationCalls) : module activé dans le même lot, exactement deux gardiens distincts ajoutés
+//    (ni le Safe, ni son propriétaire), seuil final 2 ;
+//  - le CHANGEMENT DE CONTACT (contactChangeCalls, étape 58), seulement si la liste actuelle des gardiens est connue
+//    (lue on-chain par le wallet) : un gardien actuel retiré, un nouveau ajouté (ni gardien, ni le Safe, ni le
+//    propriétaire), toujours deux gardiens, seuil final 2. Le wallet affiche l'ancienne et la nouvelle adresse.
+// Tout autre ajout ou retrait de gardien est refusé par ce wallet.
+const guardianRules = (calls: Call[], described: Described[], safe: Address, owner?: Address, guardians?: Address[]): { described: Described[]; contactChange: { from: Address; to: Address } | null } => {
   let enables = false, finalThreshold: bigint | null = null;
-  const added: Address[] = [];
+  const added: Address[] = [], removed: Address[] = [];
   calls.forEach((c, i) => {
     const k = described[i].kind;
     if (k === "enable-module" && !described[i].risk) enables = true;
@@ -202,28 +222,35 @@ const guardianRules = (calls: Call[], described: Described[], safe: Address, own
       const args = d.args as readonly unknown[];
       finalThreshold = args[args.length - 1] as bigint;
       if (k === "add-guardian") added.push(getAddress(args[0] as Address));
+      else removed.push(getAddress(args[1] as Address));
     }
   });
-  if (finalThreshold === null) return described;
+  if (finalThreshold === null) return { described, contactChange: null };
   const distinct = new Set(added).size === added.length;
   const okGuardians = added.every((g) => g !== getAddress(safe) && (!owner || g !== getAddress(owner)));
   const activation = enables && added.length === 2 && distinct && okGuardians && finalThreshold === 2n && !described.some((d) => d.kind === "revoke-guardian");
-  return described.map((d) => {
+  const current = (guardians ?? []).map((g) => getAddress(g));
+  const allowedExtra = new Set(["revoke-guardian", "add-guardian", "invalidate-nonce", "cancel-recovery"]);
+  const change = !!guardians && current.length === 2 && !enables && added.length === 1 && removed.length === 1 && current.includes(removed[0])
+    && !current.includes(added[0]) && okGuardians && finalThreshold === 2n && described.every((d) => allowedExtra.has(d.kind));
+  const contactChange = change ? { from: removed[0], to: added[0] } : null;
+  return { contactChange, described: described.map((d) => {
     if (d.kind !== "add-guardian" && d.kind !== "revoke-guardian") return d;
-    if (activation) return d;
+    if (activation || change) return d;
     const risk = finalThreshold! < 2n
       ? "a single guardian could take over your account (recovery threshold below 2)"
       : d.kind === "revoke-guardian"
         ? "changes who can recover your account: not supported by this wallet"
-        : !okGuardians ? "your own key or account cannot be a recovery guardian" : "changes who can recover your account: only the initial activation (two guardians, threshold 2) is accepted";
+        : !okGuardians ? "your own key or account cannot be a recovery guardian" : "changes who can recover your account: only the initial activation or the replacement of one guardian (two guardians, threshold 2) is accepted";
     return { ...d, risk };
-  });
+  }) };
 };
-export function describeOp(j: JsonOp, labels: Record<string, string> = {}, owner?: Address) {
+// `guardians` : gardiens actuels du Safe, lus on-chain par le wallet (sans eux, aucun changement de contact n'est accepté).
+export function describeOp(j: JsonOp, labels: Record<string, string> = {}, owner?: Address, guardians?: Address[]) {
   const safe = getAddress(j.sender!);
   const raw = callsOf(j.callData as Hex);
-  const calls = guardianRules(raw, raw.map((c) => describeCall(c, safe, labels)), safe, owner);
-  return { safe, deploys: !!j.factory, sponsored: !!j.paymaster, paymaster: j.paymaster, calls };
+  const { described: calls, contactChange } = guardianRules(raw, raw.map((c) => describeCall(c, safe, labels)), safe, owner, guardians);
+  return { safe, deploys: !!j.factory, sponsored: !!j.paymaster, paymaster: j.paymaster, calls, contactChange };
 }
 
 // ---- Recovery (données publiques) ----

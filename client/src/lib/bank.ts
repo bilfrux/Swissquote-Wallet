@@ -115,4 +115,6 @@ export const registerEvm = (owner: string, tiers: string, tiersName?: string | n
   call("/evm/accounts/register", { owner, tiers, tiersName }) as Promise<EvmAccount>;
 export const evmSignRecovery = (token: string, safe: string, newOwner: string) =>
   call("/guardian/evm/sign-recovery", { token, safe, newOwner }) as Promise<{ signer: `0x${string}`; signature: `0x${string}`; nonce: string }>;
+export const changeEvmTiers = (safe: string, tiers: string, tiersName: string, blockNumber?: bigint) =>
+  call("/evm/accounts/tiers", { safe, tiers, tiersName, blockNumber: blockNumber?.toString() }) as Promise<EvmAccount>;
 export const syncEvm = (safe: string, blockNumber?: bigint) => call("/evm/accounts/sync", { safe, blockNumber: blockNumber?.toString() }) as Promise<EvmAccount>;

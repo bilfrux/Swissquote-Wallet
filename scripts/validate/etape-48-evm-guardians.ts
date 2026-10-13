@@ -5,7 +5,7 @@
 import { SafeAccountV0_3_0, SocialRecoveryModule } from "abstractionkit";
 import { encodeFunctionData, getAddress, type Address } from "viem";
 import { privateKeyToAddress, generatePrivateKey } from "viem/accounts";
-import { RECOVERY_MODULE, activationCalls, cancelRecoveryCalls, describeOp, recoveryAbi, safeAddressOf, usdcTransferCall } from "@sq/evm";
+import { RECOVERY_MODULE, activationCalls, cancelRecoveryCalls, contactChangeCalls, describeOp, recoveryAbi, safeAddressOf, usdcTransferCall } from "@sq/evm";
 import { makeReport } from "./lib.ts";
 
 const { report, summary } = makeReport();
@@ -36,6 +36,26 @@ const cases: [string, { to: string; value: bigint; data: string }[], boolean][] 
   ["retrait d'un gardien avec seuil 1", [revoke(sq, tiers, 1n)], false],
   ["activation + retrait dans le même lot", [...activationCalls(safe, sq, tiers), revoke(sq, tiers, 1n)], false],
 ];
+// Étape 58 : changement de contact, accepté seulement si le wallet connaît les gardiens actuels (lus on-chain).
+const current = [tiers, sq];
+const refusedWith = (calls: { to: string; value: bigint; data: string }[], guardians?: Address[]) => describeOp(op(calls), {}, owner, guardians).calls.filter((c) => c.kind === "unknown" || c.risk);
+const newContact = addr();
+const changeCases: [string, { to: string; value: bigint; data: string }[], Address[] | undefined, boolean][] = [
+  ["changement de contact (retrait de l'ancien, ajout du nouveau, invalidation), gardiens connus", contactChangeCalls(tiers, newContact, current, false), current, true],
+  ["même changement, avec annulation d'une recovery en cours", contactChangeCalls(tiers, newContact, current, true), current, true],
+  ["même changement, gardiens actuels inconnus du wallet", contactChangeCalls(tiers, newContact, current, false), undefined, false],
+  ["« changement » vers le propriétaire lui-même", contactChangeCalls(tiers, owner, current, false), current, false],
+  ["« changement » vers un gardien déjà présent", contactChangeCalls(tiers, sq, current, false), current, false],
+  ["retrait d'une adresse qui n'est pas gardien", [revoke(sq, attacker, 1n), add(newContact, 2n)], current, false],
+  ["changement avec seuil final 1", [revoke(sq, tiers, 1n), add(newContact, 1n)], current, false],
+  ["changement + envoi d'USDC dans le même lot", [...contactChangeCalls(tiers, newContact, current, false), usdcTransferCall(attacker, 1n)], current, false],
+];
+for (const [i, [label, calls, g, ok]] of changeCases.entries()) {
+  const r = refusedWith(calls, g);
+  const d = describeOp(op(calls), {}, owner, g);
+  report(`48-${cases.length + i + 1}`, `${ok ? "Accepté" : "Refusé"} : ${label}`, ok ? r.length === 0 && d.contactChange?.to === getAddress(newContact) : r.length > 0,
+    r.map((c) => `${c.text} · ${c.risk}`).join(" | ") || `aucun appel refusé ; changement affiché : ${d.contactChange ? `${d.contactChange.from} → ${d.contactChange.to}` : "aucun"}`);
+}
 for (const [i, [label, calls, ok]] of cases.entries()) {
   const r = refused(calls);
   report(`48-${i + 1}`, `${ok ? "Accepté" : "Refusé"} : ${label}`, ok ? r.length === 0 : r.length > 0, r.map((c) => `${c.text} · ${c.risk}`).join(" | ") || "aucun appel refusé");

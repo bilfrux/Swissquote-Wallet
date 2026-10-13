@@ -6,8 +6,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { type Address, encodeFunctionData, formatUnits, getAddress, isAddress, parseUnits } from "viem";
-import { type Activity, EXPLORER, USDC_DECIMALS, publicClient, RECOVERY_DELAY_LABEL, RECOVERY_MODULE, activationCalls, activity, buildSponsoredOp, cancelRecoveryCalls, finalizeRecoveryCall, readState, recoveryAbi, safeAddressOf, sendOp, startRecoveryCall, usdcTransferCall } from "@sq/evm";
-import { type EvmAccount, evmAccounts, evmSignRecovery, registerEvm, relayCreate, relayGet, syncEvm, verifyIdentity } from "../lib/bank";
+import { type Activity, EXPLORER, USDC_DECIMALS, publicClient, RECOVERY_DELAY_LABEL, RECOVERY_MODULE, activationCalls, activity, buildSponsoredOp, cancelRecoveryCalls, contactChangeCalls, finalizeRecoveryCall, readState, recoveryAbi, safeAddressOf, sendOp, startRecoveryCall, usdcTransferCall } from "@sq/evm";
+import { type EvmAccount, changeEvmTiers, evmAccounts, evmSignRecovery, registerEvm, relayCreate, relayGet, syncEvm, verifyIdentity } from "../lib/bank";
 import { priceOf, usePrices } from "../lib/market";
 import { PriceChart } from "../ui/PriceChart";
 import { walletRequest } from "../lib/walletBridge";
@@ -276,6 +276,11 @@ export function Ethereum({ customerId, accountKey, tiersName, onInfo }: { custom
             <div className="sec-item"><p className="sec-who">Swissquote + {acc.tiersName ?? tr("trusted contact")}</p><p className="small">{tr("Only together, then a {d} delay enforced by the contract, during which you can cancel.", { d: RECOVERY_DELAY_LABEL })}</p></div>
             <div className="sec-item"><p className="sec-who">{tr("Swissquote alone")}</p><p className="small">{tr("Cannot start a recovery, nor spend anything.")}</p></div>
           </div>
+          {active && state && (
+            <EvmChangeContact acc={acc} guardians={state.guardians} pending={!!state.pending} busy={busy} run={run}
+              prepare={async (label, calls, after) => { await prepare(label, calls, acc, after); }}
+              onChanged={(a) => { setAcc(a); localStorage.setItem(cacheKey(customerId), JSON.stringify(a)); }} />
+          )}
           {active && <button className="link" onClick={() => open("recover")}>{tr("Lost the key of this Ethereum account? Recover it")}</button>}
         </div>
       )}
@@ -387,6 +392,46 @@ function EvmRecovery({ acc, state, busy, run, prepare, onRecovered }: {
               }))}>{tr("Complete the recovery")}</button>}
         </div>
       )}
+    </div>
+  );
+}
+
+// Changement du contact de confiance Ethereum (étape 58) : un seul lot signé dans le Client Wallet (annulation d'une
+// recovery en cours s'il y en a, retrait de l'ancien contact, ajout du nouveau, invalidation des signatures collectées).
+// Le wallet affiche l'ancienne et la nouvelle adresse ; Swissquote met ensuite son registre à jour d'après la chaîne.
+function EvmChangeContact({ acc, guardians, pending, busy, run, prepare, onChanged }: {
+  acc: EvmAccount; guardians: Address[]; pending: boolean; busy: string | null;
+  run: (label: string, f: () => Promise<void>) => () => Promise<void>;
+  prepare: (label: string, calls: ReturnType<typeof contactChangeCalls>, after: (blockNumber: bigint) => Promise<void>) => Promise<void>;
+  onChanged: (a: EvmAccount) => void;
+}) {
+  const { tr } = useT();
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [addr, setAddr] = useState("");
+  const invalid = !isAddress(addr) ? null : [acc.owner, acc.safe, ...guardians].some((x) => x.toLowerCase() === addr.toLowerCase()) ? tr("This address is already your key, your account or a guardian.") : null;
+  if (!open)
+    return (
+      <div className="sec-item" data-testid="evm-contact">
+        <p className="sec-who">{tr("Trusted contact")}: {acc.tiersName ?? tr("your trusted contact")}</p>
+        <p className="small mono">{acc.tiers}</p>
+        <button className="btn-secondary" onClick={() => setOpen(true)}>{tr("Change my trusted contact")}</button>
+      </div>
+    );
+  return (
+    <div className="sec-item" data-testid="evm-contact-form">
+      <p className="sec-who">{tr("Change my trusted contact")}</p>
+      <label><span>{tr("New contact's name")}</span><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Marie Dupont" /></label>
+      <label><span>{tr("New contact's Ethereum address")}</span><input className="mono" value={addr} onChange={(e) => setAddr(e.target.value.trim())} placeholder="0x…" /></label>
+      <p className="small">{tr("Shown in their guardian console. Check it with them by another means: your Client Wallet will show it again before signing.")}{pending ? ` ${tr("The recovery in progress will be cancelled in the same operation.")}` : ""}</p>
+      {invalid && <p className="error">{invalid}</p>}
+      <p>
+        <button className="btn-secondary" onClick={() => { setOpen(false); setName(""); setAddr(""); }}>{tr("Cancel")}</button>{" "}
+        <button disabled={!!busy || !name.trim() || !isAddress(addr) || !!invalid} onClick={run("contact", async () => {
+          const to = getAddress(addr), n = name.trim();
+          await prepare("Trusted contact changed", contactChangeCalls(acc.tiers, to, guardians, pending), async (b) => { onChanged(await changeEvmTiers(acc.safe, to, n, b)); setOpen(false); });
+        })}>{busy === "contact" ? tr("Preparing…") : tr("Prepare the change")}</button>
+      </p>
     </div>
   );
 }

@@ -168,6 +168,30 @@ async function route(req: IncomingMessage, body: any, url: URL) {
       return { accounts: rows.map(publicEvm) };
     }
 
+    case "POST /evm/accounts/tiers": {
+      // Changement du contact de confiance Ethereum (étape 58) : le client l'a fait on-chain (lot signé dans son Client
+      // Wallet). Swissquote met son registre à jour d'après la chaîne, lue au bloc de l'opération : le nouveau contact est
+      // gardien, l'ancien ne l'est plus, Swissquote l'est toujours, seuil 2. Le registre sert à vérifier la signature du
+      // contact dans le relais ; il ne donne aucun pouvoir sur le Safe.
+      const customerId = needCrypto(req, "full");
+      if (!isAddress(String(body.safe)) || !isAddress(String(body.tiers))) throw new HttpError(400, "invalid Ethereum address");
+      const row = db.prepare("select * from evm_accounts where customer_id = ? and safe = ?").get(customerId, getAddress(String(body.safe))) as (EvmRow & { customer_id: string }) | undefined;
+      if (!row) throw new HttpError(404, "unknown account");
+      const tiers = getAddress(String(body.tiers));
+      const name = typeof body.tiersName === "string" ? body.tiersName.trim().slice(0, 80) : "";
+      if (!name) throw new HttpError(400, "the trusted contact's name is required");
+      const block = body.blockNumber ? BigInt(body.blockNumber) : undefined;
+      const st = await readState(getAddress(row.safe), block);
+      const g = st.guardians.map((a) => getAddress(a));
+      const sqAddress = swissquoteEvmAddressAt(sqIndexOf(row));
+      if (!(g.length === 2 && g.includes(tiers) && g.includes(sqAddress) && !g.includes(getAddress(row.tiers)) && st.threshold === 2n))
+        throw new HttpError(409, `the chain does not show this change (guardians ${g.join(", ")}, threshold ${st.threshold})`);
+      db.prepare("update evm_accounts set tiers = ?, tiers_name = ? where id = ?").run(tiers, name, row.id);
+      notify(customerId, null, "contact-change", "Ethereum trusted contact changed",
+        `The trusted contact of your Ethereum account ${row.safe} is now ${name} (${tiers}). If this was not you, cancel any recovery from your wallet and change your password.`, `evmtiers:${row.id}:${Date.now()}`);
+      return publicEvm(db.prepare("select * from evm_accounts where id = ?").get(row.id) as EvmRow);
+    }
+
     case "POST /evm/accounts/sync": {
       // Après une recovery : le propriétaire enregistré est remplacé par celui que la chaîne indique.
       const customerId = needCrypto(req, "recovery");

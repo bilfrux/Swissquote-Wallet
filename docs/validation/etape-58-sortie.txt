@@ -1,0 +1,20 @@
+[OK ] 58-1 Compte Ethereum ajouté depuis l'interface : adresse dérivée dans le Client Wallet, Safe recalculé par Swissquote
+       Safe 0x9D86466f6CB0297eDE967C2f15B3EF5DC8305c16 ; propriétaire 0x185667C48Ac839BdBe16c27140aA2730adfb0057 ; contact 0xd778A6012B257024551d658B3ABF7D5Ecb8EA1C4
+[OK ] 58-2 Activation sur Sepolia : écran du wallet en clair (module, 2 gardiens, frais parrainés), signée par biométrie ; Safe déployé, gardiens Swissquote + contact, seuil 2, 0 ETH
+       Activation: 0xe3a04a815579ec76dbe435ac81ed449db7e51ccbbd4ab95f160f808afec6cfc2 ; gardiens 0xd778A6012B257024551d658B3ABF7D5Ecb8EA1C4, 0xCF8B66D727AB436011E6d613E58092564C06231e (Swissquote 0xCF8B66D727AB436011E6d613E58092564C06231e) ; seuil 2 ; propriétaire 0x185667C48Ac839BdBe16c27140aA2730adfb0057 ; contrôles {"deployed":true,"module":true,"threshold":true,"guardians":true,"owner":true,"screenModule":true,"screenSponsor":true}
+[OK ] 58-3 Changement de contact signé par biométrie après un écran qui montre l'ancienne et la nouvelle adresse ; on-chain : gardiens Swissquote + nouveau contact, seuil 2
+       Trusted contact changed: 0x6d5a2bebfed8c826a900ef9be73bc28368b0fcb76ffb9dfbc3b798f4b5f32eba ; gardiens 0x3CC7632a6dC344fdad98CBEc0bb4c387aa875d8c, 0xCF8B66D727AB436011E6d613E58092564C06231e ; seuil 2 ; écran : Change of trusted contact (recovery guardian)Removed: 0xd778A6012B257024551d658B3ABF7D5Ecb8EA1C4 — it must be your current trusted contact, not Swissquote.Added
+[OK ] 58-4 Registre de Swissquote et interface : nouveau contact (nom et adresse)
+       registre : Bob Martin 0x3CC7632a6dC344fdad98CBEc0bb4c387aa875d8c ; affiché : Trusted contact: Bob Martin0x3CC7632a6dC344fdad98CBEc0bb4c387aa875d8cChange my trusted contact
+[OK ] 58-5 Relais Swissquote : la signature de l'ANCIEN contact est refusée, celle du nouveau acceptée
+       ancien : 400 « signature is not the registered trusted contact's signature of this request » ; nouveau : 200
+[OK ] 58-6 Aucune erreur dans les consoles des navigateurs ni réponse 5xx
+       aucune ; 5xx : aucune
+
+RÉSUMÉ
+58-1 fonctionne         Compte Ethereum ajouté depuis l'interface : adresse dérivée dans le Client Wallet, Safe recalculé par Swissquote
+58-2 fonctionne         Activation sur Sepolia : écran du wallet en clair (module, 2 gardiens, frais parrainés), signée par biométrie ; Safe déployé, gardiens Swissquote + contact, seuil 2, 0 ETH
+58-3 fonctionne         Changement de contact signé par biométrie après un écran qui montre l'ancienne et la nouvelle adresse ; on-chain : gardiens Swissquote + nouveau contact, seuil 2
+58-4 fonctionne         Registre de Swissquote et interface : nouveau contact (nom et adresse)
+58-5 fonctionne         Relais Swissquote : la signature de l'ANCIEN contact est refusée, celle du nouveau acceptée
+58-6 fonctionne         Aucune erreur dans les consoles des navigateurs ni réponse 5xx

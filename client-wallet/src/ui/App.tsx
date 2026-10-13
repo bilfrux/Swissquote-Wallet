@@ -435,7 +435,7 @@ function EvmAddress({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: 
   );
 }
 
-type EvmDescription = { wallet: WalletView; owner: string; safe: string; deploys: boolean; sponsored: boolean; paymaster: string | null; calls: { kind: string; text: string; risk?: string }[] };
+type EvmDescription = { wallet: WalletView; owner: string; safe: string; deploys: boolean; sponsored: boolean; paymaster: string | null; calls: { kind: string; text: string; risk?: string }[]; contactChange: { from: string; to: string } | null };
 // Confirmation d'une opération Ethereum : décodée par le wallet lui-même ; tout appel non reconnu bloque la signature.
 function EvmSign({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unknown) => void; onRefuse: () => void; onError: (e: string) => void }) {
   const [d, setD] = useState<EvmDescription | null>(null);
@@ -448,6 +448,13 @@ function EvmSign({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unk
       <p className="small muted">Request from <strong>{req.origin}</strong> · account <span className="mono">{d.safe}</span> (Sepolia)</p>
       <div className="card">
         {d.deploys && <p><span className="k">Account</span> created on-chain with this operation</p>}
+        {d.contactChange && (
+          <div className="warn" data-testid="evm-contact-change">
+            <p><strong>Change of trusted contact</strong> (recovery guardian)</p>
+            <p>Removed: <span className="mono">{d.contactChange.from}</span> — it must be your <strong>current trusted contact</strong>, not Swissquote.</p>
+            <p>Added: <span className="mono">{d.contactChange.to}</span> — ask your new contact, by another channel, to read the Ethereum address shown in their guardian console: it must be exactly this one.</p>
+          </div>
+        )}
         <ol className="calls">{d.calls.map((c, i) => <li key={i} className={c.risk ? "risk" : ""}>{c.text}{c.risk && <strong> · {c.risk}</strong>}</li>)}</ol>
         <p><span className="k">Network fees</span> {d.sponsored ? `paid by a sponsor (paymaster ${d.paymaster}), not by you` : "paid in ETH by your account"}</p>
       </div>
