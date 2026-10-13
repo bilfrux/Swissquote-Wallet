@@ -150,13 +150,18 @@ export function App() {
 function Create({ req, onDone, onError }: { req: Req; onDone: (d: unknown) => void; onError: (e: string) => void }) {
   const [created, setCreated] = useState<{ wallet: WalletView; mnemonic: string } | null>(null);
   const [noted, setNoted] = useState(false);
-  const [method, setMethod] = useState<"bio" | null>(null);
+  // `null` : vérification en cours. Revérifiée au clic : un authentificateur branché ou activé après l'ouverture de la
+  // fenêtre (clé de sécurité, Touch ID déverrouillé) ne doit pas laisser le bouton désactivé pour toujours.
+  const [available, setAvailable] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
-  useEffect(() => { Promise.resolve(bioAvailable()).then((ok) => setMethod(ok ? "bio" : null)); }, []);
+  useEffect(() => { Promise.resolve(bioAvailable()).then((ok) => setAvailable(!!ok)); }, []);
   const words = useRef<string[]>([]);
   const generate = async () => {
     setBusy(true);
     try {
+      const ok = !!(await bioAvailable());
+      setAvailable(ok);
+      if (!ok) throw new Error("This device does not provide the required biometric authenticator.");
       const unlock = { bio: await bioEnroll(req.payload?.label ?? "My wallet") };
       const c = await api("/api/wallets", { network: req.network, label: req.payload?.label, ...unlock });
       words.current = c.mnemonic.split(" "); setCreated(c);
@@ -168,9 +173,9 @@ function Create({ req, onDone, onError }: { req: Req; onDone: (d: unknown) => vo
         <h2>Create your Bitcoin wallet</h2>
         <p>The app <strong>{req.origin}</strong> is asking to create a wallet. Your secret phrase will be generated here, on this device. Swissquote will only receive your public key.</p>
         <p className="small">Biometrics are required to unlock and sign with this wallet. Your device will ask for your fingerprint or face twice: once to create the wallet key, once to use it.</p>
-        {!method && <p className="error">This device does not provide the required biometric authenticator.</p>}
-        <button disabled={busy || !method} onClick={generate}>
-          {busy && method === "bio" ? "Waiting for biometrics…" : "Generate my secret phrase"}
+        {available === false && <p className="error">This device does not provide the required biometric authenticator.</p>}
+        <button disabled={busy || available === null} onClick={generate}>
+          {busy ? "Waiting for biometrics…" : "Generate my secret phrase"}
         </button>
       </section>
     );
