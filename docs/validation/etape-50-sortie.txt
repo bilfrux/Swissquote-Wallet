@@ -1,0 +1,11 @@
+[OK ] 50-1 Plus de retour au PIN : set-pin et remove-bio refusés (400) ; « check » refuse un mauvais PIN (403), accepte le bon sans rien changer
+       set-pin 400 « unknown operation (the wallet only supports switching to biometrics) » ; remove-bio 400 ; check mauvais PIN 403 ; check bon PIN 200
+[OK ] 50-2 Montant élevé vers deux destinataires externes : signature refusée même avec les 6 caractères du premier ; vers un seul destinataire : signée
+       envoyé 51000000 sats, élevé=true ; deux destinataires : 400 « high-value amount to several recipients: send to one recipient at a time » ; un destinataire : 200
+[OK ] 50-3 Interface : une 2e demande de signature pendant la confirmation est refusée ; l'écran garde la 1re, et c'est elle qui est signée
+       2e demande : {"ok":false,"error":"another request is already waiting for your confirmation in the wallet"} ; écran : destinataire de A ; signée : vers A
+
+RÉSUMÉ
+50-1 fonctionne         Plus de retour au PIN : set-pin et remove-bio refusés (400) ; « check » refuse un mauvais PIN (403), accepte le bon sans rien changer
+50-2 fonctionne         Montant élevé vers deux destinataires externes : signature refusée même avec les 6 caractères du premier ; vers un seul destinataire : signée
+50-3 fonctionne         Interface : une 2e demande de signature pendant la confirmation est refusée ; l'écran garde la 1re, et c'est elle qui est signée

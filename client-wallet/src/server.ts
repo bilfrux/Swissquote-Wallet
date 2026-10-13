@@ -19,7 +19,7 @@ import { type JsonOp, describeOp, ownersOf, safeAddressOf, signOp } from "@sq/ev
 import { evmAccountFromMnemonic, evmAddressFromMnemonic } from "@sq/evm/keys";
 import { getAddress, type Address } from "viem";
 import { type Policy, type StoredWallet, load, publicView, save } from "./store.ts";
-import { open, openBio, seal, sealBio, validBio, validPin, validPrf } from "./vault.ts";
+import { open, openBio, sealBio, validBio, validPin, validPrf } from "./vault.ts";
 
 // Déverrouillage par code PIN (`pin`) ou par biométrie (`prf` : secret rendu par la passkey du wallet après Touch ID,
 // Face ID…), selon ce que le client a activé. 5 échecs, puis blocage de 60 s (compteur en mémoire du processus).
@@ -181,21 +181,20 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
     }
 
     case "POST /api/wallets/:id/unlock": {
-      // Changer de façon de déverrouiller, après déverrouillage par une façon déjà active (`auth`) :
-      // activer ou retirer la biométrie, choisir ou retirer le PIN. Il en reste toujours au moins une.
+      // Seule opération : passer à la biométrie (ancien wallet PIN, ou nouvelle passkey), après déverrouillage par la façon
+      // déjà active (`auth`). L'ancienne protection PIN est alors supprimée. Plus de PIN choisi ni de biométrie retirée :
+      // un PIN de 6 chiffres se casse hors ligne si le fichier est volé (étape 36). `check` vérifie seulement `auth`,
+      // avant de créer une passkey (sinon passkey orpheline si le PIN est faux).
       const w = wallets.find((x) => x.id === id);
       if (!w) throw new HttpError(404, "unknown wallet");
-      if (!w.sealed && !w.bio) throw new HttpError(409, "wallet not protected: protect it with a PIN first");
+      if (!w.sealed && !w.bio) throw new HttpError(409, "wallet not protected: protect it with biometrics first");
       const op = String(body.op);
-      if (op === "set-pin" && !validPin(body.newPin)) throw new HttpError(400, "PIN required: 6 to 12 digits");
+      if (op !== "set-bio" && op !== "check") throw new HttpError(400, "unknown operation (the wallet only supports switching to biometrics)");
       if (op === "set-bio" && !validBio(body.bio)) throw new HttpError(400, "invalid biometric key (passkey with the PRF extension required)");
-      if (!["set-pin", "set-bio", "remove-pin", "remove-bio"].includes(op)) throw new HttpError(400, "unknown operation");
-      if ((op === "remove-pin" && !w.bio) || (op === "remove-bio" && !w.sealed)) throw new HttpError(409, "this is your only way to unlock the wallet: enable the other one first");
       const mnemonic = unlock(w, authOf(body.auth));
-      if (op === "set-pin") w.sealed = seal(mnemonic, body.newPin);
-      if (op === "set-bio") { w.bio = sealBio(mnemonic, body.bio); delete w.sealed; }
-      if (op === "remove-pin") delete w.sealed;
-      if (op === "remove-bio") delete w.bio;
+      if (op === "check") return { ok: true };
+      w.bio = sealBio(mnemonic, body.bio);
+      delete w.sealed;
       save(wallets);
       return publicView(w);
     }
@@ -289,6 +288,10 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
       if (d.path !== "client") throw new HttpError(400, "this PSBT uses the recovery path (Swissquote + trusted contact): your wallet must not sign it");
       const w = wallets.find((x) => x.id === d.wallet!.id)!;
       // Montant élevé : le client ressaisit les 6 derniers caractères de l'adresse de destination (contre une adresse substituée).
+      // Un seul destinataire externe dans ce cas : sinon la saisie ne vérifierait que l'un d'eux, et une autre sortie pourrait
+      // emporter l'essentiel du montant vers une adresse jamais confirmée.
+      if (d.high && d.outputs.filter((o) => !o.mine).length > 1)
+        throw new HttpError(400, "high-value amount to several recipients: send to one recipient at a time");
       if (d.high && String(body.confirmDest ?? "").trim().toLowerCase() !== d.confirmTarget!.slice(-6).toLowerCase())
         throw new HttpError(400, "high-value amount: enter the last 6 characters of the destination address");
       const r = signPsbtWithMnemonic(body.psbt, unlock(w, authOf(body)), body.network);

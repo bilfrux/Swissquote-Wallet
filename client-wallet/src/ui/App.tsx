@@ -80,13 +80,22 @@ export function App() {
     window.addEventListener("open-wallet-settings", open);
     return () => window.removeEventListener("open-wallet-settings", open);
   }, []);
-  const reply =(ok: boolean, data: unknown) => {
+  // Demande en attente de la décision du client. Tant qu'elle n'a pas reçu de réponse, une autre demande est refusée :
+  // sinon l'appli pourrait remplacer la transaction affichée juste avant le clic (l'écran montrerait encore l'ancienne).
+  const pending = useRef<string | null>(null);
+  const reply = (ok: boolean, data: unknown) => {
+    pending.current = null;
     req!.source.postMessage({ type: "wallet-response", id: req!.id, ok, ...(ok ? { data } : { error: data }) }, req!.origin);
   };
 
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
       if (!ALLOWED.includes(e.origin) || e.data?.type !== "wallet-request") return; // origine non autorisée : ignorée
+      if (pending.current && pending.current !== e.data.id) {
+        (e.source as Window).postMessage({ type: "wallet-response", id: e.data.id, ok: false, error: "another request is already waiting for your confirmation in the wallet" }, e.origin);
+        return;
+      }
+      pending.current = e.data.id;
       setReq({ ...e.data, origin: e.origin, source: e.source as Window });
       setDone(null);
       setError(null);
@@ -108,9 +117,10 @@ export function App() {
       </header>
       {error && <p className="error">{error}</p>}
       {done && <p className="done">{done}</p>}
-      {req?.action === "create" && !done && <Create req={req} onDone={(d) => { reply(true, d); setDone("Public key sent to Swissquote. You can close this window."); }} onError={setError} />}
+      {req?.action === "create" && !done && <Create key={req.id} req={req} onDone={(d) => { reply(true, d); setDone("Public key sent to Swissquote. You can close this window."); }} onError={setError} />}
       {req?.action === "policy" && !done && (
         <PolicyReq
+          key={req.id}
           req={req}
           onDone={(d) => { reply(true, d); setDone("Account policy saved in your wallet."); }}
           onRefuse={() => { reply(false, "refused by the client"); setDone("Account policy refused: nothing was saved."); }}
@@ -119,6 +129,7 @@ export function App() {
       )}
       {req?.action === "sign" && !done && (
         <Sign
+          key={req.id}
           req={req}
           onDone={(d) => { reply(true, d); setDone("Transaction signed and returned to the app. You can close this window."); }}
           onRefuse={() => { reply(false, "refused by the client"); setDone("Signature refused."); }}
@@ -127,6 +138,7 @@ export function App() {
       )}
       {req?.action === "prove" && !done && (
         <Prove
+          key={req.id}
           req={req}
           onDone={(d) => { reply(true, d); setDone("Proof signed and returned to the app. No funds were moved."); }}
           onRefuse={() => { reply(false, "refused by the client"); setDone("Proof refused."); }}
@@ -135,6 +147,7 @@ export function App() {
       )}
       {req?.action === "evm-address" && !done && (
         <EvmAddress
+          key={req.id}
           req={req}
           onDone={(d) => { reply(true, d); setDone("Ethereum address sent to Swissquote. You can close this window."); }}
           onRefuse={() => { reply(false, "refused by the client"); setDone("Refused."); }}
@@ -143,6 +156,7 @@ export function App() {
       )}
       {req?.action === "evm-sign" && !done && (
         <EvmSign
+          key={req.id}
           req={req}
           onDone={(d) => { reply(true, d); setDone("Operation signed and returned to the app. You can close this window."); }}
           onRefuse={() => { reply(false, "refused by the client"); setDone("Signature refused."); }}
@@ -278,7 +292,8 @@ function Sign({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unknow
         <p><span className="k">Fee</span> {btc(d.fee)}</p>
       </div>
       <p className="hint">Check the recipient's address by a means other than the app that suggested it.</p>
-      {d.high && (
+      {d.high && ext.length > 1 && <p className="error" data-testid="high-multi">High-value amount to several recipients: your wallet only signs a high-value transfer to one recipient at a time.</p>}
+      {d.high && ext.length <= 1 && (
         <div className="high">
           <p><strong>High-value amount</strong> (threshold: {btc(d.highValueSats)}). To confirm, enter the <strong>last 6 characters</strong> of the recipient's address.</p>
           <label className="pin"><span>Last 6 characters of the address</span>
@@ -287,7 +302,7 @@ function Sign({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unknow
         </div>
       )}
       <UnlockAction wallet={d.wallet} label="Confirm and sign" onRefuse={onRefuse} onError={onError}
-        disabled={d.path !== "client" || !d.wallet || (d.high && confirmDest.length !== 6)}
+        disabled={d.path !== "client" || !d.wallet || (d.high && (ext.length > 1 || confirmDest.length !== 6))}
         onAuth={async (a) => onDone(await api("/api/sign", { psbt: req.payload.psbt, network: req.network, nextPolicy: req.payload.nextPolicy, confirmDest, ...a }))} />
     </section>
   );
@@ -462,7 +477,8 @@ function UnlockSettings({ w, onChanged }: { w: WalletView; onChanged: () => void
           <UnlockAction wallet={w} label="Confirm" allowPin={!bio} onRefuse={close} onError={setErr}
             onAuth={async (auth) => {
               // Vérification du déverrouillage AVANT de créer une passkey (sinon passkey orpheline si le PIN est faux).
-              const extra = { bio: await (async () => { await api(`/api/wallets/${w.id}/unlock`, { op: "check", auth }).catch((e) => { if (!/unknown operation/.test(e.message)) throw e; }); return bioEnroll(w.label); })() };
+              await api(`/api/wallets/${w.id}/unlock`, { op: "check", auth });
+              const extra = { bio: await bioEnroll(w.label) };
               await api(`/api/wallets/${w.id}/unlock`, { op, auth, ...extra });
               close(); onChanged();
             }} />
