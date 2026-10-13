@@ -9,7 +9,7 @@ import { type Auth, type BioKey, bioAvailable, bioEnroll, bioSecret } from "./bi
 const ALLOWED = (import.meta.env.VITE_WALLET_ALLOWED_ORIGINS ?? "http://localhost:5173")
   .split(",").map((origin: string) => origin.trim()).filter(Boolean);
 type Req = { id: string; action: "create" | "sign" | "policy" | "prove" | "evm-address" | "evm-sign"; network: "regtest" | "signet"; payload: any; origin: string; source: Window };
-type WalletView = { id: string; label: string; accountKey: string; createdAt: string; protected: boolean; unlock?: { pin: boolean; bio: BioKey | null }; evmAddress?: string; policy?: { delay: number; tiersName?: string; network: string } };
+type WalletView = { id: string; label: string; accountKey: string; createdAt: string; protected: boolean; unlock?: { pin: boolean; bio: BioKey | null }; evmAddress?: string; policy?: { delay: number; tiersName?: string; network: string; swissquote?: string; tiers?: string } };
 
 // Saisie conservée uniquement pour migrer un ancien wallet PIN vers la biométrie.
 function PinInput({ value, onChange, label = "Wallet PIN" }: { value: string; onChange: (v: string) => void; label?: string }) {
@@ -109,7 +109,14 @@ export function App() {
       {error && <p className="error">{error}</p>}
       {done && <p className="done">{done}</p>}
       {req?.action === "create" && !done && <Create req={req} onDone={(d) => { reply(true, d); setDone("Public key sent to Swissquote. You can close this window."); }} onError={setError} />}
-      {req?.action === "policy" && !done && <PolicyReq req={req} onDone={(d) => { reply(true, d); setDone("Account policy saved in your wallet."); }} onError={setError} />}
+      {req?.action === "policy" && !done && (
+        <PolicyReq
+          req={req}
+          onDone={(d) => { reply(true, d); setDone("Account policy saved in your wallet."); }}
+          onRefuse={() => { reply(false, "refused by the client"); setDone("Account policy refused: nothing was saved."); }}
+          onError={setError}
+        />
+      )}
       {req?.action === "sign" && !done && (
         <Sign
           req={req}
@@ -192,11 +199,41 @@ function Create({ req, onDone, onError }: { req: Req; onDone: (d: unknown) => vo
   );
 }
 
-function PolicyReq({ req, onDone, onError }: { req: Req; onDone: (d: unknown) => void; onError: (e: string) => void }) {
-  useEffect(() => {
-    api(`/api/wallets/${req.payload.walletId}/policy`, { policy: req.payload.policy }).then(onDone, (e) => onError(e.message));
-  }, [req]); // eslint-disable-line react-hooks/exhaustive-deps
-  return <section><p>Saving the account policy…</p></section>;
+// Empreinte d'une clé de compte « [empreinte/48'/1'/0'/2']tpub… » : ce que le contact lit dans sa console.
+const fingerprintOf = (key: string | undefined) => key?.match(/^\[([0-9a-f]{8})\//)?.[1] ?? "?";
+type PolicyView = { network: string; delay: number; swissquote: string; tiers: string; tiersName?: string };
+
+// Politique du compte, envoyée par l'appli : jamais enregistrée en silence. Une appli compromise pourrait remplacer la clé
+// du contact par la sienne (Swissquote + « contact » = Swissquote seule après le délai) : le client compare l'empreinte
+// avec celle que son contact lit dans sa console, puis confirme par biométrie.
+function PolicyReq({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unknown) => void; onRefuse: () => void; onError: (e: string) => void }) {
+  const p = req.payload.policy as PolicyView;
+  const [w, setW] = useState<WalletView | null | undefined>(undefined);
+  useEffect(() => { api("/api/wallets").then((l: WalletView[]) => setW(l.find((x) => x.id === req.payload.walletId) ?? null), (e) => onError(e.message)); }, [req]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (w === undefined) return <section><p>Loading…</p></section>;
+  if (!w) return <section><p className="error">No wallet on this device matches this request.</p><button className="secondary" onClick={onRefuse}>Close</button></section>;
+  const old = w.policy;
+  const contactChanged = !!old && old.tiers !== p.tiers;
+  const sqChanged = !!old && old.swissquote !== p.swissquote;
+  return (
+    <section>
+      <h2>{old ? "Update your account policy" : "Confirm your account policy"}</h2>
+      <p className="small muted">Request from <strong>{req.origin}</strong> · wallet “{w.label}” ({p.network})</p>
+      <div className="card">
+        <p><span className="k">You</span> spend alone, at any time.</p>
+        <p><span className="k">Recovery</span> Swissquote <strong>and</strong> {p.tiersName ?? "your trusted contact"} together, only for coins that have not moved for <strong>{p.delay} blocks</strong>.</p>
+        <p data-testid="policy-contact"><span className="k">Trusted contact</span> {p.tiersName ?? "(no name)"} · fingerprint <strong className="mono">{fingerprintOf(p.tiers)}</strong></p>
+        <p className="mono small">{p.tiers}</p>
+        <p><span className="k">Swissquote key</span> fingerprint <strong className="mono">{fingerprintOf(p.swissquote)}</strong></p>
+      </div>
+      {contactChanged && <p className="warn" data-testid="policy-change">Trusted contact change: {old!.tiersName ?? "previous contact"} ({fingerprintOf(old!.tiers)}) → {p.tiersName ?? "new contact"} ({fingerprintOf(p.tiers)}).</p>}
+      {sqChanged && <p className="error">The Swissquote key is different from the one in your current policy. Refuse unless you know why.</p>}
+      {old && old.delay !== p.delay && <p className="warn">Recovery delay change: {old.delay} → {p.delay} blocks.</p>}
+      <p className="hint">Ask {p.tiersName ?? "your trusted contact"}, by phone or in person, to read the fingerprint shown in their guardian console: it must be <strong className="mono">{fingerprintOf(p.tiers)}</strong>. If it differs, refuse: someone else's key would share the recovery with Swissquote.</p>
+      <UnlockAction wallet={w} label="Confirm and save" onRefuse={onRefuse} onError={onError}
+        onAuth={async (a) => onDone(await api(`/api/wallets/${w.id}/policy`, { policy: p, ...a }))} />
+    </section>
+  );
 }
 
 function Sign({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unknown) => void; onRefuse: () => void; onError: (e: string) => void }) {

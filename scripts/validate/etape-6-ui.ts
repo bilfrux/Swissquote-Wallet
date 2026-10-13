@@ -148,13 +148,19 @@ try {
   await shot(wallet, "3-wallet-phrase");
   await wallet.getByLabel("I have written my phrase down in a safe place").check();
   await wallet.getByRole("button", { name: "Send my public key to Swissquote" }).click();
+  // Étape 47 : la politique s'affiche dans le wallet ; le client compare l'empreinte avec celle de la console du contact.
+  await wallet.getByRole("button", { name: "Confirm and save" }).waitFor({ timeout: 20000 });
+  const policyScreen = (await wallet.getByTestId("policy-contact").textContent()) ?? "";
+  const consoleFp = (await tiers.getByTestId("identity-fingerprint").textContent())?.trim() ?? "?";
+  await shot(wallet, "3b-wallet-politique");
+  await wallet.getByRole("button", { name: "Confirm and save" }).click();
   await app.getByTestId("btc-balance").waitFor({ timeout: 20000 });
   const stored = JSON.parse(readFileSync(WALLET_FILE, "utf8")) as any[];
   const mine_ = stored[stored.length - 1];
   const walletFile = readFileSync(WALLET_FILE, "utf8");
   report("6-3", "Wallet du client : 24 mots générés et affichés une fois, phrase chiffrée par la biométrie (PRF) ; la banque reçoit la clé publique, la politique est enregistrée dans le wallet",
-    clientWords.length === 24 && !mine_.mnemonic && !mine_.sealed && mine_.bio?.kdf === "hkdf-sha256-prf" && !walletFile.includes(clientWords.join(" ")) && !!mine_.policy && mine_.policy.tiersName === "Marie Dupont",
-    `wallet ${mine_.id}, politique : délai ${mine_.policy?.delay}, tiers ${mine_.policy?.tiersName} ; mots=${clientWords.length}, champs stockés : ${Object.keys(mine_).join(", ")}, phrase en clair sur le disque : ${walletFile.includes(clientWords.join(" "))}, wallets stockés=${stored.length}`);
+    clientWords.length === 24 && !mine_.mnemonic && !mine_.sealed && mine_.bio?.kdf === "hkdf-sha256-prf" && !walletFile.includes(clientWords.join(" ")) && !!mine_.policy && mine_.policy.tiersName === "Marie Dupont" && policyScreen.includes(consoleFp) && policyScreen.includes("Marie Dupont"),
+    `wallet ${mine_.id}, politique confirmée dans le wallet (« ${policyScreen.trim()} », empreinte de la console : ${consoleFp}) : délai ${mine_.policy?.delay}, tiers ${mine_.policy?.tiersName} ; mots=${clientWords.length}, champs stockés : ${Object.keys(mine_).join(", ")}, phrase en clair sur le disque : ${walletFile.includes(clientWords.join(" "))}, wallets stockés=${stored.length}`);
 
   // Ni la graine, ni la clé privée dans l'appli de la banque ou chez Swissquote
   const appStorage = await app.evaluate(() => JSON.stringify({ ...localStorage }) + JSON.stringify({ ...sessionStorage }) + document.documentElement.outerHTML);
@@ -325,6 +331,7 @@ try {
   await nd.locator(".success", { hasText: "Recovery broadcast" }).waitFor({ timeout: 15000 });
   await mine(1);
   await nd.getByRole("button", { name: "Open my new account" }).click();
+  await newWallet.getByRole("button", { name: "Confirm and save" }).click({ timeout: 20000 }); // politique du nouveau compte (étape 47)
   await nd.getByText("Recovery complete").waitFor({ timeout: 20000 });
   try { await nd.getByText(/0\.149/).first().waitFor({ timeout: 20000 }); }
   catch (e) { await shot(nd, "8-ECHEC"); console.log("TEXTE DE LA PAGE :", (await nd.locator("main").textContent())?.replace(/\s+/g, " ").slice(0, 1500)); throw e; }

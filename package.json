@@ -53,7 +53,8 @@
     "validate:42": "tsx scripts/validate/etape-42-bio-migration-ui.ts",
     "validate:43": "tsx scripts/validate/etape-43-change-contact.ts",
     "validate:44": "tsx scripts/validate/etape-44-prf.ts",
-    "validate:46": "tsx scripts/validate/etape-46-network.ts"
+    "validate:46": "tsx scripts/validate/etape-46-network.ts",
+    "validate:47": "tsx scripts/validate/etape-47-policy.ts"
   },
   "devDependencies": {
     "bip322-js": "^4.0.0",

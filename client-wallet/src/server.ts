@@ -201,10 +201,16 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
     }
 
     case "POST /api/wallets/:id/policy": {
+      // La politique décide quelles sorties le wallet reconnaît comme « à vous » et qui est le contact de confiance.
+      // Une appli compromise pourrait y glisser une clé de contact à elle : l'écran du wallet l'affiche (contact, empreintes,
+      // délai, changement éventuel) et l'enregistrement exige la biométrie du client, vérifiée ici.
       const w = wallets.find((x) => x.id === id);
       if (!w) throw new HttpError(404, "unknown wallet");
-      const p = body.policy as Policy;
-      await createWalletConfig({ ...p, client: w.accountKey }); // la politique doit compiler avec la clé de ce wallet
+      const q = body.policy ?? {};
+      if (!["regtest", "signet"].includes(q.network) || typeof q.swissquote !== "string" || typeof q.tiers !== "string") throw new HttpError(400, "invalid policy");
+      const p: Policy = { network: q.network, delay: Number(q.delay), swissquote: q.swissquote.trim(), tiers: q.tiers.trim(), ...(typeof q.tiersName === "string" && q.tiersName.trim() ? { tiersName: q.tiersName.trim().slice(0, 80) } : {}) };
+      await createWalletConfig({ ...p, client: w.accountKey }).catch((e) => { throw new HttpError(400, `invalid policy: ${e.message}`); }); // doit compiler avec la clé de ce wallet
+      unlock(w, authOf(body));
       w.policy = p;
       save(wallets);
       return publicView(w);
