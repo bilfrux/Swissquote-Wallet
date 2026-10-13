@@ -186,9 +186,42 @@ export function describeCall(c: Call, safe: Address, labels: Record<string, stri
   } catch { /* données non reconnues : signalées ci-dessous */ }
   return { kind: "unknown", text: `Unrecognised call to ${c.to}${c.value ? ` with ${formatUnits(c.value, 18)} ETH` : ""} (data ${c.data.slice(0, 10)}…)`, risk: "not decoded: do not sign unless you know what it does" };
 }
-export function describeOp(j: JsonOp, labels: Record<string, string> = {}) {
+// Règles sur les gardiens, pour toute l'opération (les appels d'un lot s'exécutent ensemble) : la recovery ne doit jamais
+// pouvoir être faite par un seul gardien (invariant 1). Le seul changement de gardiens accepté est l'ACTIVATION du module
+// (activationCalls) : module de recovery activé dans le même lot, exactement deux gardiens distincts ajoutés (ni le Safe,
+// ni son propriétaire), seuil final 2. Tout autre ajout ou retrait de gardien est refusé par ce wallet.
+const guardianRules = (calls: Call[], described: Described[], safe: Address, owner?: Address): Described[] => {
+  let enables = false, finalThreshold: bigint | null = null;
+  const added: Address[] = [];
+  calls.forEach((c, i) => {
+    const k = described[i].kind;
+    if (k === "enable-module" && !described[i].risk) enables = true;
+    if (k === "add-guardian" || k === "revoke-guardian") {
+      const d = decodeFunctionData({ abi: recoveryAbi, data: c.data });
+      const args = d.args as readonly unknown[];
+      finalThreshold = args[args.length - 1] as bigint;
+      if (k === "add-guardian") added.push(getAddress(args[0] as Address));
+    }
+  });
+  if (finalThreshold === null) return described;
+  const distinct = new Set(added).size === added.length;
+  const okGuardians = added.every((g) => g !== getAddress(safe) && (!owner || g !== getAddress(owner)));
+  const activation = enables && added.length === 2 && distinct && okGuardians && finalThreshold === 2n && !described.some((d) => d.kind === "revoke-guardian");
+  return described.map((d) => {
+    if (d.kind !== "add-guardian" && d.kind !== "revoke-guardian") return d;
+    if (activation) return d;
+    const risk = finalThreshold! < 2n
+      ? "a single guardian could take over your account (recovery threshold below 2)"
+      : d.kind === "revoke-guardian"
+        ? "changes who can recover your account: not supported by this wallet"
+        : !okGuardians ? "your own key or account cannot be a recovery guardian" : "changes who can recover your account: only the initial activation (two guardians, threshold 2) is accepted";
+    return { ...d, risk };
+  });
+};
+export function describeOp(j: JsonOp, labels: Record<string, string> = {}, owner?: Address) {
   const safe = getAddress(j.sender!);
-  const calls = callsOf(j.callData as Hex).map((c) => describeCall(c, safe, labels));
+  const raw = callsOf(j.callData as Hex);
+  const calls = guardianRules(raw, raw.map((c) => describeCall(c, safe, labels)), safe, owner);
   return { safe, deploys: !!j.factory, sponsored: !!j.paymaster, paymaster: j.paymaster, calls };
 }
 

@@ -128,7 +128,7 @@ async function describeEvm(op: JsonOp, wallets: StoredWallet[]) {
     : wallets.find((x) => x.evmAddress && safeAddressOf(x.evmAddress as Address) === sender);
   if (!w) throw new HttpError(400, "this operation is not for an account controlled by your wallets");
   let d;
-  try { d = describeOp(op); } catch (e: any) { throw new HttpError(400, `operation not decodable: ${e.message}`); }
+  try { d = describeOp(op, {}, getAddress(w.evmAddress!)); } catch (e: any) { throw new HttpError(400, `operation not decodable: ${e.message}`); }
   return { wallet: publicView(w), owner: w.evmAddress, ...d };
 }
 
