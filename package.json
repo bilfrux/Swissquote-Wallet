@@ -63,7 +63,8 @@
     "validate:54": "tsx scripts/validate/etape-54-evm-ui.ts",
     "validate:56": "tsx scripts/validate/etape-56-swissquote-keys.ts",
     "validate:57": "tsx scripts/validate/etape-57-layout.ts",
-    "validate:58": "tsx scripts/validate/etape-58-evm-contact.ts"
+    "validate:58": "tsx scripts/validate/etape-58-evm-contact.ts",
+    "check:touchid": "tsx scripts/demo/touchid-check.ts"
   },
   "devDependencies": {
     "bip322-js": "^4.0.0",
