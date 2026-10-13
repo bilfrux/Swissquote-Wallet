@@ -8,3 +8,7 @@ client-wallet/data/
 
 # Document du track (non versionné)
 *.docx
+
+# Fichiers locaux
+.DS_Store
+.claude/
