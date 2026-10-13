@@ -66,7 +66,8 @@ export async function readState(safe: Address, blockNumber?: bigint): ReturnType
   }
 }
 async function readStateOnce(safe: Address, blockNumber?: bigint) {
-  const deployed = !!(await publicClient.getCode({ address: safe, blockNumber })) && (await publicClient.getCode({ address: safe, blockNumber })) !== "0x";
+  const code = await publicClient.getCode({ address: safe, blockNumber });
+  const deployed = !!code && code !== "0x";
   const usdc = await publicClient.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [safe], blockNumber });
   if (!deployed) return { deployed, usdc, owners: [] as Address[], guardians: [] as Address[], threshold: 0n, moduleEnabled: false, pending: null };
   const [owners, moduleEnabled, guardians, threshold, req] = await Promise.all([

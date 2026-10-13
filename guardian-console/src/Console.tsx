@@ -1,6 +1,7 @@
 // Console du TIERS DE CONFIANCE : indépendante de l'app cliente et de Swissquote.
 // La phrase du tiers est lue dans le champ au moment du clic, utilisée, puis effacée : jamais mise dans l'état React,
-// jamais écrite dans localStorage/sessionStorage, jamais journalisée.
+// jamais écrite dans localStorage/sessionStorage, jamais journalisée. Seule exception : à la création de l'identité, la
+// phrase est affichée une fois (état React, en mémoire) jusqu'au clic « I have written down my phrase ».
 import { useEffect, useRef, useState } from "react";
 import { btc } from "@bitcoinerlab/descriptors-scure";
 import { base64 } from "@scure/base";
@@ -67,11 +68,21 @@ export function Console() {
   };
 
   // Demande de recovery Ethereum (relais A3, format JSON) : signée en EIP-712 par la clé Ethereum du tiers.
-  const evmReq: { kind: "evm-recovery"; safe: `0x${string}`; newOwner: `0x${string}`; nonce: string } | null = psbt.trim().startsWith("{") ? JSON.parse(psbt) : null;
+  // Demande Ethereum : JSON reçu par le relais. Un texte collé illisible ne doit pas faire planter la page.
+  let evmReq: { kind: "evm-recovery"; safe: `0x${string}`; newOwner: `0x${string}`; nonce: string } | null = null;
+  let evmError: string | null = null;
+  if (psbt.trim().startsWith("{")) {
+    try {
+      const j = JSON.parse(psbt);
+      if (j?.kind === "evm-recovery" && typeof j.safe === "string" && typeof j.newOwner === "string" && typeof j.nonce === "string") evmReq = j;
+      else evmError = "unreadable Ethereum request";
+    } catch { evmError = "unreadable request (invalid JSON)"; }
+  }
   if (evmReq) return <EvmRecovery req={evmReq} phraseRef={phraseRef} withPhrase={withPhrase} error={error} setError={setError} />;
   let decoded: ReturnType<typeof decode> | null = null;
   let decodeError: string | null = null;
-  if (psbt.trim()) try { decoded = decode(psbt); } catch (e: any) { decodeError = `unreadable PSBT: ${e.message}`; }
+  if (evmError) decodeError = evmError;
+  else if (psbt.trim()) try { decoded = decode(psbt); } catch (e: any) { decodeError = `unreadable PSBT: ${e.message}`; }
   const recovery = decoded?.inputs.every((i) => i.delay !== null);
 
   return (
