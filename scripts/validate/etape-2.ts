@@ -9,7 +9,9 @@ import { signPsbtWithMnemonic } from "@sq/bitcoin/sign";
 import { btc } from "@bitcoinerlab/descriptors-scure";
 import { base64, hex } from "@scure/base";
 
-const PORT = 4100;
+const PORT = Number(process.env.VALIDATE_2_PORT ?? 4100);
+// Un serveur déjà présent sur ce port répondrait à la place du bank-mock de test (observé : un autre bank-mock sur 4100).
+if (await fetch(`http://localhost:${PORT}/health`).then(() => true, () => false)) { console.error(`port ${PORT} déjà occupé : relancer avec VALIDATE_2_PORT=<port libre>`); process.exit(2); }
 const BANK = `http://localhost:${PORT}`;
 const DATA = ".local/bm-test";
 const rpc = new BitcoindBackend(process.env.BTC_RPC_URL ?? "http://regtest:regtest@127.0.0.1:18443");

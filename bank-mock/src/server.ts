@@ -10,7 +10,7 @@ import { db } from "./db.ts";
 import { signAsSwissquote, signEvmRecovery, swissquoteAccountKey, swissquoteEvmAddress } from "./guardian.ts";
 import { getAddress, isAddress, verifyTypedData, type Address } from "viem";
 import { ownersOf, readState, recoveryNonce, recoveryTypedData, safeAddressOf } from "@sq/evm";
-import { TEST_CUSTOMERS, customerFromToken, verifyIdentity } from "./kyc.ts";
+import { TEST_CUSTOMERS, customerFromToken, kycLockedFor, verifyIdentity } from "./kyc.ts";
 import { CUSTOMERS, createSession, customerFromSession, login } from "./bank.ts";
 import { authenticationOptions, passkeyCount, recordStepup, registrationOptions, verifyAuthentication, verifyRegistration } from "./passkeys.ts";
 import { LOCK_ENABLED, type Scope, allows, grantUnlock, revokeUnlock, unlockState } from "./cryptoLock.ts";
@@ -21,6 +21,7 @@ import { CustodyError, balance, depositAddress, records, syncDeposits, withdraw 
 const PORT = Number(process.env.BANK_MOCK_PORT ?? 4000);
 // Boucle locale seulement : le backend simulé n'est pas joignable depuis le réseau local.
 const HOST = process.env.BANK_MOCK_HOST ?? "localhost";
+const MAX_BODY = 1_000_000; // octets : un PSBT de recovery tient largement
 const ORIGINS = (process.env.BANK_MOCK_ORIGINS ?? "http://localhost:5173,http://localhost:5174,http://localhost:5175").split(",");
 const NETWORKS: NetworkName[] = ["regtest", "signet"];
 
@@ -48,6 +49,7 @@ const configOf = (a: AccountRow): Promise<WalletConfig> =>
   createWalletConfig({ network: a.network, delay: a.delay, client: a.client_key, swissquote: swissquoteAccountKey(a.network), tiers: a.tiers_key });
 
 // Analyse d'une demande de recovery : d'où viennent les coins, où vont-ils, par quel chemin.
+const MAX_RECOVERY_FEE_PCT = BigInt(process.env.BANK_MOCK_MAX_RECOVERY_FEE_PCT ?? 5);
 async function reviewRecovery(customerId: string, net: NetworkName, psbt: string) {
   const rows = db.prepare("select * from accounts where customer_id = ? and network = ?").all(customerId, net) as AccountRow[];
   const accounts = await Promise.all(rows.map(async (r) => ({ row: r, cfg: await configOf(r) })));
@@ -60,6 +62,9 @@ async function reviewRecovery(customerId: string, net: NetworkName, psbt: string
     return summary.outputs.every((o) => own.has(o.address));
   })());
   if (!dest) throw new HttpError(403, "all outputs must go to ANOTHER registered account of the same client (new client key)");
+  // Frais : une recovery signée par Swissquote ne doit pas pouvoir partir en frais de minage (au profit d'un mineur complice).
+  const total = summary.inputs.reduce((s, i) => s + i.value, 0n);
+  if (summary.fee * 100n > total * MAX_RECOVERY_FEE_PCT) throw new HttpError(403, `fee too high for a recovery: ${summary.fee} sats for ${total} sats spent (maximum ${MAX_RECOVERY_FEE_PCT} %)`);
   return { source: source.row.id, destination: dest.row.id, summary };
 }
 
@@ -145,6 +150,7 @@ async function route(req: IncomingMessage, body: any, url: URL) {
     case "POST /evm/accounts/sync": {
       // Après une recovery : le propriétaire enregistré est remplacé par celui que la chaîne indique.
       const customerId = needCrypto(req, "recovery");
+      if (!isAddress(String(body.safe))) throw new HttpError(400, "invalid Ethereum address");
       const row = db.prepare("select * from evm_accounts where customer_id = ? and safe = ?").get(customerId, getAddress(String(body.safe))) as any;
       if (!row) throw new HttpError(404, "unknown account");
       // Lecture AU bloc de la finalisation (le nœud public peut renvoyer un état en retard juste après), avec réessais.
@@ -408,6 +414,8 @@ async function route(req: IncomingMessage, body: any, url: URL) {
       return runAlerts(configOf, body.network ? [network(body.network)] : undefined);
 
     case "POST /identity/verify": {
+      const wait = kycLockedFor(body.customerId);
+      if (wait) throw new HttpError(429, `identity verification locked after too many failed attempts: try again in ${Math.ceil(wait / 60)} min`);
       const session = verifyIdentity(body);
       if (!session) throw new HttpError(403, "identity verification rejected (unknown test file or incorrect answers)");
       return session;
@@ -454,10 +462,17 @@ createServer(async (req, res: ServerResponse) => {
     res.setHeader("access-control-allow-methods", "GET, POST, OPTIONS");
   }
   if (req.method === "OPTIONS") return res.writeHead(204).end();
+  const fail = (status: number, error: string) => res.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify({ error }));
+  // JSON seulement : une requête « simple » d'un autre site (text/plain, formulaire) n'est pas précédée d'un contrôle CORS,
+  // elle atteindrait sinon les routes sans session (relais, re-KYC).
+  if (req.method === "POST" && !/^application\/json(;|$)/.test(String(req.headers["content-type"] ?? ""))) return fail(415, "application/json required");
   let raw = "";
-  for await (const chunk of req) raw += chunk;
+  // Corps trop gros : on répond et on ferme la connexion (la lecture interrompue détruit le flux de la requête).
+  for await (const chunk of req) { raw += chunk; if (raw.length > MAX_BODY) { res.setHeader("connection", "close"); return fail(413, "request too large"); } }
+  let body: any = {};
+  if (raw) { try { body = JSON.parse(raw); } catch { return fail(400, "invalid JSON"); } }
   try {
-    const out = await route(req, raw ? JSON.parse(raw) : {}, new URL(req.url ?? "/", "http://localhost"));
+    const out = await route(req, body ?? {}, new URL(req.url ?? "/", "http://localhost"));
     res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(out));
   } catch (e: any) {
     const status = e instanceof HttpError || e instanceof CustodyError ? e.status : 500;

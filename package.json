@@ -57,7 +57,8 @@
     "validate:47": "tsx scripts/validate/etape-47-policy.ts",
     "validate:48": "tsx scripts/validate/etape-48-evm-guardians.ts",
     "validate:49": "tsx scripts/validate/etape-49-rpc-relay.ts",
-    "validate:50": "tsx scripts/validate/etape-50-wallet-hardening.ts"
+    "validate:50": "tsx scripts/validate/etape-50-wallet-hardening.ts",
+    "validate:52": "tsx scripts/validate/etape-52-bank-mock.ts"
   },
   "devDependencies": {
     "bip322-js": "^4.0.0",

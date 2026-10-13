@@ -311,10 +311,12 @@ const server = createServer(async (req, res) => {
   const origin = req.headers.origin;
   if (origin && origin !== SELF) return send(403, { error: `origin rejected: ${origin}` });
   // Un POST « simple » (text/plain, formulaire) n'est pas précédé d'un contrôle CORS : on exige du JSON.
-  if (req.method === "POST" && req.headers["content-type"] !== "application/json") return send(415, { error: "application/json required" });
+  if (req.method === "POST" && !/^application\/json(;|$)/.test(String(req.headers["content-type"] ?? ""))) return send(415, { error: "application/json required" });
   let raw = "";
-  for await (const c of req) raw += c;
-  try { send(200, await api(req, raw ? JSON.parse(raw) : {})); }
+  for await (const c of req) { raw += c; if (raw.length > 1_000_000) { res.setHeader("connection", "close"); return send(413, { error: "request too large" }); } }
+  let body: any = {};
+  if (raw) { try { body = JSON.parse(raw); } catch { return send(400, { error: "invalid JSON" }); } }
+  try { send(200, await api(req, body ?? {})); }
   catch (e: any) { send(e instanceof HttpError ? e.status : 500, { error: e.message }); }
 });
 // Interface servie par Vite dans CE processus ; le rechargement à chaud passe par le même serveur HTTP (pas de port en plus).

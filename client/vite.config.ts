@@ -34,7 +34,7 @@ function regtestRelay(target: string, auth: string): Plugin {
         if (req.method !== "POST") return refuse(405, "POST required");
         if (req.headers.origin && req.headers.origin !== `http://${req.headers.host}`) return refuse(403, `origin rejected: ${req.headers.origin}`);
         let raw = "";
-        for await (const c of req) { raw += c; if (raw.length > 1_000_000) return refuse(413, "request too large"); }
+        for await (const c of req) { raw += c; if (raw.length > 1_000_000) { res.setHeader("connection", "close"); return refuse(413, "request too large"); } }
         let body: unknown;
         try { body = JSON.parse(raw); } catch { return refuse(400, "invalid JSON"); }
         const path = (req.url ?? "/").split("?")[0];

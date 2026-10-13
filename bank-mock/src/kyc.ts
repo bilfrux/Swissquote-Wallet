@@ -11,9 +11,28 @@ export const TEST_CUSTOMERS: Record<string, { lastName: string; birthDate: strin
 };
 const TTL_MS = 10 * 60 * 1000;
 
+// Échecs de re-KYC par client (en mémoire) : le code SMS a 6 chiffres, sans limite il se devine. Au-delà de MAX_FAILS
+// échecs, le dossier est bloqué LOCK_MS. (Mock : un vrai re-KYC serait un prestataire d'identité.)
+const MAX_FAILS = Number(process.env.BANK_MOCK_KYC_MAX_FAILS ?? 5);
+const LOCK_MS = 15 * 60 * 1000;
+const fails = new Map<string, { n: number; until: number }>();
+export const kycLockedFor = (customerId: unknown) => {
+  const f = typeof customerId === "string" ? fails.get(customerId) : undefined;
+  return f && f.until > Date.now() ? Math.ceil((f.until - Date.now()) / 1000) : 0;
+};
+
 export function verifyIdentity(b: { customerId?: string; lastName?: string; birthDate?: string; otp?: string }) {
   const c = b.customerId ? TEST_CUSTOMERS[b.customerId] : undefined;
-  if (!c || c.lastName !== b.lastName || c.birthDate !== b.birthDate || c.otp !== b.otp) return null;
+  if (!c || c.lastName !== b.lastName || c.birthDate !== b.birthDate || c.otp !== b.otp) {
+    if (c) {
+      const f = fails.get(b.customerId!) ?? { n: 0, until: 0 };
+      f.n += 1;
+      if (f.n >= MAX_FAILS) { f.n = 0; f.until = Date.now() + LOCK_MS; }
+      fails.set(b.customerId!, f);
+    }
+    return null;
+  }
+  fails.delete(b.customerId!);
   const token = randomBytes(32).toString("hex");
   const expires = Date.now() + TTL_MS;
   db.prepare("insert into kyc_sessions (token, customer_id, expires_at) values (?, ?, ?)").run(token, b.customerId!, expires);

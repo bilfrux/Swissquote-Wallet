@@ -1,0 +1,14 @@
+[KO ] 52-1 Requêtes : text/plain et formulaire refusés (415), JSON invalide 400, corps de 2 Mo refusé (413), JSON avec charset accepté
+       text/plain 200 ; formulaire 500 ; JSON invalide 500 « Expected property name or '}' in JSON at position 1 (line 1 column 2) » ; 2 Mo 404 ; charset 200
+[KO ] 52-2 Deux retraits simultanés de 0,5 BTC pour 0,8 BTC d'avoirs : un seul passe, l'autre est refusé ; solde et réception cohérents
+       statuts 200 / 200 (« undefined ») ; solde 80000000 → -20000000 sats ; reçu dans le wallet : 100000000 sats
+[KO ] 52-3 Recovery dont les frais dépassent 5 % du montant : Swissquote refuse de signer (403) ; frais normaux : signée
+       frais 31800 sats sur 100000 : 200 « undefined » ; frais 318 sats : 200
+[KO ] 52-4 Re-KYC : après 5 codes faux, même le bon code est refusé (429) ; les autres clients ne sont pas touchés
+       codes faux : 403, 403, 403, 403, 403 ; bon code ensuite : 200 « undefined » ; autre client : 200
+
+RÉSUMÉ
+52-1 ne fonctionne pas  Requêtes : text/plain et formulaire refusés (415), JSON invalide 400, corps de 2 Mo refusé (413), JSON avec charset accepté
+52-2 ne fonctionne pas  Deux retraits simultanés de 0,5 BTC pour 0,8 BTC d'avoirs : un seul passe, l'autre est refusé ; solde et réception cohérents
+52-3 ne fonctionne pas  Recovery dont les frais dépassent 5 % du montant : Swissquote refuse de signer (403) ; frais normaux : signée
+52-4 ne fonctionne pas  Re-KYC : après 5 codes faux, même le bon code est refusé (429) ; les autres clients ne sont pas touchés
