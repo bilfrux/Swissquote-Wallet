@@ -519,12 +519,19 @@ createServer(async (req, res: ServerResponse) => {
   for await (const chunk of req) { raw += chunk; if (raw.length > MAX_BODY) { res.setHeader("connection", "close"); return fail(413, "request too large"); } }
   let body: any = {};
   if (raw) { try { body = JSON.parse(raw); } catch { return fail(400, "invalid JSON"); } }
+  // Journal des appels (diagnostic) : méthode, chemin, statut ; les lectures qui réussissent sont omises (sondages).
+  const logCall = (status: number, msg?: string) => {
+    if (req.method === "GET" && status < 400) return;
+    console.log(`[bank-mock] ${new Date().toISOString().slice(11, 19)} ${req.method} ${(req.url ?? "").split("?")[0]} -> ${status}${msg ? ` (${msg})` : ""}`);
+  };
   try {
     const out = await route(req, body ?? {}, new URL(req.url ?? "/", "http://localhost"));
     res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(out));
+    logCall(200);
   } catch (e: any) {
     const status = e instanceof HttpError || e instanceof CustodyError ? e.status : 500;
     res.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify({ error: e.message, ...(e instanceof CustodyError ? e.extra : {}) }));
+    logCall(status, e.message);
   }
 }).listen(PORT, HOST, () => console.log(`[bank-mock] guardian Swissquote sur http://localhost:${PORT} (interface ${HOST})`));
 

@@ -8,6 +8,9 @@ export const TEST_CUSTOMERS: Record<string, { lastName: string; birthDate: strin
   "CH-0001": { lastName: "Muster", birthDate: "1990-01-01", otp: "123456" },
   "CH-0002": { lastName: "Exemple", birthDate: "1985-06-15", otp: "654321" },
   "CH-0003": { lastName: "Martin", birthDate: "1992-03-21", otp: "246810" },
+  "CH-0004": { lastName: "Keller", birthDate: "1994-07-12", otp: "135790" },
+  "CH-0005": { lastName: "Berger", birthDate: "1991-11-02", otp: "975310" },
+  "CH-0006": { lastName: "Rossi", birthDate: "1993-04-18", otp: "864209" },
 };
 const TTL_MS = 10 * 60 * 1000;
 

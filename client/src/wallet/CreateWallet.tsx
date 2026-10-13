@@ -2,7 +2,7 @@
 // la graine chez lui et ne renvoie que la clé publique. L'appli compile la politique et l'enregistre chez Swissquote.
 import { useState } from "react";
 import { createWalletConfig, parseAccountKey } from "@sq/bitcoin";
-import { fetchSwissquoteKey, registerAccount } from "../lib/bank";
+import { fetchSwissquoteKey, passkeyStatus, registerAccount, registerPasskey } from "../lib/bank";
 import { type BtcAccount, DELAY, NETWORK } from "../lib/config";
 import { walletRequest } from "../lib/walletBridge";
 import { useT } from "../i18n";
@@ -42,6 +42,13 @@ export function CreateWallet({ onCreated }: { onCreated: (a: BtcAccount) => void
       if (walletId) {
         setStatus(tr("Saving the policy in your wallet…"));
         await walletRequest("policy", { walletId, policy: { network: NETWORK, delay: DELAY, swissquote, tiers: cfg.tiers.raw, tiersName } });
+      }
+      // La passkey bancaire est activée dès la création : plus d'activation à faire plus tard. Un refus ne bloque pas
+      // le wallet ; l'activation reste possible dans « Sécurité du compte » ou au premier montant élevé.
+      if (walletId) {
+        try {
+          if ((await passkeyStatus()).count === 0) { setStatus(tr("Enabling your passkey…")); await registerPasskey(); }
+        } catch { /* repli : activation manuelle */ }
       }
       setStatus(null);
       onCreated(account);

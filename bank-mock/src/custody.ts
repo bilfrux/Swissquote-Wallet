@@ -12,7 +12,7 @@ import { db } from "./db.ts";
 const rpc = new BitcoindBackend(process.env.BTC_RPC_URL ?? "http://regtest:regtest@127.0.0.1:18443");
 const OMNIBUS = process.env.BANK_MOCK_OMNIBUS ?? "sq-omnibus";
 // Avoirs crypto de démo au compte Swissquote (BTC), par client.
-const INITIAL_BTC: Record<string, number> = { "CH-0001": 1.5, "CH-0002": 0.4, "CH-0003": 0.8 };
+const INITIAL_BTC: Record<string, number> = { "CH-0001": 1.5, "CH-0002": 0.4, "CH-0003": 0.8, "CH-0004": 0.8, "CH-0005": 0.8, "CH-0006": 0.8 };
 
 db.exec(`
   create table if not exists custody_ledger (

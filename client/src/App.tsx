@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { type BankAccount, type Session, clearSession, cryptoLock, custody, loadSession, me } from "./lib/bank";
 import { priceOf, usePrices } from "./lib/market";
+import { walletBusy } from "./lib/walletBridge";
 import { num } from "./ui/format";
 import { PublicSite } from "./public/PublicSite";
 import { Overview } from "./bank/Overview";
@@ -33,7 +34,8 @@ export function App() {
     prevTab.current = tab;
   }, [tab]);
   useEffect(() => {
-    const onHide = () => { if (document.visibilityState === "hidden") setLockSignal((n) => n + 1); };
+    // Pas de reverrouillage pendant qu'une demande est en cours auprès du Client Wallet (sa fenêtre passe devant).
+    const onHide = () => { if (document.visibilityState === "hidden" && !walletBusy()) setLockSignal((n) => n + 1); };
     document.addEventListener("visibilitychange", onHide);
     return () => document.removeEventListener("visibilitychange", onHide);
   }, []);
