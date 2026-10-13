@@ -285,14 +285,13 @@ export function Ethereum({ customerId, accountKey, tiersName, onInfo }: { custom
   return (
     <div className={mobile ? "crypto m evm" : "d-page crypto evm"} data-testid="evm-card">
       {alerts}
-      {mobile ? (
-        <>{header}<div ref={panelRef}>{sidePanel}</div>{chart}{tabs}</>
-      ) : (
-        <div className="crypto-grid">
-          <div>{header}{chart}{tabs}</div>
-          <div ref={panelRef} className="crypto-side">{sidePanel}</div>
-        </div>
-      )}
+      {/* Même arbre en téléphone et en ordinateur (seule la classe change) : basculer de mise en page au passage des 820 px
+          ne remonte pas les composants, donc n'efface pas un formulaire en cours (étape 57). En téléphone, le CSS remet le
+          panneau latéral juste sous l'en-tête. */}
+      <div className={mobile ? "crypto-grid stack" : "crypto-grid"}>
+        <div className="crypto-main">{header}{chart}{tabs}</div>
+        <div ref={panelRef} className="crypto-side">{sidePanel}</div>
+      </div>
     </div>
   );
 }
