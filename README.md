@@ -18,6 +18,24 @@ Why this model rather than custodial, seed phrase, MPC, smart account or Shamir 
 Travel Rule, ownership proof and whether Swissquote is the sending institution: [`docs/travel-rule.md`](docs/travel-rule.md).
 Business case (formula and explicit assumptions, no Swissquote figure): [`docs/business-case.md`](docs/business-case.md).
 
+## Features
+
+**For the client**
+- **One wallet, two networks**: one secret phrase, generated in the Client Wallet and shown once, gives a Bitcoin account and an Ethereum (USDC) account, shown one network at a time.
+- **Biometrics everywhere it matters**: the Client Wallet seed is encrypted with a secret released by the device biometrics (Touch ID, Face ID, Windows Hello; WebAuthn PRF). Every signature, policy change and wallet erase asks for it. The bank's **crypto part is locked** behind a passkey checked by Swissquote: a stolen password is not enough, and it relocks when the client leaves the tab.
+- **Spend alone, at any time**: send, refresh (Bitcoin) and an **emergency exit** in the Client Wallet that spends without Swissquote, the site or the bank account.
+- **Recover with Swissquote and a trusted contact**: re-KYC, a new Client Wallet, Swissquote's signature, the contact's signature in their own console (link relayed by Swissquote, no copy-paste), then the delay enforced by the chain (D blocks on Bitcoin, 3 minutes on the Ethereum demo, cancellable by the owner).
+- **Change of trusted contact**, on Bitcoin (coins moved to the new rule) and on Ethereum (one operation that removes the old guardian, adds the new one, cancels any pending recovery and invalidates collected signatures).
+- **High-value transfers** (above 0.2 BTC): passkey re-authentication with Swissquote, then biometrics and the last 6 characters of the address in the Client Wallet, one recipient at a time.
+- **Swissquote account ↔ wallet transfers** under the Travel Rule, with an ownership proof signed in the Client Wallet.
+- **Alerts**: bell and simulated email when a coin is about to become recoverable, when Swissquote signs a recovery, when the contact changes.
+
+**Protections against a compromised bank app**
+- The Client Wallet decodes everything itself before signing (Bitcoin outputs and path, Ethereum calls) and refuses what it cannot explain, any recovery-path PSBT, guardian changes other than the activation or a checked contact change, and a second request sent while one awaits confirmation.
+- The account policy (trusted contact, Swissquote key, delay) is never saved silently: the Client Wallet shows the **contact's fingerprint**, which the contact reads out from their console, and saves only after biometrics.
+- **One Swissquote key per account** (Bitcoin and Ethereum): the scripts revealed on-chain and the guardian lists do not link Swissquote's clients to one another.
+- The Client Wallet, bank-mock, the attack server and bitcoind listen on the loopback interface only; the regtest RPC relay of the app forwards only the methods it needs.
+
 ## Real or mocked
 
 | Component | Status | Detail |
@@ -42,6 +60,8 @@ Business case (formula and explicit assumptions, no Swissquote figure): [`docs/b
 | **Ethereum account** (Sepolia testnet) | **Real** | Safe owned by the client's EOA (same phrase as Bitcoin, derived in the Client Wallet), Candide recovery module (Swissquote + contact, threshold 2, 3-minute delay in the demo). From the interface: activation, USDC balance and send, activity read on-chain, recovery (re-KYC, EIP-712 signatures of Swissquote and the contact relayed through bank-mock, countdown, completion), cancellation by the owner. `packages/evm`, steps 15-19 |
 | Gasless | **Real**, third party | Operations are sponsored by Candide's **public** paymaster (ERC-4337): the client holds no ETH. Swissquote does not pay and has no abuse control of its own; a production paymaster policy is not designed here |
 | Languages | **Real** (partial) | Public site and bank frame in English, French, German and Italian (step 22); crypto screens also in French (step 24, German and Italian stay in English); Client Wallet and guardian console in English |
+| Change of trusted contact | **Real** | Bitcoin: coins moved by the client alone to the policy with the new contact, then Swissquote's registry and the wallet's policy updated (step 43). Ethereum: one operation checked by the Client Wallet against the guardians it reads on-chain (step 58) |
+| Swissquote keys | **Real** (derivation) / **mocked** (storage) | One Bitcoin account key and one Ethereum guardian address per client account, derived from Swissquote's seed (hardened index from the client's public key). Accounts registered before step 56 keep the former common key |
 | Compliant dApp interaction, DeFi, Taproot | **Not implemented** | No code in the repository (see "Perspectives") |
 
 ## Run the demo (three commands)
@@ -54,19 +74,25 @@ npm run regtest:up      # bitcoind 29 regtest in Docker
 npm run demo            # bank :5173 · trusted-contact console :5174 · Client Wallet :5180 · bank-mock :4000 · attacks :4200
 ```
 
+Before a demo on a new machine, check real biometrics once: `npm run check:touchid` opens Chrome, creates a wallet with Touch ID and signs a regtest transaction (three touches). The automated tests use Chrome's virtual authenticator.
+
+`npm run regtest:up` keeps the regtest chain when it recreates the container; `npm run regtest:down` deletes it.
+
 If a Vite port is already taken, the console takes the next one (shown in the terminal). Fixed ports are configurable (`.env.example`).
 
 ### Demo walkthrough
 
 1. **The trusted contact** opens the console (http://localhost:5174), clicks "Create my trusted-contact identity", writes down their phrase and sends their public key to the client.
-2. **The client** logs in to the bank (http://localhost:5173): client ID `CH-0003`, password `demo0003`. This is the **blank** demo client, with no Bitcoin account. `CH-0001` and `CH-0002` hold accounts created by the tests.
-3. **Crypto → Create my wallet**: enter the contact's name and key, then "Create my wallet with the Client Wallet". In the Client Wallet window, enable biometrics: the wallet generates the phrase, shows it once, then encrypts it. The client confirms having written it down; only the public key goes back to the bank.
+2. **The client** logs in to the bank (http://localhost:5173): client ID `CH-0003`, password `demo0003`. Blank demo clients, with no Bitcoin account: `CH-0003` (tests and rehearsals), `CH-0004` / `pitch0004` (pitch), `CH-0005` / `video0005` (video), `CH-0006` / `second0006` (second run in front of the jury). `CH-0001` and `CH-0002` hold accounts created by the tests.
+3. **Crypto**: the crypto part is locked; "Enable biometrics" (first time) or "Unlock with biometrics". **Create my wallet**: enter the contact's name and key, then "Create my wallet with the Client Wallet". In the Client Wallet window, "Generate my secret phrase" (biometrics): the wallet shows the phrase once, then encrypts it. The client confirms having written it down; only the public key goes back to the bank. The wallet then shows the **account policy**: the client checks that the contact's fingerprint is the one shown in the contact's console, and confirms with biometrics.
 4. **Receive**: `npm run regtest -- fund <displayed address> 0.5`, then "Reload".
    **Ownership proof**: "Prove to Swissquote that I control this address". The Client Wallet shows the full challenge, the client signs, Swissquote verifies.
 5. **Send**: prepare the transfer (plain-language simulation), "Sign with my Client Wallet", check the wallet's confirmation screen, sign, then broadcast. `npm run regtest -- mine 1` confirms the transaction.
-6. **Wallet loss**: in the Client Wallet (http://localhost:5180), "Simulate losing this device". Then, in another browser profile, log in again and click "I lost my wallet". Mocked re-KYC for CH-0003: `Martin`, `1992-03-21`, `246810`. Then: new wallet, Swissquote signature, trusted contact's signature in their console (via the link), broadcast. **The network rejects it** (`non-BIP68-final`); after `npm run regtest -- mine 6`, broadcast again: accepted.
+6. **Wallet loss**: in the Client Wallet (http://localhost:5180), "Simulate losing this device" (biometrics required). Then, in another browser profile, log in again and click "I lost my device or my biometrics: recover my wallet". Mocked re-KYC for CH-0003: `Martin`, `1992-03-21`, `246810` (CH-0004: `Keller`, `1994-07-12`, `135790`; CH-0005: `Berger`, `1991-11-02`, `975310`; CH-0006: `Rossi`, `1993-04-18`, `864209`; 5 wrong codes lock the check for 15 minutes). Then: new wallet, Swissquote signature, trusted contact's signature in their console (via the link), broadcast. **The network rejects it** (`non-BIP68-final`); after `npm run regtest -- mine 6`, broadcast again: accepted.
 7. **Alerts**: the bell in the header signals a coin soon spendable by Swissquote + trusted contact, or a recovery signed by Swissquote (including on the old device).
-8. **Demo**: the three attack buttons.
+8. **Change of trusted contact**: Crypto → Security → "Change my trusted contact" (Bitcoin: name and public key of the new contact; Ethereum: name and address). The Client Wallet shows the old and the new contact before signing.
+9. **Ethereum**: network selector → Ethereum → "Add my Ethereum account" (contact's Ethereum address from their console) → "Activate my Ethereum account" (signed in the Client Wallet, no ETH). Recovery from the "Recover" button, cancellation from the warning shown to the owner.
+10. **Demo**: the three attack buttons.
 
 On the real signet network: `npm run demo:signet` (no Demo tab). You need signet BTC from a faucet.
 
@@ -97,6 +123,11 @@ Every claim in this repository points to a recorded run in `docs/validation/` (c
 | `npm run validate:50` | Wallet hardening: no way back to a PIN, high value to a single recipient, no request substitution during confirmation |
 | `npm run validate:52` | bank-mock: JSON only, concurrent withdrawals, recovery fee cap, re-KYC lockout (0/4 on the code before the fix) |
 | `npm run validate:54` | Ethereum on the real Sepolia, from the interface, no ETH, with biometrics: activation, refusals on the deployed Safe, Swissquote + contact recovery after 3 min, invalidation (about 10 min). Replaces `validate:17`/`18`, which typed a PIN |
+| `npm run validate:56` | One Swissquote key per account: distinct keys for two clients, registration recomputes the key, recovery signed and accepted at D, accounts registered before keep the former key |
+| `npm run validate:57` | A change of trusted contact in progress survives crossing the 820 px phone/desktop threshold (failed before the fix) |
+| `npm run validate:58` | Ethereum change of trusted contact on the real Sepolia: wallet screen with old and new address, guardians on-chain, Swissquote registry, relay accepts only the new contact |
+| `npm run validate:61` | The crypto lock does not relock during a Client Wallet request (account registration refused before the fix); demo clients CH-0004 to CH-0006 |
+| `npm run check:touchid` | **Manual**: real Touch ID in Chrome creates a wallet and signs (not run by the automated suite) |
 | `npm run validate:8:alerts` | Alerts: threshold, no duplicates, recovery open, recovery signed by Swissquote, simulated email, isolation between clients |
 | `npm run validate:8:signet -- create\|spend\|recover` | Interface journey on the real signet network |
 | `npm run validate:inv5` | No private key or seed in `client/` and its bundle (with positive control) |
@@ -124,13 +155,13 @@ Swissquote issues a single-use challenge (10 min) naming the client and address 
 ## Accepted limits
 
 - **Swissquote disappears AND the client loses their key: funds are lost.** No path works without Swissquote if the client no longer has their key. Possible extension: a "client backup + trusted contact" path after a longer delay.
-- **The trusted contact loses their key: recovery becomes impossible.** The client must replace them while they still have their key: new policy and coin move. Implemented for Bitcoin (step 43); not supported for Ethereum (the wallet refuses guardian changes, step 48).
+- **The trusted contact loses their key: recovery becomes impossible**, until the client replaces them while they still have their key (Bitcoin: new policy and coin move, step 43; Ethereum: guardian replaced in one operation, step 58). On Ethereum the Client Wallet cannot tell which guardian is Swissquote: the client must recognise the removed address as their contact's.
 - **Custody grey zone.** Swissquote + trusted contact can spend, **to any destination**, any coin that has not moved for D blocks. Observed in `npm run test:attacks` (attack 2, "grey zone" line). Mitigations: contact chosen by the client and unrelated to Swissquote, in-app warning before the deadline, refresh by the client. Bitcoin cannot restrict the destination.
 - **Refresh is mandatory.** To block any recovery, the client must move each coin before D: it costs fees, and activity becomes visible on-chain.
 - **Few external wallets sign this kind of script** (Miniscript with delay): Bitcoin Core (verified), Liana and some hardware wallets (announced, not verified). Sparrow most likely does not support it (GitHub issues #1700 open and #1757 declined; not verified by running Sparrow).
-- **Privacy.** With P2WSH, every spend reveals the policy, hence the existence of the delay. Swissquote uses one account key for all clients, so revealed scripts link the coins of all Swissquote clients on-chain (per-client key not done).
+- **Privacy.** With P2WSH, every spend reveals the policy, hence the existence of the delay. Since step 56 each account has its own Swissquote key, so revealed scripts no longer link Swissquote's clients; accounts registered before keep the former common key until the client moves to a new account.
 - **Trusted contact fingerprint.** The Client Wallet shows it before saving a policy; the protection against a substituted key relies on the client comparing it with the contact by another channel.
-- **Tests run with a virtual authenticator.** Biometrics are validated in Chrome with a virtual WebAuthn authenticator (PRF); real Touch ID / Face ID has not been run.
+- **Tests run with a virtual authenticator.** Biometrics are validated in Chrome with a virtual WebAuthn authenticator (PRF). Real Touch ID is checked with `npm run check:touchid`, which needs the user's finger and is not part of the automated suite.
 - **No Taproot, no compliant dApp interaction, no DeFi**: see "Perspectives". Ethereum runs on the Sepolia testnet only, with a 3-minute demo delay and a public third-party paymaster (no abuse control of ours, no production policy).
 - **Ethereum recovery module is version 0.0.1** (deployed by Candide, without the 2026 audit fixes). After a recovery we call `cancelRecovery` and `invalidateNonce`; removing a guardian does not cancel an ongoing recovery. Both pitfalls come from the exploration on a Sepolia fork (branch `archive/exploration-etape-0`) and are handled by the recovery flow of step 18.
 - **Client Wallet unlock**: the seed is encrypted with a key derived from the device biometrics (WebAuthn PRF). Its strength depends on the device and browser; this is a reference implementation, and a production wallet should rely on a secure element (hardware wallet, phone enclave). The older PIN format (scrypt, 6 digits) is within reach of an offline exhaustive search and is kept only to migrate old wallets.
