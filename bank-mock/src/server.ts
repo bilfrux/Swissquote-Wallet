@@ -19,6 +19,8 @@ import { marketHistory, marketPrices } from "./market.ts";
 import { CustodyError, balance, depositAddress, records, syncDeposits, withdraw } from "./custody.ts";
 
 const PORT = Number(process.env.BANK_MOCK_PORT ?? 4000);
+// Boucle locale seulement : le backend simulé n'est pas joignable depuis le réseau local.
+const HOST = process.env.BANK_MOCK_HOST ?? "localhost";
 const ORIGINS = (process.env.BANK_MOCK_ORIGINS ?? "http://localhost:5173,http://localhost:5174,http://localhost:5175").split(",");
 const NETWORKS: NetworkName[] = ["regtest", "signet"];
 
@@ -461,7 +463,7 @@ createServer(async (req, res: ServerResponse) => {
     const status = e instanceof HttpError || e instanceof CustodyError ? e.status : 500;
     res.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify({ error: e.message, ...(e instanceof CustodyError ? e.extra : {}) }));
   }
-}).listen(PORT, () => console.log(`[bank-mock] guardian Swissquote sur http://localhost:${PORT}`));
+}).listen(PORT, HOST, () => console.log(`[bank-mock] guardian Swissquote sur http://localhost:${PORT} (interface ${HOST})`));
 
 // Surveillance périodique des comptes (alertes au client) : regtest toutes les 30 s ; signet toutes les 15 min
 // (API Esplora publique limitée à 700 requêtes/heure/IP chez blockstream). 0 désactive.

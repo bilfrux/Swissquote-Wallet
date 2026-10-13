@@ -264,7 +264,8 @@ try {
     highWarn.includes("High-value amount") && highNote.includes("confirmed by passkey") && /[0-9a-f]{64}/.test(bigSent), `${highNote} ; ${bigSent.trim().slice(0, 90)}`);
 
   // --- Perte du wallet, puis recovery depuis un NOUVEL appareil ---
-  const lost = await ctxA.newPage();
+  // Depuis la fenêtre du wallet : c'est elle qui détient la passkey du wallet (l'effacement exige la biométrie, étape 46).
+  const lost = wallet;
   await lost.goto(WALLET);
   const card = lost.locator(".card", { hasText: mine_.id });
   await card.getByRole("button", { name: "Simulate losing this device" }).click();

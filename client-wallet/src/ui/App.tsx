@@ -23,8 +23,8 @@ function PinInput({ value, onChange, label = "Wallet PIN" }: { value: string; on
 const pinOk = (p: string) => /^\d{6,12}$/.test(p);
 
 // Les signatures utilisent toujours la biométrie. Le PIN n'est accepté ici que pour migrer un ancien wallet.
-function UnlockAction({ wallet, label, disabled, allowPin = false, onAuth, onRefuse, onError }: {
-  wallet: WalletView | null | undefined; label: string; disabled?: boolean; allowPin?: boolean; onAuth: (a: Auth) => Promise<void>; onRefuse?: () => void; onError: (e: string) => void;
+function UnlockAction({ wallet, label, disabled, allowPin = false, onAuth, onRefuse, refuseLabel = "Refuse", onError }: {
+  wallet: WalletView | null | undefined; label: string; disabled?: boolean; allowPin?: boolean; onAuth: (a: Auth) => Promise<void>; onRefuse?: () => void; refuseLabel?: string; onError: (e: string) => void;
 }) {
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
@@ -48,7 +48,7 @@ function UnlockAction({ wallet, label, disabled, allowPin = false, onAuth, onRef
         </>
       )}
       <div className="row">
-        {onRefuse && <button className="secondary" onClick={onRefuse}>Refuse</button>}
+        {onRefuse && <button className="secondary" onClick={onRefuse}>{refuseLabel}</button>}
         {mode !== "unavailable" && <button disabled={disabled || busy || (mode === "pin" && !pinOk(pin))} onClick={go}>{busy && mode === "bio" ? "Waiting for biometrics…" : label}</button>}
       </div>
     </>
@@ -352,9 +352,10 @@ function Wallets() {
           )}
           {w.policy && w.protected && <p><button className="secondary" onClick={() => setExiting(w)}>Emergency exit (works without Swissquote)</button></p>}
           {confirming === w.id ? (
-            <div className="row">
-              <button className="secondary" onClick={() => setConfirming(null)}>Cancel</button>
-              <button className="danger" onClick={async () => { try { await api(`/api/wallets/${w.id}`, undefined, "DELETE"); setConfirming(null); refresh(); } catch (e: any) { setErr(e.message); } }}>Erase permanently</button>
+            <div>
+              {/* Effacement = perte de la seule copie de la graine sur l'appareil : biométrie exigée (vérifiée par le serveur). */}
+              <UnlockAction wallet={w} label="Erase permanently" allowPin onRefuse={() => setConfirming(null)} refuseLabel="Cancel" onError={setErr}
+                onAuth={async (a) => { await api(`/api/wallets/${w.id}`, a, "DELETE"); setConfirming(null); refresh(); }} />
             </div>
           ) : (
             <button className="secondary" onClick={() => setConfirming(w.id)}>Simulate losing this device</button>

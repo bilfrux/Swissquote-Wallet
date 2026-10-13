@@ -50,6 +50,10 @@ const PORT = Number(process.env.CLIENT_WALLET_PORT ?? 5180);
 // Au-delà de ce montant envoyé vers l'extérieur, le wallet exige une confirmation renforcée (en plus du PIN ou de la biométrie).
 const HIGH_VALUE_SATS = BigInt(process.env.CLIENT_WALLET_HIGH_VALUE_SATS ?? 20_000_000);
 const SELF = `http://localhost:${PORT}`;
+// Interface réseau : boucle locale seulement (jamais le Wi-Fi). En-têtes Host acceptés : contre le « DNS rebinding »
+// (une page d'un autre domaine qui se ferait résoudre en 127.0.0.1 lirait l'API en même origine, sans en-tête Origin).
+const HOST = process.env.CLIENT_WALLET_HOST ?? "localhost";
+const HOSTS = new Set([`localhost:${PORT}`, `127.0.0.1:${PORT}`, `[::1]:${PORT}`]);
 const root = new URL("..", import.meta.url).pathname;
 
 // Kit de sortie : dépenser avec sa clé sans le site, sans bank-mock, sans compte Swissquote. Seuls ce wallet, sa politique
@@ -156,8 +160,11 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
     }
 
     case "DELETE /api/wallets/:id": {
-      if (!wallets.some((w) => w.id === id)) throw new HttpError(404, "unknown wallet");
-      save(wallets.filter((w) => w.id !== id));
+      // Effacer un wallet détruit la seule copie de la graine sur l'appareil : biométrie exigée, comme pour signer.
+      const w = wallets.find((x) => x.id === id);
+      if (!w) throw new HttpError(404, "unknown wallet");
+      unlock(w, authOf(body));
+      save(wallets.filter((x) => x.id !== id));
       return { deleted: id };
     }
 
@@ -287,8 +294,9 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
 }
 
 const server = createServer(async (req, res) => {
-  if (!req.url?.startsWith("/api/")) return vite.middlewares(req, res);
   const send = (status: number, body: unknown) => res.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify(body));
+  if (!HOSTS.has(String(req.headers.host))) return send(403, { error: `host rejected: ${req.headers.host}` });
+  if (!req.url?.startsWith("/api/")) return vite.middlewares(req, res);
   // Aucune en-tête CORS : seule l'interface du wallet (même origine) ou un outil local peut appeler l'API.
   // Un navigateur envoie toujours Origin sur un POST d'une autre origine : il est refusé AVANT exécution.
   const origin = req.headers.origin;
@@ -302,4 +310,4 @@ const server = createServer(async (req, res) => {
 });
 // Interface servie par Vite dans CE processus ; le rechargement à chaud passe par le même serveur HTTP (pas de port en plus).
 const vite = await createVite({ root, configFile: false, envDir: "..", plugins: [react()], server: { middlewareMode: true, hmr: { server } }, appType: "spa" });
-server.listen(PORT, () => console.log(`[wallet du client] ${SELF}`));
+server.listen(PORT, HOST, () => console.log(`[wallet du client] ${SELF} (interface ${HOST})`));
