@@ -51,7 +51,8 @@
     "validate:40": "tsx scripts/validate/etape-40-device-wallets.ts",
     "validate:41": "tsx scripts/validate/etape-41-exit-kit.ts",
     "validate:42": "tsx scripts/validate/etape-42-bio-migration-ui.ts",
-    "validate:43": "tsx scripts/validate/etape-43-change-contact.ts"
+    "validate:43": "tsx scripts/validate/etape-43-change-contact.ts",
+    "validate:44": "tsx scripts/validate/etape-44-prf.ts"
   },
   "devDependencies": {
     "bip322-js": "^4.0.0",

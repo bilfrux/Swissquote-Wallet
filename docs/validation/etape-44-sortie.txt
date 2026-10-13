@@ -1,0 +1,17 @@
+[OK ] 44-1 Navigateur : authentificateur de plateforme disponible, passkey du wallet créée avec l'extension PRF, secret de 32 octets rendu
+       disponible=true ; secret 43 caractères base64url ; création du wallet : 200 
+[OK ] 44-2 Le même authentificateur rend le même secret pour le même sel (déverrouillage possible plus tard)
+       identique : true
+[OK ] 44-3 La graine stockée est déchiffrée par le secret rendu par le navigateur, et seulement par lui
+       champs stockés : id, label, bio, accountKey, evmAddress, createdAt
+[OK ] 44-4 Signature d'un PSBT regtest après la biométrie (secret redemandé à l'authentificateur)
+       200 ajoutées=1 
+[OK ] 44-5 Autre sel : signature refusée ; authentificateur retiré : plus de secret, donc plus de signature
+       autre sel : 403 biometric unlock failed (4 attempt(s) left) ; sans authentificateur : 0 no biometric secret within 8 s
+
+RÉSUMÉ
+44-1 fonctionne         Navigateur : authentificateur de plateforme disponible, passkey du wallet créée avec l'extension PRF, secret de 32 octets rendu
+44-2 fonctionne         Le même authentificateur rend le même secret pour le même sel (déverrouillage possible plus tard)
+44-3 fonctionne         La graine stockée est déchiffrée par le secret rendu par le navigateur, et seulement par lui
+44-4 fonctionne         Signature d'un PSBT regtest après la biométrie (secret redemandé à l'authentificateur)
+44-5 fonctionne         Autre sel : signature refusée ; authentificateur retiré : plus de secret, donc plus de signature
