@@ -24,7 +24,7 @@ const { report, summary } = makeReport();
 try {
   const token = (await (await fetch(`${BANK}/auth/login`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ customerId: "CH-0003", password: "demo0003" }) })).json()).token;
   const seed = newMnemonic();
-  const sq = (await (await fetch(`${BANK}/guardian/key?network=regtest`)).json()).accountKey;
+  const sq = (await (await fetch(`${BANK}/guardian/key?network=regtest&client=${encodeURIComponent(accountKey(masterFromMnemonic(seed, "regtest")))}`)).json()).accountKey; // clé du compte (étape 56)
   const cfg = await createWalletConfig({ network: "regtest", delay: 6, client: accountKey(masterFromMnemonic(seed, "regtest")), swissquote: sq, tiers: accountKey(masterFromMnemonic(newMnemonic(), "regtest")) });
   await call("POST", "/accounts/register", token, { network: "regtest", delay: 6, client: cfg.client.raw, tiers: cfg.tiers.raw, tiersName: "Marie Dupont" });
   const dest = outputAt(cfg, 0, 0).getAddress();

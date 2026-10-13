@@ -23,11 +23,12 @@ const D = 6;
 
 try {
   const token = (await call("/auth/login", undefined, { customerId: "CH-0003", password: "demo0003" })).body.token;
-  const sq = (await call("/guardian/key?network=regtest")).body.accountKey;
+  const sqFor = async (client: string) => (await call(`/guardian/key?network=regtest&client=${encodeURIComponent(client)}`)).body.accountKey; // une clé par compte (étape 56)
   const key = () => accountKey(masterFromMnemonic(newMnemonic(), "regtest"));
   const tiers = key();
-  const A = await createWalletConfig({ network: "regtest", delay: D, client: key(), swissquote: sq, tiers });
-  const B = await createWalletConfig({ network: "regtest", delay: D, client: key(), swissquote: sq, tiers });
+  const ca = key(), cb = key();
+  const A = await createWalletConfig({ network: "regtest", delay: D, client: ca, swissquote: await sqFor(ca), tiers });
+  const B = await createWalletConfig({ network: "regtest", delay: D, client: cb, swissquote: await sqFor(cb), tiers });
   for (const c of [A, B]) await call("/accounts/register", token, { network: "regtest", delay: D, client: c.client.raw, tiers: c.tiers.raw, tiersName: "Marie Dupont" });
   const m = await miner();
   await m.pay(outputAt(A, 0, 0).getAddress(), 0.05);

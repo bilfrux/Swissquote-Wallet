@@ -20,8 +20,6 @@ export function CreateWallet({ onCreated }: { onCreated: (a: BtcAccount) => void
   const create = async (source: "wallet" | "paste") => {
     setError(null);
     try {
-      setStatus(tr("Fetching Swissquote's public key…"));
-      const swissquote = await fetchSwissquoteKey();
       // Clé du tiers vérifiée AVANT d'ouvrir le wallet : pas de graine créée pour rien.
       try { parseAccountKey(tiersKey, NETWORK); } catch (e: any) { throw new Error(`Trusted contact's public key: ${e.message}`); }
       let client = ownKey.trim();
@@ -32,9 +30,14 @@ export function CreateWallet({ onCreated }: { onCreated: (a: BtcAccount) => void
         client = r.accountKey;
         walletId = r.walletId;
       }
+      // Clé Swissquote propre à ce compte (étape 56), calculée par Swissquote à partir de la clé du client.
+      setStatus(tr("Fetching Swissquote's public key…"));
+      const swissquote = await fetchSwissquoteKey(parseAccountKey(client, NETWORK).raw);
       const cfg = await createWalletConfig({ network: NETWORK, delay: DELAY, client, swissquote, tiers: tiersKey });
       setStatus(tr("Registering with Swissquote…"));
-      const { accountId } = await registerAccount({ delay: DELAY, client: cfg.client.raw, tiers: cfg.tiers.raw, tiersName });
+      const reg = await registerAccount({ delay: DELAY, client: cfg.client.raw, tiers: cfg.tiers.raw, tiersName });
+      if (reg.swissquote !== cfg.swissquote.raw) throw new Error("Swissquote registered this account with another key than the one announced: account not saved in your wallet");
+      const accountId = reg.accountId;
       const account: BtcAccount = { id: accountId, client: cfg.client.raw, swissquote, tiers: cfg.tiers.raw, tiersName, delay: DELAY, walletId };
       if (walletId) {
         setStatus(tr("Saving the policy in your wallet…"));

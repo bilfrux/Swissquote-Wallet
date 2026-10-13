@@ -5,9 +5,9 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { randomBytes } from "node:crypto";
 import { Verifier } from "bip322-js";
-import { type NetworkName, type WalletConfig, addresses, clientKeyAddress, combinePsbts, createWalletConfig, inputsBelongTo, outputAt, simulate } from "@sq/bitcoin";
+import { type NetworkName, type WalletConfig, addresses, normalizeAccountKey, parseAccountKey, clientKeyAddress, combinePsbts, createWalletConfig, inputsBelongTo, outputAt, simulate } from "@sq/bitcoin";
 import { db } from "./db.ts";
-import { signAsSwissquote, signEvmRecovery, swissquoteAccountKey, swissquoteEvmAddress } from "./guardian.ts";
+import { accountIndexOf, signAsSwissquote, signEvmRecoveryAt, swissquoteAccountKey, swissquoteEvmAddress, swissquoteEvmAddressAt, swissquoteKeyFor } from "./guardian.ts";
 import { getAddress, isAddress, verifyTypedData, type Address } from "viem";
 import { ownersOf, readState, recoveryNonce, recoveryTypedData, safeAddressOf } from "@sq/evm";
 import { TEST_CUSTOMERS, customerFromToken, kycLockedFor, verifyIdentity } from "./kyc.ts";
@@ -43,10 +43,16 @@ function needCrypto(req: IncomingMessage, need: Scope): string {
   return id;
 }
 
-type AccountRow = { id: number; customer_id: string; network: NetworkName; delay: number; client_key: string; tiers_key: string; tiers_name: string | null; created_at: string };
-const publicAccount = (r: AccountRow) => ({ id: r.id, delay: r.delay, client: r.client_key, tiers: r.tiers_key, tiersName: r.tiers_name, swissquote: swissquoteAccountKey(r.network), createdAt: r.created_at });
+type AccountRow = { id: number; customer_id: string; network: NetworkName; delay: number; client_key: string; tiers_key: string; tiers_name: string | null; swissquote_key: string | null; created_at: string };
+// Clé Swissquote du compte : la sienne (étape 56), ou la clé historique commune pour les comptes enregistrés avant.
+const sqKeyOf = (r: AccountRow) => r.swissquote_key ?? swissquoteAccountKey(r.network);
+const publicAccount = (r: AccountRow) => ({ id: r.id, delay: r.delay, client: r.client_key, tiers: r.tiers_key, tiersName: r.tiers_name, swissquote: sqKeyOf(r), createdAt: r.created_at });
 const configOf = (a: AccountRow): Promise<WalletConfig> =>
-  createWalletConfig({ network: a.network, delay: a.delay, client: a.client_key, swissquote: swissquoteAccountKey(a.network), tiers: a.tiers_key });
+  createWalletConfig({ network: a.network, delay: a.delay, client: a.client_key, swissquote: sqKeyOf(a), tiers: a.tiers_key });
+// Adresse Ethereum de gardien de Swissquote pour un Safe : la sienne (étape 56), ou l'adresse historique (index 0).
+type EvmRow = { id: number; owner: string; safe: string; tiers: string; tiers_name: string | null; sq_index: number | null; created_at: string };
+const sqIndexOf = (r: EvmRow) => r.sq_index ?? 0;
+const publicEvm = (r: EvmRow) => ({ id: r.id, owner: r.owner, safe: r.safe, tiers: r.tiers, tiersName: r.tiers_name, swissquote: swissquoteEvmAddressAt(sqIndexOf(r)), createdAt: r.created_at });
 
 // Analyse d'une demande de recovery : d'où viennent les coins, où vont-ils, par quel chemin.
 const MAX_RECOVERY_FEE_PCT = BigInt(process.env.BANK_MOCK_MAX_RECOVERY_FEE_PCT ?? 5);
@@ -74,8 +80,14 @@ async function route(req: IncomingMessage, body: any, url: URL) {
     case "GET /health":
       return { ok: true, service: "bank-mock" };
 
-    case "GET /guardian/key":
-      return { accountKey: swissquoteAccountKey(network(url.searchParams.get("network"))) };
+    case "GET /guardian/key": {
+      // Clé Swissquote du compte qui sera créé avec cette clé client (données publiques, déterministes).
+      const net = network(url.searchParams.get("network"));
+      let client: string;
+      try { client = parseAccountKey(normalizeAccountKey(String(url.searchParams.get("client") ?? "")), net).raw; }
+      catch { throw new HttpError(400, "client account key required (?client=[fingerprint/48'/1'/0'/2']tpub…): Swissquote uses one key per account"); }
+      return { accountKey: swissquoteKeyFor(net, client) };
+    }
 
     case "POST /accounts/register": {
       // Session bancaire MOCKÉE : le client est identifié par son identifiant de la banque simulée.
@@ -85,14 +97,17 @@ async function route(req: IncomingMessage, body: any, url: URL) {
       if (!TEST_CUSTOMERS[customerId]) throw new HttpError(403, "client unknown to the simulated bank");
       body.customerId = customerId;
       const net = network(body.network);
-      const cfg = await createWalletConfig({ network: net, delay: Number(body.delay), client: body.client, swissquote: swissquoteAccountKey(net), tiers: body.tiers }).catch((e) => {
+      // Clé Swissquote propre à ce compte, recalculée ici depuis la clé du client (Swissquote ne fait pas confiance à l'appli).
+      let sq: string;
+      try { sq = swissquoteKeyFor(net, parseAccountKey(String(body.client ?? ""), net).raw); } catch (e: any) { throw new HttpError(400, e.message); }
+      const cfg = await createWalletConfig({ network: net, delay: Number(body.delay), client: body.client, swissquote: sq, tiers: body.tiers }).catch((e) => {
         throw new HttpError(400, e.message);
       });
-      db.prepare("insert or ignore into accounts (customer_id, network, delay, client_key, tiers_key, tiers_name) values (?, ?, ?, ?, ?, ?)")
-        .run(body.customerId, net, cfg.delay, cfg.client.raw, cfg.tiers.raw, typeof body.tiersName === "string" ? body.tiersName.slice(0, 80) : null);
-      const row = db.prepare("select id, customer_id from accounts where network = ? and client_key = ?").get(net, cfg.client.raw) as any;
+      db.prepare("insert or ignore into accounts (customer_id, network, delay, client_key, tiers_key, tiers_name, swissquote_key) values (?, ?, ?, ?, ?, ?, ?)")
+        .run(body.customerId, net, cfg.delay, cfg.client.raw, cfg.tiers.raw, typeof body.tiersName === "string" ? body.tiersName.slice(0, 80) : null, cfg.swissquote.raw);
+      const row = db.prepare("select * from accounts where network = ? and client_key = ?").get(net, cfg.client.raw) as AccountRow;
       if (row.customer_id !== body.customerId) throw new HttpError(409, "this client key is already registered by another client");
-      return { accountId: row.id };
+      return { accountId: row.id, swissquote: sqKeyOf(row) };
     }
 
     case "POST /accounts/tiers": {
@@ -106,8 +121,8 @@ async function route(req: IncomingMessage, body: any, url: URL) {
       if (!row) throw new HttpError(403, "this account does not belong to the logged-in client");
       const tiers = String(body.tiers ?? "");
       if (tiers === row.tiers_key) throw new HttpError(409, "this is already the trusted contact of the account");
-      if (tiers === row.client_key || tiers === swissquoteAccountKey(net)) throw new HttpError(400, "the trusted contact must be a third party (not you, not Swissquote)");
-      await createWalletConfig({ network: net, delay: row.delay, client: row.client_key, swissquote: swissquoteAccountKey(net), tiers }).catch((e) => { throw new HttpError(400, `invalid trusted contact key: ${e.message}`); });
+      if (tiers === row.client_key || tiers === sqKeyOf(row) || tiers === swissquoteAccountKey(net)) throw new HttpError(400, "the trusted contact must be a third party (not you, not Swissquote)");
+      await createWalletConfig({ network: net, delay: row.delay, client: row.client_key, swissquote: sqKeyOf(row), tiers }).catch((e) => { throw new HttpError(400, `invalid trusted contact key: ${e.message}`); });
       const name = typeof body.tiersName === "string" ? body.tiersName.trim().slice(0, 80) : "";
       if (!name) throw new HttpError(400, "the trusted contact's name is required");
       db.exec("create table if not exists tiers_changes (id integer primary key, customer_id text not null, account_id integer not null, old_key text not null, old_name text, new_key text not null, new_name text not null, created_at text not null default (datetime('now')))");
@@ -125,26 +140,32 @@ async function route(req: IncomingMessage, body: any, url: URL) {
     case "GET /market/history":
       return Promise.resolve().then(() => marketHistory(String(url.searchParams.get("coin")), String(url.searchParams.get("period")))).catch((e) => { throw new HttpError(503, `market data unavailable: ${e.message}`); });
 
-    case "GET /guardian/evm-address":
-      return { address: swissquoteEvmAddress };
+    case "GET /guardian/evm-address": {
+      // Adresse de gardien de Swissquote pour le Safe de ce propriétaire (une par compte, étape 56).
+      const owner = url.searchParams.get("owner");
+      if (!owner || !isAddress(owner)) throw new HttpError(400, "owner address required (?owner=0x…): Swissquote uses one guardian address per account");
+      const row = db.prepare("select * from evm_accounts where owner = ?").get(getAddress(owner)) as EvmRow | undefined;
+      return { address: swissquoteEvmAddressAt(row ? sqIndexOf(row) : accountIndexOf(getAddress(owner))) };
+    }
 
     case "POST /evm/accounts/register": {
       const customerId = needCrypto(req, "recovery");
       if (!isAddress(String(body.owner)) || !isAddress(String(body.tiers))) throw new HttpError(400, "invalid Ethereum address");
       const owner = getAddress(body.owner), tiers = getAddress(body.tiers);
-      if (tiers === owner || tiers === swissquoteEvmAddress) throw new HttpError(400, "the trusted contact must be a third party (not you, not Swissquote)");
+      const sqIndex = accountIndexOf(owner);
+      if (tiers === owner || tiers === swissquoteEvmAddress || tiers === swissquoteEvmAddressAt(sqIndex)) throw new HttpError(400, "the trusted contact must be a third party (not you, not Swissquote)");
       const safe = safeAddressOf(owner); // recalculé ici : Swissquote ne fait pas confiance à l'appli
-      db.prepare("insert or ignore into evm_accounts (customer_id, owner, safe, tiers, tiers_name) values (?, ?, ?, ?, ?)")
-        .run(customerId, owner, safe, tiers, typeof body.tiersName === "string" ? body.tiersName.slice(0, 80) : null);
-      const row = db.prepare("select * from evm_accounts where owner = ?").get(owner) as any;
+      db.prepare("insert or ignore into evm_accounts (customer_id, owner, safe, tiers, tiers_name, sq_index) values (?, ?, ?, ?, ?, ?)")
+        .run(customerId, owner, safe, tiers, typeof body.tiersName === "string" ? body.tiersName.slice(0, 80) : null, sqIndex);
+      const row = db.prepare("select * from evm_accounts where owner = ?").get(owner) as EvmRow & { customer_id: string };
       if (row.customer_id !== customerId) throw new HttpError(409, "this Ethereum key is already registered by another client");
-      return { id: row.id, owner, safe, tiers: row.tiers, tiersName: row.tiers_name, swissquote: swissquoteEvmAddress };
+      return publicEvm(row);
     }
 
     case "GET /evm/accounts": {
       const customerId = needCrypto(req, "recovery");
-      const rows = db.prepare("select * from evm_accounts where customer_id = ? order by id").all(customerId) as any[];
-      return { swissquote: swissquoteEvmAddress, accounts: rows.map((r) => ({ id: r.id, owner: r.owner, safe: r.safe, tiers: r.tiers, tiersName: r.tiers_name, createdAt: r.created_at })) };
+      const rows = db.prepare("select * from evm_accounts where customer_id = ? order by id").all(customerId) as EvmRow[];
+      return { accounts: rows.map(publicEvm) };
     }
 
     case "POST /evm/accounts/sync": {
@@ -162,7 +183,7 @@ async function route(req: IncomingMessage, body: any, url: URL) {
       }
       if (owners.length === 1 && getAddress(owners[0]) !== getAddress(row.owner)) db.prepare("update evm_accounts set owner = ? where id = ?").run(getAddress(owners[0]), row.id);
       const r = db.prepare("select * from evm_accounts where id = ?").get(row.id) as any;
-      return { id: r.id, owner: r.owner, safe: r.safe, tiers: r.tiers, tiersName: r.tiers_name };
+      return publicEvm(r);
     }
 
     case "POST /guardian/evm/sign-recovery": {
@@ -181,15 +202,16 @@ async function route(req: IncomingMessage, body: any, url: URL) {
         if (!st.moduleEnabled) throw new HttpError(409, "recovery is not active on this account");
         // `map((a) => getAddress(a))` et non `map(getAddress)` : viem lirait l'index du tableau comme un chainId (casse
         // EIP-1191), et la comparaison échouait dès le 2e gardien de la liste.
-        if (st.owners.map((a) => getAddress(a)).includes(newOwner) || st.guardians.map((a) => getAddress(a)).includes(newOwner) || newOwner === swissquoteEvmAddress)
+        const sqAddress = swissquoteEvmAddressAt(sqIndexOf(row));
+        if (st.owners.map((a) => getAddress(a)).includes(newOwner) || st.guardians.map((a) => getAddress(a)).includes(newOwner) || newOwner === sqAddress || newOwner === swissquoteEvmAddress)
           throw new HttpError(403, "the new owner must be a new key of the client (not the current owner, not a guardian)");
         const nonce = await recoveryNonce(safe);
-        const signature = await signEvmRecovery((await recoveryTypedData(safe, newOwner, nonce)) as any);
+        const signature = await signEvmRecoveryAt(sqIndexOf(row), (await recoveryTypedData(safe, newOwner, nonce)) as any);
         log("signé", `evm ${safe} -> ${newOwner} (nonce ${nonce})`);
         notify(customerId, null, "recovery-signee", "Swissquote signed an Ethereum recovery request",
           `Swissquote signed a request to give your Ethereum account ${safe} to the new key ${newOwner}, after identity verification. If this was not you, cancel it from your wallet as soon as it starts.`,
           `evmsign:${customerId}:${safe}:${Date.now()}`);
-        return { signer: swissquoteEvmAddress, signature, nonce: nonce.toString() };
+        return { signer: sqAddress, signature, nonce: nonce.toString() };
       } catch (e: any) {
         log("refusé", e.message);
         throw e;

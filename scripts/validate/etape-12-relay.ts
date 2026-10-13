@@ -21,8 +21,9 @@ const { report, summary } = makeReport();
 try {
   const token = (await call("POST", "/auth/login", undefined, { customerId: "CH-0003", password: "demo0003" })).body.token;
   const tiersSeed = newMnemonic();
-  const sq = (await call("GET", "/guardian/key?network=regtest")).body.accountKey;
-  const cfg = await createWalletConfig({ network: "regtest", delay: 6, client: accountKey(masterFromMnemonic(newMnemonic(), "regtest")), swissquote: sq, tiers: accountKey(masterFromMnemonic(tiersSeed, "regtest")) });
+  const client = accountKey(masterFromMnemonic(newMnemonic(), "regtest"));
+  const sq = (await call("GET", `/guardian/key?network=regtest&client=${encodeURIComponent(client)}`)).body.accountKey; // clé du compte (étape 56)
+  const cfg = await createWalletConfig({ network: "regtest", delay: 6, client, swissquote: sq, tiers: accountKey(masterFromMnemonic(tiersSeed, "regtest")) });
   const m = await miner();
   await m.pay(outputAt(cfg, 0, 0).getAddress(), 0.2);
   await m.mine(7); // délai D=6 atteint : chemin de recovery

@@ -43,7 +43,7 @@ try {
   const created = await wallet("/api/wallets", { network: "regtest", bio: BIO });
   const tiers = masterFromMnemonic(newMnemonic(), "regtest");
   const { accountKey } = await import("@sq/bitcoin/keys");
-  const sq = (await bank("/guardian/key?network=regtest")).body.accountKey;
+  const sq = (await bank(`/guardian/key?network=regtest&client=${encodeURIComponent(created.body.wallet.accountKey)}`)).body.accountKey;
   const cfg = await createWalletConfig({ network: "regtest", delay: 6, client: created.body.wallet.accountKey, swissquote: sq, tiers: accountKey(tiers) });
   const reg = await bank("/accounts/register", token, { network: "regtest", delay: 6, client: cfg.client.raw, tiers: cfg.tiers.raw, tiersName: "Marie Dupont" });
 

@@ -18,5 +18,12 @@ const origin = (master: HDKey) => `[${fp(master)}${ACCOUNT_PATH.slice(1)}]`;
 
 // Clé publique de compte avec origine, à transmettre à l'appli : [empreinte/48'/1'/0'/2']tpub…
 export const accountKey = (master: HDKey) => origin(master) + master.derive(ACCOUNT_PATH).publicExtendedKey;
+// Clé publique d'un autre compte BIP48 (m/48'/1'/<index>'/2') : Swissquote en utilise un par compte client, pour que les
+// scripts révélés on-chain ne relient pas les clients entre eux (même clé publique au même index sinon).
+export function accountKeyAt(master: HDKey, index: number) {
+  if (!Number.isInteger(index) || index < 0 || index >= 0x80000000) throw new Error(`invalid account index: ${index}`);
+  const path = `m/48'/1'/${index}'/2'`;
+  return `[${fp(master)}${path.slice(1)}]` + master.derive(path).publicExtendedKey;
+}
 // Clé privée de compte avec origine : uniquement pour l'importer dans un signataire externe (Bitcoin Core).
 export const accountPrivateKey = (master: HDKey) => origin(master) + master.derive(ACCOUNT_PATH).privateExtendedKey;

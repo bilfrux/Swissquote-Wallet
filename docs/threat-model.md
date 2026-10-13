@@ -97,7 +97,7 @@ The "Observed result" column only reports what was executed and recorded in `doc
 
 6. **Cost of refreshing**: moving the coins before D, in fees and on-chain traces (one transaction for all coins).
 7. **Few compatible external wallets**: Bitcoin Core verified; Liana and hardware wallets announced, not verified; Sparrow most likely not.
-8. **Privacy**: the policy is revealed at every spend with P2WSH. Moreover, Swissquote uses **one account key for all its clients** (`m/48'/1'/0'/2'`, same public key at the same index): every revealed script carries one of Swissquote's public keys, so the coins of all Swissquote clients can be linked on-chain. A per-client Swissquote key is needed (not done).
+8. **Privacy**: the policy is revealed at every spend with P2WSH. Since step 56, Swissquote uses **one key per account** (Bitcoin: hardened BIP48 account index derived from the client's key; Ethereum: one guardian address per Safe), so revealed scripts and guardian lists no longer link Swissquote's clients to one another. Accounts registered before step 56 keep the former common key (`m/48'/1'/0'/2'`, Ethereum index 0) until the client moves to a new account. The key fingerprint is the same for all accounts (it identifies Swissquote's seed, not the account).
 
 **Ethereum**
 

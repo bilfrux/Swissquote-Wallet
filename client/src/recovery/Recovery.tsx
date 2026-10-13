@@ -4,9 +4,9 @@
 import { useEffect, useState } from "react";
 import {
   type PsbtSummary as Summary, type WalletConfig, type WalletUtxo,
-  buildSpend, combinePsbts, createWalletConfig, finalizePsbt, outputAt, scan, simulate,
+  buildSpend, combinePsbts, createWalletConfig, finalizePsbt, outputAt, parseAccountKey, scan, simulate,
 } from "@sq/bitcoin";
-import { type KycForm, type RegisteredAccount, cryptoUnlockKyc, guardianSign, listAccounts, registerAccount, relayCreate, relayGet, verifyIdentity } from "../lib/bank";
+import { type KycForm, type RegisteredAccount, cryptoUnlockKyc, fetchSwissquoteKey, guardianSign, listAccounts, registerAccount, relayCreate, relayGet, verifyIdentity } from "../lib/bank";
 import { chain, txLink } from "../lib/chain";
 import { type BtcAccount, NETWORK } from "../lib/config";
 import { walletRequest } from "../lib/walletBridge";
@@ -17,7 +17,7 @@ import { useT } from "../i18n";
 const CONSOLE_URL = import.meta.env.VITE_GUARDIAN_CONSOLE_URL ?? "http://localhost:5174";
 
 // État persistant (données publiques uniquement : clés publiques et PSBT), pour survivre aux D blocs d'attente.
-type Saved = { old?: RegisteredAccount; newClient?: string; newAccountId?: number; newWalletId?: string; psbt?: string; sqPsbt?: string; relayId?: string; combined?: string; txid?: string };
+type Saved = { old?: RegisteredAccount; newClient?: string; newSwissquote?: string; newAccountId?: number; newWalletId?: string; psbt?: string; sqPsbt?: string; relayId?: string; combined?: string; txid?: string };
 const KEY = `sq-wallet:recovery:${NETWORK}`;
 const load = (): Saved => JSON.parse(localStorage.getItem(KEY) ?? "{}");
 
@@ -37,10 +37,13 @@ export function Recovery({ onDone, onCancel }: { onDone: (a: BtcAccount) => void
   const [error, setError] = useState<string | null>(null);
   const guard = (f: () => Promise<void> | void) => async () => { setError(null); try { await f(); } catch (e: any) { setError(e.message); } };
   // Nouveau compte : nouvelle clé client, mêmes guardians et même délai, enregistré chez Swissquote.
+  // Clé Swissquote propre au NOUVEAU compte (étape 56) : une par compte, calculée par Swissquote depuis la nouvelle clé.
   const createNewAccount = async (client: string, walletId?: string) => {
-    await createWalletConfig({ network: NETWORK, delay: s.old!.delay, client, swissquote: s.old!.swissquote, tiers: s.old!.tiers });
+    const swissquote = await fetchSwissquoteKey(parseAccountKey(client, NETWORK).raw);
+    const cfg = await createWalletConfig({ network: NETWORK, delay: s.old!.delay, client, swissquote, tiers: s.old!.tiers });
+    client = cfg.client.raw;
     const { accountId } = await registerAccount({ delay: s.old!.delay, client, tiers: s.old!.tiers, tiersName: s.old!.tiersName });
-    save({ newClient: client, newAccountId: accountId, newWalletId: walletId });
+    save({ newClient: client, newSwissquote: swissquote, newAccountId: accountId, newWalletId: walletId });
   };
 
   useEffect(() => {
@@ -49,8 +52,8 @@ export function Recovery({ onDone, onCancel }: { onDone: (a: BtcAccount) => void
   }, [s.old]);
   useEffect(() => {
     if (!s.old || !s.newClient) return setNewCfg(null);
-    createWalletConfig({ network: NETWORK, delay: s.old.delay, client: s.newClient, swissquote: s.old.swissquote, tiers: s.old.tiers }).then(setNewCfg, (e) => setError(e.message));
-  }, [s.old, s.newClient]);
+    createWalletConfig({ network: NETWORK, delay: s.old.delay, client: s.newClient, swissquote: s.newSwissquote ?? s.old.swissquote, tiers: s.old.tiers }).then(setNewCfg, (e) => setError(e.message));
+  }, [s.old, s.newClient, s.newSwissquote]);
   const refreshCoins = guard(async () => { if (oldCfg) setUtxos(await scan(oldCfg, chain)); });
   useEffect(() => { refreshCoins(); }, [oldCfg]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -195,9 +198,10 @@ export function Recovery({ onDone, onCancel }: { onDone: (a: BtcAccount) => void
               </p>
               <button onClick={guard(async () => {
                 const o = s.old!;
-                const account: BtcAccount = { id: s.newAccountId, client: s.newClient!, swissquote: o.swissquote, tiers: o.tiers, tiersName: o.tiersName, delay: o.delay, walletId: s.newWalletId };
+                const sqNew = s.newSwissquote ?? o.swissquote;
+                const account: BtcAccount = { id: s.newAccountId, client: s.newClient!, swissquote: sqNew, tiers: o.tiers, tiersName: o.tiersName, delay: o.delay, walletId: s.newWalletId };
                 // Le nouveau wallet apprend la politique du compte (données publiques) pour reconnaître son change.
-                if (s.newWalletId) await walletRequest("policy", { walletId: s.newWalletId, policy: { network: NETWORK, delay: o.delay, swissquote: o.swissquote, tiers: o.tiers, tiersName: o.tiersName } });
+                if (s.newWalletId) await walletRequest("policy", { walletId: s.newWalletId, policy: { network: NETWORK, delay: o.delay, swissquote: sqNew, tiers: o.tiers, tiersName: o.tiersName } });
                 localStorage.removeItem(KEY);
                 onDone(account);
               })}>{tr("Open my new account")}</button>

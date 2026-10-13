@@ -63,7 +63,7 @@ export function Ethereum({ customerId, accountKey, tiersName, onInfo }: { custom
   useEffect(() => {
     const cached = JSON.parse(localStorage.getItem(cacheKey(customerId)) ?? "null");
     evmAccounts().then(
-      (r) => { setSq(r.swissquote); const a = r.accounts.at(-1) ?? null; setAcc(a); if (a) localStorage.setItem(cacheKey(customerId), JSON.stringify({ ...a, swissquote: r.swissquote })); },
+      (r) => { const a = r.accounts.at(-1) ?? null; setSq(a?.swissquote ?? null); setAcc(a); if (a) localStorage.setItem(cacheKey(customerId), JSON.stringify(a)); },
       () => { setAcc(cached); setSq(cached?.swissquote ?? null); },
     );
   }, [customerId]);
@@ -203,7 +203,7 @@ export function Ethereum({ customerId, accountKey, tiersName, onInfo }: { custom
       <EvmRecovery acc={acc} state={state} busy={busy} run={run} prepare={async (...args) => { await prepare(...args); }}
         onRecovered={async (blockNumber) => {
           const a = await syncEvm(acc.safe, blockNumber);
-          setAcc(a); localStorage.setItem(cacheKey(customerId), JSON.stringify({ ...a, swissquote: sq }));
+          setAcc(a); localStorage.setItem(cacheKey(customerId), JSON.stringify(a));
           await refresh(blockNumber);
           // Règle du projet après toute recovery : invalider les signatures de gardiens déjà collectées (nonce du module).
           await prepare("Leftover guardian signatures invalidated", [{ to: RECOVERY_MODULE, value: 0n, data: encodeFunctionData({ abi: recoveryAbi, functionName: "invalidateNonce" }) }], { safe: a.safe, owner: a.owner });

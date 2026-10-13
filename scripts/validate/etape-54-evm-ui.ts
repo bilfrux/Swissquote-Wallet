@@ -118,7 +118,7 @@ try {
   const act = (await card.getByText(/^Activation: 0x/).textContent({ timeout: 240000 })) ?? "";
   await seen(act);
   let st = await readState(safe);
-  const sq = getAddress((await (await fetch(`${BANK}/guardian/evm-address`)).json()).address);
+  const sq = getAddress((await (await fetch(`${BANK}/guardian/evm-address?owner=${owner}`)).json()).address); // adresse propre au compte (étape 56)
   const c2 = { deployed: st.deployed, module: st.moduleEnabled, threshold: st.threshold === 2n, guardians: st.guardians.map((a) => getAddress(a)).sort().join() === [sq, tiersEvm].sort().join(),
     owner: !!st.owners[0] && getAddress(st.owners[0]) === owner, screenModule: actScreen.includes("Enable the recovery module"), screenSponsor: actScreen.includes("paid by a sponsor") };
   report("54-2", "Activation sur Sepolia : écran du wallet en clair (module, 2 gardiens, frais parrainés), signée par biométrie ; Safe déployé, gardiens Swissquote + contact, seuil 2, 0 ETH",

@@ -35,7 +35,8 @@ try {
 
   // --- 52-2 : deux retraits simultanés ne dépensent pas deux fois le même solde (0,8 BTC, 2 × 0,5 BTC) ---
   const seed = newMnemonic();
-  const sq = (await call("GET", "/guardian/key?network=regtest")).body.accountKey;
+  const sqFor = async (client: string) => (await call("GET", `/guardian/key?network=regtest&client=${encodeURIComponent(client)}`)).body.accountKey; // une clé par compte (étape 56)
+  const sq = await sqFor(accountKey(masterFromMnemonic(seed, "regtest")));
   const tiers = accountKey(masterFromMnemonic(newMnemonic(), "regtest"));
   const cfg = await createWalletConfig({ network: "regtest", delay: 6, client: accountKey(masterFromMnemonic(seed, "regtest")), swissquote: sq, tiers });
   await call("POST", "/accounts/register", { network: "regtest", delay: 6, client: cfg.client.raw, tiers, tiersName: "Marie Dupont" }, token);
@@ -54,7 +55,8 @@ try {
     `statuts ${both.map((r) => r.status).join(" / ")} (« ${both.find((r) => r.status !== 200)?.body.error} ») ; solde ${before} → ${after} sats ; reçu dans le wallet : ${received} sats`);
 
   // --- 52-3 : frais d'une recovery plafonnés ---
-  const newCfg = await createWalletConfig({ network: "regtest", delay: 6, client: accountKey(masterFromMnemonic(newMnemonic(), "regtest")), swissquote: sq, tiers });
+  const newClient = accountKey(masterFromMnemonic(newMnemonic(), "regtest"));
+  const newCfg = await createWalletConfig({ network: "regtest", delay: 6, client: newClient, swissquote: await sqFor(newClient), tiers });
   await call("POST", "/accounts/register", { network: "regtest", delay: 6, client: newCfg.client.raw, tiers, tiersName: "Marie Dupont" }, token);
   await m.pay(outputAt(cfg, 0, 1).getAddress(), 0.001);
   await m.mine(1);
