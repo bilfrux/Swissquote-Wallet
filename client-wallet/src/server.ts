@@ -122,7 +122,7 @@ async function describe(psbt: string, network: NetworkName, nextPolicy?: Policy)
 async function describeEvm(op: JsonOp, wallets: StoredWallet[]) {
   if (!op?.sender || !op.callData) throw new HttpError(400, "operation missing");
   const sender = getAddress(op.sender);
-  const owners = (await ownersOf(sender).catch(() => { throw new HttpError(502, "cannot read the account on-chain"); })).map(getAddress);
+  const owners = (await ownersOf(sender).catch(() => { throw new HttpError(502, "cannot read the account on-chain"); })).map((a) => getAddress(a));
   const w = owners.length
     ? wallets.find((x) => x.evmAddress && owners.includes(getAddress(x.evmAddress)))
     : wallets.find((x) => x.evmAddress && safeAddressOf(x.evmAddress as Address) === sender);

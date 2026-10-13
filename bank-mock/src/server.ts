@@ -179,7 +179,9 @@ async function route(req: IncomingMessage, body: any, url: URL) {
         if (!row) throw new HttpError(403, "this account does not belong to the verified client");
         const st = await readState(safe);
         if (!st.moduleEnabled) throw new HttpError(409, "recovery is not active on this account");
-        if (st.owners.map(getAddress).includes(newOwner) || st.guardians.map(getAddress).includes(newOwner) || newOwner === swissquoteEvmAddress)
+        // `map((a) => getAddress(a))` et non `map(getAddress)` : viem lirait l'index du tableau comme un chainId (casse
+        // EIP-1191), et la comparaison échouait dès le 2e gardien de la liste.
+        if (st.owners.map((a) => getAddress(a)).includes(newOwner) || st.guardians.map((a) => getAddress(a)).includes(newOwner) || newOwner === swissquoteEvmAddress)
           throw new HttpError(403, "the new owner must be a new key of the client (not the current owner, not a guardian)");
         const nonce = await recoveryNonce(safe);
         const signature = await signEvmRecovery((await recoveryTypedData(safe, newOwner, nonce)) as any);
