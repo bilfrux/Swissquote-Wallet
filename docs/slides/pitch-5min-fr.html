@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Wallet self-custody Swissquote : pitch de 5 minutes</title>
+<style>
+  @page { size: A4; margin: 15mm 15mm 16mm 15mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; color: #1f2633; font-size: 10.4pt; line-height: 1.42; margin: 0; }
+  header { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #fe5e3a; padding-bottom: 8px; margin-bottom: 14px; }
+  header img { height: 30px; }
+  header .tag { font-size: 9pt; color: #6b7487; text-align: right; }
+  h1 { font-size: 21pt; margin: 4px 0 2px; color: #22272f; }
+  h2 { font-size: 13.5pt; margin: 18px 0 6px; color: #22272f; border-left: 5px solid #fe5e3a; padding-left: 8px; page-break-after: avoid; }
+  p { margin: 5px 0; }
+  .sub { color: #6b7487; margin-bottom: 8px; }
+  .box { background: #eef1f7; border-radius: 8px; padding: 9px 12px; margin: 8px 0; page-break-inside: avoid; }
+  .box.warn { background: #fff0ec; border: 1px solid #fe5e3a; }
+  .box b.k { color: #d6401f; }
+  table { width: 100%; border-collapse: collapse; margin: 6px 0 10px; }
+  th { background: #22272f; color: #fff; text-align: left; padding: 5px 7px; font-size: 9pt; }
+  td { border-bottom: 1px solid #e2e7f0; padding: 6px 7px; vertical-align: top; }
+  tr { page-break-inside: avoid; }
+  td.t { white-space: nowrap; color: #d6401f; font-weight: 700; width: 11%; }
+  td.s { width: 22%; font-weight: 700; }
+  .say { font-style: italic; }
+  .q { margin: 7px 0; page-break-inside: avoid; }
+  .q b { color: #22272f; }
+  ul { margin: 4px 0 4px 18px; padding: 0; }
+  li { margin: 2px 0; }
+  code { font-family: Menlo, Consolas, monospace; font-size: 9pt; background: #eef1f7; padding: 1px 4px; border-radius: 3px; }
+  footer { margin-top: 16px; font-size: 8.5pt; color: #6b7487; border-top: 1px solid #e2e7f0; padding-top: 6px; }
+</style>
+</head>
+<body>
+
+<header>
+  <img src="img/swissquote-logo.png" alt="Swissquote">
+  <div class="tag">Hackathon EPFL · Track Swissquote<br>Pitch : 5 minutes (environ 2 min de slides, puis démo en direct)</div>
+</header>
+
+<h1>Vos clés. Votre contrôle.</h1>
+<p class="sub">Un wallet self-custody à un pas de votre compte Swissquote. La banque construit l'outil, mais ne détient jamais les clés.</p>
+
+<div class="box">
+  <b>La démonstration : A + B.</b><br>
+  <b class="k">A</b> : la clé du client, toujours capable de dépenser seule.<br>
+  <b class="k">B</b> : une règle appliquée par la blockchain, pas par Swissquote : Swissquote et un contact de confiance récupèrent ensemble, seulement après un délai.<br>
+  De A + B découlent quatre propriétés, chacune testée sur un vrai nœud : Swissquote seule ne peut rien faire ; avec le contact, avant le délai, le réseau refuse ; un client qui reste actif relance le délai ; une clé perdue est récupérable après le délai.
+</div>
+
+<h2>Partie 1 : les slides, environ 2:00</h2>
+<p class="sub">Deck : <code>swissquote-wallet-2min.pptx</code>, 6 slides (en anglais). Environ 250 mots, à lire à un rythme tranquille. Les titres de slides ci-dessous sont ceux du deck.</p>
+<table>
+  <tr><th>Temps</th><th>Slide</th><th>À dire</th></tr>
+  <tr><td class="t">0:00</td><td class="s">1. Your keys. Your control.</td><td class="say">« Faire de l'auto-garde, aujourd'hui, c'est quitter la banque. Nous avons construit le wallet où le client garde ses clés et reste chez Swissquote. »</td></tr>
+  <tr><td class="t">0:10</td><td class="s">2. A + B: why it holds</td><td class="say">« Notre conception, c'est A plus B. A : la clé du client, toujours capable de dépenser seule. B : une règle appliquée par la blockchain : Swissquote et un contact de confiance peuvent récupérer, mais seulement après un délai. Donc Swissquote seule ne peut rien faire, avant le délai le réseau refuse, et une clé perdue est récupérable. Le tout testé sur un vrai nœud. »</td></tr>
+  <tr><td class="t">0:35</td><td class="s">3. One answer to each point of the brief</td><td class="say">« Chaque point du brief a une réponse d'une ligne ici. Deux à retenir : le serveur vérifie une passkey biométrique pour ouvrir la partie crypto, donc un mot de passe volé n'obtient rien ; et si Swissquote disparaît, une sortie d'urgence signe avec la seule clé du client. »</td></tr>
+  <tr><td class="t">0:55</td><td class="s">4. Why not MPC or a smart wallet?</td><td class="say">« Pourquoi pas du MPC ou un smart wallet ? J'ai regardé les deux au départ. Avec du MPC, Swissquote et un partenaire peuvent signer immédiatement : le délai n'est qu'un logiciel. Mon premier plan, un Safe avec une passkey, posait trop de problèmes, et il n'existe que sur Ethereum, donc pas de Bitcoin. Donc la clé est une simple seed et le délai vient du consensus Bitcoin. Sur Ethereum, on utilise bien un Safe. »</td></tr>
+  <tr><td class="t">1:25</td><td class="s">5. What Swissquote gains</td><td class="say">« Pourquoi Swissquote ? Aujourd'hui, faire de l'auto-garde, c'est retirer et emporter les trades ailleurs. Ici, les flux restent dans l'app. Swissquote ne peut pas déplacer les fonds seule, donc, sous réserve d'un avis juridique, pas de charge de garde. Les preuves pour la Travel Rule deviennent automatiques. Honnêtement, le seuil de rentabilité est d'environ 2 700 clients avec nos chiffres illustratifs. »</td></tr>
+  <tr><td class="t">1:55</td><td class="s">6. Real and mocked, openly</td><td class="say">« Réel : clés, scripts, délais, transactions. Simulé : la banque et le KYC. Place à la démo. »</td></tr>
+</table>
+<p>Les slides 3 à 5 sont denses volontairement : le jury peut les lire pendant que vous parlez. Si vous prenez du retard, raccourcissez la slide 5 en premier, pas la slide A + B.</p>
+
+<h2>Partie 2 : démo en direct</h2>
+<p>Deux comptes Swissquote, sur deux piles séparées. <b>Commencez sur le premier, finissez sur le second.</b></p>
+<table>
+  <tr><th></th><th>CH-0003 : tokens existants</th><th>CH-0004 : créé en direct</th></tr>
+  <tr><td><b>App (point de départ)</b></td><td><code>http://localhost:5175</code></td><td><code>http://localhost:5173</code></td></tr>
+  <tr><td><b>Connexion</b></td><td><code>CH-0003</code> / <code>demo0003</code></td><td><code>CH-0004</code> / <code>pitch0004</code></td></tr>
+  <tr><td><b>Console du contact de confiance</b></td><td>5176</td><td>5174</td></tr>
+  <tr><td><b>Client Wallet (s'ouvre tout seul)</b></td><td>5290</td><td>5190</td></tr>
+  <tr><td><b>Réseau</b></td><td>signet et Sepolia, anciennes données</td><td>regtest, données neuves</td></tr>
+  <tr><td><b>Re-KYC (récupération)</b></td><td>Martin, 1992-03-21, 246810</td><td>Keller, 1994-07-12, 135790</td></tr>
+</table>
+<div class="box warn">N'ouvrez <b>pas</b> les ports 4000, 5180, 5183 ni 5184 : ils appartiennent à une autre session en cours.</div>
+
+<p><b>Avant l'intervention (pas sur scène)</b></p>
+<ul>
+  <li>Les deux piles tournent (ports ci-dessus). Vérifiez que chaque app s'ouvre.</li>
+  <li>Sur la pile CH-0004, ouvrez la console du contact (5174), créez l'identité du contact, gardez sa clé publique sous la main et laissez cet onglet ouvert.</li>
+  <li>Faites un essai complet des <b>deux</b> piles avec Touch ID. La passkey de CH-0003 a été créée sur un autre port : elle devrait marcher (l'identifiant WebAuthn est <code>localhost</code>), mais ce n'est pas testé. La première ouverture de la partie crypto pour CH-0004 crée sa passkey.</li>
+  <li>Enregistrez une vidéo du parcours complet, en secours.</li>
+</ul>
+
+<p><b>Sur scène</b></p>
+<table>
+  <tr><th>Temps</th><th>Action</th><th>À dire</th></tr>
+  <tr><td class="t">2:00</td><td><b>CH-0003 (5175)</b> : connexion, ouvrir Crypto : « Crypto is locked ». Touch ID. Les tokens apparaissent.</td><td class="say">« Le mot de passe seul n'ouvre rien : le serveur demande la biométrie du client. Voici les tokens d'un wallet existant. »</td></tr>
+  <tr><td class="t">2:25</td><td><b>CH-0004 (5173)</b> : connexion, Crypto, « Create my wallet », coller la clé du contact, Touch ID, la phrase s'affiche une seule fois, envoyer la clé publique.</td><td class="say">« Un nouveau client crée un wallet. La seed est faite sur son propre appareil et affichée une seule fois. La banque ne reçoit que des clés publiques. »</td></tr>
+  <tr><td class="t">3:15</td><td>Le financer : <code>npm run regtest -- fund &lt;adresse&gt; 0.5</code>, recharger. Envoyer, signer dans le Client Wallet (montrer l'écran de confirmation).</td><td class="say">« Ça, c'est A : le client signe dans son propre wallet, qui montre exactement ce qui sort. »</td></tr>
+  <tr><td class="t">3:50</td><td>Wallet : « Simulate losing this device ». Second profil : « I lost my wallet », re-KYC, nouveau wallet, Swissquote signe, le contact signe dans la console.</td><td class="say">« Maintenant le client perd tout. Swissquote vérifie l'identité et signe ; le contact signe séparément. »</td></tr>
+  <tr><td class="t">4:30</td><td>Diffusion : <b>le réseau la refuse</b> (<code>non-BIP68-final</code>). Puis <code>npm run regtest -- mine 6</code> et rediffuser : acceptée.</td><td class="say">« Ça, c'est B : avant le délai, Bitcoin lui-même dit non. Après le délai, les fonds bougent. »</td></tr>
+  <tr><td class="t">4:50</td><td>Phrase de fin.</td><td class="say">« Créer, signer, tout perdre, récupérer. L'auto-garde, avec une banque suisse à un pas. »</td></tr>
+</table>
+<div class="box warn">
+  <b>Ça dépasse 3 minutes si tout est fait en direct.</b> Coupez dans cet ordre : l'envoi (3:15), puis l'étape de financement (financez avant de monter sur scène), puis la partie CH-0003. <b>Ne coupez pas la diffusion refusée</b> : c'est la preuve de B.<br>
+  <b>Si quelque chose casse</b> : lancez la vidéo enregistrée. Ne déboguez pas sur scène.
+</div>
+
+<h2>Questions probables</h2>
+<div class="q"><b>Un employé malveillant de Swissquote essaie d'ouvrir ma partie crypto depuis son propre PC ?</b> Sa biométrie déverrouille <i>sa</i> clé, pas la mienne. Le serveur vérifie une signature contre la clé publique enregistrée pour mon compte, donc il refuse. Deux limites, dites franchement : la première passkey s'enregistre avec la seule session, donc enrôlez-la juste après la création du compte ; et le parcours « j'ai perdu mon appareil » donne un niveau limité après un re-KYC (simulé ici : nom, date de naissance, code), alors qu'en production il faut de vraies vérifications d'identité. Et un initié qui <b>contrôle le serveur de la banque</b> peut contourner le verrou, car c'est une règle du serveur. Il ne peut toujours pas déplacer les fonds de mon wallet : la clé est sur mon appareil, derrière sa propre biométrie, et une récupération exige le contact et le délai.</div>
+<div class="q"><b>Vous dites avoir regardé MPC et le smart wallet : pourquoi ne pas simplement les utiliser ?</b> Le MPC ne peut pas imposer un délai sur la blockchain : Swissquote et un partenaire peuvent signer immédiatement, et le délai est une règle d'un logiciel qu'ils font tourner. Un smart wallet n'existe que sur Ethereum, donc il ne peut pas couvrir Bitcoin. Nous en utilisons un (un Safe) sur Ethereum. Le gain de sécurité du MPC contre un appareil volé est réel, et nous le disons : dans notre conception, une seed volée permet de dépenser tout de suite.</div>
+<div class="q"><b>Et si Swissquote disparaît ?</b> Sur Bitcoin, la sortie d'urgence du Client Wallet lit les coins sur la blockchain et signe avec la seule clé du client, sans le site ni le serveur de la banque. Elle exige l'appareil avec son wallet. Si le client perd l'appareil et que Swissquote a disparu, les fonds sont perdus (c'est écrit dans le README). Ethereum n'a pas encore de kit de sortie.</div>
+<div class="q"><b>Le client peut-il changer de contact de confiance ?</b> Oui sur Bitcoin : cela change le script, donc les coins vont vers une nouvelle adresse et le délai repart.</div>
+<div class="q"><b>Swissquote est-elle dépositaire ?</b> Seule, elle ne peut rien déplacer. Avec le contact, elle le peut après le délai, vers n'importe quelle destination (la zone grise). Le client relance le délai en dépensant.</div>
+<div class="q"><b>Est-ce que ça rapporte ?</b> Pas sur les seules commissions avec nos valeurs illustratives (seuil de rentabilité d'environ 2 730 clients conservés). Le dossier repose sur les vrais volumes de Swissquote et sur la valeur stratégique de garder le client.</div>
+<div class="q"><b>Le gasless est-il réel ?</b> Réel, via le paymaster public de Candide (un tiers). Pas de contrôle d'abus de notre côté.</div>
+<div class="q"><b>dApp conforme ?</b> Non implémentée. Le wallet décode les opérations en langage clair et refuse ce qu'il ne sait pas expliquer.</div>
+<div class="q"><b>Pourquoi le dépôt est-il différent de la démo ?</b> La soumission est l'état poussé à 09:48 et 09:49. Après 10:00, nous avons ajouté le correctif de saisie des clés et un client de démo, et fusionné en local la branche du verrou biométrique. Rien n'a été poussé ni antidaté.</div>
+
+<h2>À vérifier avant de présenter</h2>
+<div class="box warn">
+  <ul>
+    <li>Les rapports de validation du verrou biométrique, de la sortie d'urgence, du wallet lié à l'appareil et du changement de contact viennent d'une autre session et n'ont <b>pas été relancés</b>. Seul le refus « crypto locked » a été observé directement.</li>
+    <li>Les limites de la bibliothèque MPC ont été lues dans sa documentation, pas exécutées. Les problèmes du smart wallet viennent de risques identifiés dans la spec : ne dites pas « ça a échoué ».</li>
+    <li>Tous les chiffres du business case sont illustratifs, aucun ne vient de Swissquote. Le point « pas de charge de garde » est une hypothèse à confirmer avec un juriste.</li>
+  </ul>
+</div>
+
+<footer>Wallet self-custody Swissquote · Hackathon EPFL, track Swissquote · Script du pitch, version française</footer>
+</body>
+</html>
