@@ -12,7 +12,7 @@ import { db } from "./db.ts";
 const rpc = new BitcoindBackend(process.env.BTC_RPC_URL ?? "http://regtest:regtest@127.0.0.1:18443");
 const OMNIBUS = process.env.BANK_MOCK_OMNIBUS ?? "sq-omnibus";
 // Avoirs crypto de démo au compte Swissquote (BTC), par client.
-const INITIAL_BTC: Record<string, number> = { "CH-0001": 1.5, "CH-0002": 0.4, "CH-0003": 0.8 };
+const INITIAL_BTC: Record<string, number> = { "CH-0001": 1.5, "CH-0002": 0.4, "CH-0003": 0.8, "CH-0004": 0.8, "CH-0005": 0.8, "CH-0006": 0.8 };
 
 db.exec(`
   create table if not exists custody_ledger (
@@ -67,8 +67,17 @@ const ownAddressMap = (ctx: Ctx) => {
   return m;
 };
 
+// Les retraits passent un par un : sinon deux demandes simultanées vérifient le même solde avant que l'une ne soit
+// débitée (des `await` séparent la vérification et l'écriture), et le compte finit à découvert.
+let withdrawals: Promise<unknown> = Promise.resolve();
+export function withdraw(...args: Parameters<typeof withdrawNow>): ReturnType<typeof withdrawNow> {
+  const run = withdrawals.then(() => withdrawNow(...args));
+  withdrawals = run.catch(() => undefined);
+  return run;
+}
+
 // RETRAIT : compte Swissquote -> wallet self-custody du client.
-export async function withdraw(customerId: string, network: NetworkName, address: string, amountSats: number, ctx: Ctx) {
+async function withdrawNow(customerId: string, network: NetworkName, address: string, amountSats: number, ctx: Ctx) {
   requireRegtest(network);
   if (!Number.isInteger(amountSats) || amountSats < 10_000) throw new CustodyError(400, "invalid amount (minimum 10,000 sats)");
   if (amountSats > balance(customerId, network)) throw new CustodyError(400, "insufficient funds in the Swissquote account");

@@ -10,7 +10,7 @@ const BANK = "http://localhost:4130";
 const DATA = `${process.cwd()}/.local/e2e-8-alerts`;
 rmSync(DATA, { recursive: true, force: true });
 const proc: ChildProcess = spawn("npm", ["run", "-s", "dev", "-w", "bank-mock"], {
-  env: { ...process.env, BANK_MOCK_PORT: "4130", BANK_MOCK_DATA: DATA, ALERT_INTERVAL_MS: "0", ALERT_SIGNET_INTERVAL_MS: "0" }, stdio: "ignore", detached: true,
+  env: { ...process.env, BANK_MOCK_CRYPTO_LOCK: "off", BANK_MOCK_PORT: "4130", BANK_MOCK_DATA: DATA, ALERT_INTERVAL_MS: "0", ALERT_SIGNET_INTERVAL_MS: "0" }, stdio: "ignore", detached: true,
 });
 for (let i = 0; i < 100; i++) { try { if ((await fetch(`${BANK}/health`)).ok) break; } catch {} await new Promise((r) => setTimeout(r, 200)); }
 const call = async (path: string, token?: string, body?: unknown) => {
@@ -23,11 +23,12 @@ const D = 6;
 
 try {
   const token = (await call("/auth/login", undefined, { customerId: "CH-0003", password: "demo0003" })).body.token;
-  const sq = (await call("/guardian/key?network=regtest")).body.accountKey;
+  const sqFor = async (client: string) => (await call(`/guardian/key?network=regtest&client=${encodeURIComponent(client)}`)).body.accountKey; // une clé par compte (étape 56)
   const key = () => accountKey(masterFromMnemonic(newMnemonic(), "regtest"));
   const tiers = key();
-  const A = await createWalletConfig({ network: "regtest", delay: D, client: key(), swissquote: sq, tiers });
-  const B = await createWalletConfig({ network: "regtest", delay: D, client: key(), swissquote: sq, tiers });
+  const ca = key(), cb = key();
+  const A = await createWalletConfig({ network: "regtest", delay: D, client: ca, swissquote: await sqFor(ca), tiers });
+  const B = await createWalletConfig({ network: "regtest", delay: D, client: cb, swissquote: await sqFor(cb), tiers });
   for (const c of [A, B]) await call("/accounts/register", token, { network: "regtest", delay: D, client: c.client.raw, tiers: c.tiers.raw, tiersName: "Marie Dupont" });
   const m = await miner();
   await m.pay(outputAt(A, 0, 0).getAddress(), 0.05);

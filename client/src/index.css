@@ -163,6 +163,12 @@ button.round.bell { background: #fff; padding: 0; }
 /* ---------- Fiche Bitcoin (onglet Crypto) ---------- */
 .crypto-grid { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 14px; align-items: start; }
 .crypto-side { position: sticky; top: 74px; }
+/* Téléphone : une seule colonne, panneau latéral entre l'en-tête et le reste (même arbre DOM que l'ordinateur). */
+.crypto-grid.stack { display: flex; flex-direction: column; gap: 0; }
+.crypto-grid.stack .crypto-main { display: contents; }
+.crypto-grid.stack .crypto-main > :first-child { order: 1; }
+.crypto-grid.stack .crypto-side { order: 2; position: static; }
+.crypto-grid.stack .crypto-main > :not(:first-child) { order: 3; }
 .asset-head { display: grid; grid-template-columns: 1fr auto; gap: 10px 20px; align-items: center; }
 .asset-id { display: flex; align-items: center; gap: 12px; }
 .asset-id h1 { font-size: 20px; }

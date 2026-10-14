@@ -31,9 +31,14 @@ export const me = () => call("/me") as Promise<{ id: string; firstName: string; 
 
 export type RegisteredAccount = { id: number; delay: number; client: string; tiers: string; tiersName: string | null; swissquote: string; createdAt: string };
 export const walletAccounts = async (): Promise<RegisteredAccount[]> => (await call(`/wallet/accounts?network=${NETWORK}`)).accounts;
-export const fetchSwissquoteKey = async (): Promise<string> => (await call(`/guardian/key?network=${NETWORK}`)).accountKey;
+// Clé Swissquote du compte qui sera créé avec cette clé client : une par compte (étape 56), jamais commune aux clients.
+export const fetchSwissquoteKey = async (client: string): Promise<string> => (await call(`/guardian/key?network=${NETWORK}&client=${encodeURIComponent(client)}`)).accountKey;
 export const registerAccount = (a: { delay: number; client: string; tiers: string; tiersName?: string | null }) =>
-  call("/accounts/register", { network: NETWORK, ...a }) as Promise<{ accountId: number }>;
+  call("/accounts/register", { network: NETWORK, ...a }) as Promise<{ accountId: number; swissquote: string }>;
+
+// Changement du contact de confiance : Swissquote met son registre à jour (verrou biométrique complet exigé).
+export const changeTiers = (client: string, tiers: string, tiersName: string) =>
+  call("/accounts/tiers", { network: NETWORK, client, tiers, tiersName }) as Promise<RegisteredAccount>;
 
 // --- Recovery ---
 export type KycForm = { lastName: string; birthDate: string; otp: string };
@@ -58,6 +63,17 @@ export async function registerPasskey() {
   const optionsJSON = await call("/auth/passkey/register/options", {});
   return call("/auth/passkey/register/verify", { response: await startRegistration({ optionsJSON }) }) as Promise<{ registered: boolean; count: number }>;
 }
+// --- Verrou de la partie crypto : passkey vérifiée par bank-mock (pas seulement par l'interface) ---
+export type CryptoLock = { enabled: boolean; passkeys: number; scope: "full" | "recovery" | null; expiresAt: number | null };
+export const cryptoLockStatus = () => call("/auth/crypto-unlock") as Promise<CryptoLock>;
+export async function cryptoUnlock() {
+  const optionsJSON = await call("/auth/crypto-unlock/options", {});
+  return call("/auth/crypto-unlock/verify", { response: await startAuthentication({ optionsJSON }) }) as Promise<{ scope: "full" }>;
+}
+// Appareil ou passkey perdus : re-KYC, qui n'ouvre que les écrans de recovery.
+export const cryptoUnlockKyc = (token: string) => call("/auth/crypto-unlock/kyc", { token }) as Promise<{ scope: "recovery" }>;
+export const cryptoLock = () => call("/auth/crypto-unlock/lock", {}).catch(() => undefined);
+
 // Seuil « montant élevé » (sats) : ré-authentification par passkey avant de faire signer le wallet.
 export const HIGH_VALUE_SATS = BigInt(import.meta.env.VITE_HIGH_VALUE_SATS ?? 20_000_000);
 export type StepUp = { status: "approuvé" } | { status: "swissquote-injoignable" };
@@ -92,10 +108,13 @@ export const relayCreate = async (psbt: string): Promise<string> => (await call(
 export const relayGet = async (id: string): Promise<{ psbt: string; signed: string | null }> => call(`/relay?id=${id}`);
 
 // --- Ethereum (Sepolia) : Safe du client, Swissquote est l'un des deux gardiens ---
-export type EvmAccount = { id: number; owner: `0x${string}`; safe: `0x${string}`; tiers: `0x${string}`; tiersName: string | null; createdAt?: string };
-export const evmAccounts = () => call("/evm/accounts") as Promise<{ swissquote: `0x${string}`; accounts: EvmAccount[] }>;
+// `swissquote` : adresse de gardien de Swissquote propre à ce Safe (étape 56).
+export type EvmAccount = { id: number; owner: `0x${string}`; safe: `0x${string}`; tiers: `0x${string}`; tiersName: string | null; swissquote: `0x${string}`; createdAt?: string };
+export const evmAccounts = () => call("/evm/accounts") as Promise<{ accounts: EvmAccount[] }>;
 export const registerEvm = (owner: string, tiers: string, tiersName?: string | null) =>
-  call("/evm/accounts/register", { owner, tiers, tiersName }) as Promise<EvmAccount & { swissquote: `0x${string}` }>;
+  call("/evm/accounts/register", { owner, tiers, tiersName }) as Promise<EvmAccount>;
 export const evmSignRecovery = (token: string, safe: string, newOwner: string) =>
   call("/guardian/evm/sign-recovery", { token, safe, newOwner }) as Promise<{ signer: `0x${string}`; signature: `0x${string}`; nonce: string }>;
+export const changeEvmTiers = (safe: string, tiers: string, tiersName: string, blockNumber?: bigint) =>
+  call("/evm/accounts/tiers", { safe, tiers, tiersName, blockNumber: blockNumber?.toString() }) as Promise<EvmAccount>;
 export const syncEvm = (safe: string, blockNumber?: bigint) => call("/evm/accounts/sync", { safe, blockNumber: blockNumber?.toString() }) as Promise<EvmAccount>;

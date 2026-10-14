@@ -9,7 +9,9 @@ import { signPsbtWithMnemonic } from "@sq/bitcoin/sign";
 import { btc } from "@bitcoinerlab/descriptors-scure";
 import { base64, hex } from "@scure/base";
 
-const PORT = 4100;
+const PORT = Number(process.env.VALIDATE_2_PORT ?? 4100);
+// Un serveur déjà présent sur ce port répondrait à la place du bank-mock de test (observé : un autre bank-mock sur 4100).
+if (await fetch(`http://localhost:${PORT}/health`).then(() => true, () => false)) { console.error(`port ${PORT} déjà occupé : relancer avec VALIDATE_2_PORT=<port libre>`); process.exit(2); }
 const BANK = `http://localhost:${PORT}`;
 const DATA = ".local/bm-test";
 const rpc = new BitcoindBackend(process.env.BTC_RPC_URL ?? "http://regtest:regtest@127.0.0.1:18443");
@@ -27,23 +29,25 @@ async function api(path: string, body?: unknown) {
 // --- bank-mock dans son propre processus, stockage vierge ---
 rmSync(DATA, { recursive: true, force: true });
 mkdirSync(".local", { recursive: true });
-let bank: ChildProcess = spawn("npm", ["run", "-s", "dev", "-w", "bank-mock"], { env: { ...process.env, BANK_MOCK_PORT: String(PORT), BANK_MOCK_DATA: `${process.cwd()}/${DATA}` }, stdio: "ignore", detached: true });
+let bank: ChildProcess = spawn("npm", ["run", "-s", "dev", "-w", "bank-mock"], { env: { ...process.env, BANK_MOCK_CRYPTO_LOCK: "off", BANK_MOCK_PORT: String(PORT), BANK_MOCK_DATA: `${process.cwd()}/${DATA}` }, stdio: "ignore", detached: true });
 for (let i = 0; i < 50; i++) { try { if ((await fetch(`${BANK}/health`)).ok) break; } catch {} await new Promise((r) => setTimeout(r, 200)); }
 
 try {
   // 1. Clé Swissquote : générée au premier lancement, stockée seulement dans le dossier de bank-mock
-  const sqKey = (await api("/guardian/key?network=regtest")).json.accountKey as string;
+  // Une clé Swissquote par compte (étape 56) : demandée pour chaque clé client.
+  const sqFor = async (client: string) => (await api(`/guardian/key?network=regtest&client=${encodeURIComponent(client)}`)).json.accountKey as string;
+  const sqKey = await sqFor(accountKey(masterFromMnemonic(newMnemonic(), "regtest")));
   const seedStat = statSync(`${DATA}/swissquote-seed.json`);
   report("1", "Clé Swissquote générée au premier lancement, dans le stockage de bank-mock (mode 600) ; seule la clé publique est exposée",
-    /^\[[0-9a-f]{8}\/48'\/1'\/0'\/2'\]tpub/.test(sqKey) && (seedStat.mode & 0o777) === 0o600,
+    /^\[[0-9a-f]{8}\/48'\/1'\/\d+'\/2'\]tpub/.test(sqKey) && !sqKey.includes("/48'/1'/0'/2']") && (seedStat.mode & 0o777) === 0o600,
     `GET /guardian/key -> ${sqKey.slice(0, 40)}… ; ${DATA}/swissquote-seed.json mode=${(seedStat.mode & 0o777).toString(8)}`);
 
   // Client (ancienne et nouvelle clé) et tiers : graines de test hors appli
   const seeds = { oldClient: newMnemonic(), newClient: newMnemonic(), tiers: newMnemonic(), other: newMnemonic() };
   const key = (m: string) => accountKey(masterFromMnemonic(m, "regtest"));
-  const cfgA = await createWalletConfig({ network: "regtest", delay: DELAY, client: key(seeds.oldClient), swissquote: sqKey, tiers: key(seeds.tiers) });
-  const cfgB = await createWalletConfig({ network: "regtest", delay: DELAY, client: key(seeds.newClient), swissquote: sqKey, tiers: key(seeds.tiers) });
-  const cfgOther = await createWalletConfig({ network: "regtest", delay: DELAY, client: key(seeds.other), swissquote: sqKey, tiers: key(seeds.tiers) });
+  const cfgA = await createWalletConfig({ network: "regtest", delay: DELAY, client: key(seeds.oldClient), swissquote: await sqFor(key(seeds.oldClient)), tiers: key(seeds.tiers) });
+  const cfgB = await createWalletConfig({ network: "regtest", delay: DELAY, client: key(seeds.newClient), swissquote: await sqFor(key(seeds.newClient)), tiers: key(seeds.tiers) });
+  const cfgOther = await createWalletConfig({ network: "regtest", delay: DELAY, client: key(seeds.other), swissquote: await sqFor(key(seeds.other)), tiers: key(seeds.tiers) });
   const regA = await api("/accounts/register", { customerId: "CH-0001", network: "regtest", delay: DELAY, client: cfgA.client.raw, tiers: cfgA.tiers.raw });
   const regB = await api("/accounts/register", { customerId: "CH-0001", network: "regtest", delay: DELAY, client: cfgB.client.raw, tiers: cfgB.tiers.raw });
   const regO = await api("/accounts/register", { customerId: "CH-0002", network: "regtest", delay: DELAY, client: cfgOther.client.raw, tiers: cfgOther.tiers.raw });

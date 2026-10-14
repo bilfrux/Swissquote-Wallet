@@ -1,0 +1,17 @@
+== validate:9 (CLIENT_WALLET_DATA=<dépôt principal>/client-wallet/data)
+[OK ] 9-1 Historique regtest : réceptions, envoi, rafraîchissement et recovery sortante, chacune classée avec son montant
+       reçu 30000000 sats, frais —, bloc 2497 | reçu 20000000 sats, frais —, bloc 2497 | envoyé -10000000 sats, frais 602, bloc 2498 | rafraîchissement 0 sats, frais 458, bloc 2499 | recovery sortante
+[OK ] 9-2 Du côté du nouveau compte, la même transaction apparaît « reçu par recovery »
+       reçu par recovery 39998622 sats, frais —, en attente
+[OK ] 9-3 Frais à taux fractionnaire (3,5 sat/vB) : montant entier et cohérent
+       frais de l'envoi : 602 sats
+[OK ] 9-4 Frais regtest : estimation du nœud, ou valeurs par défaut s'il n'en a pas ; toutes ≥ 1 sat/vB
+       {"fast":2.1,"normal":2.1,"slow":2.1,"source":"réseau"}
+[OK ] 9-5 Frais signet : estimation réelle de l'API Esplora, planchérisée au minimum de relais (1 sat/vB)
+       {"fast":2.5,"normal":2.5,"slow":1,"source":"réseau"}
+[KO ] 9-6 Historique signet réel du wallet CH-0003 d'origine (avant recovery) : réception du faucet visible
+       
+== validate:9:budget, avant (worktree-docs-soumission) et après
+avant : 15 requêtes (12 txs, 2 utxo, 1 hauteur)
+[OK ] 9-7 Esplora : un rafraîchissement (scan + historique) reste sous ~20 requêtes grâce à la limite d'écart et au cache (avant : ~80)
+       15 requêtes (12 txs, 2 utxo, 1 hauteur) ; coins trouvés : 2

@@ -31,6 +31,42 @@ export const CUSTOMERS: Record<string, Customer> = {
       { iban: "CH72 0483 5012 3456 0003 2", label: "Savings account", currency: "CHF", balance: 15000, transactions: [{ date: "2026-09-30", label: "Interest", amount: 21.4 }] },
     ],
   },
+  // Second client de démo VIERGE, réservé à la présentation (jamais utilisé pour tester l'appli).
+  "CH-0004": {
+    firstName: "Sofia", lastName: "Keller", password: "pitch0004",
+    accounts: [
+      { iban: "CH61 0076 2011 6238 0004 3", label: "Private account", currency: "CHF", balance: 9615.8, transactions: [
+        { date: "2026-10-09", label: "October salary", amount: 5800 },
+        { date: "2026-10-05", label: "Migros Zurich", amount: -92.7 },
+        { date: "2026-10-01", label: "Rent", amount: -1750 },
+      ] },
+      { iban: "CH88 0483 5012 3456 0004 4", label: "Savings account", currency: "CHF", balance: 22000, transactions: [{ date: "2026-09-30", label: "Interest", amount: 30.6 }] },
+    ],
+  },
+  // Troisième client de démo VIERGE, réservé à l'enregistrement de la vidéo.
+  "CH-0005": {
+    firstName: "Noah", lastName: "Berger", password: "video0005",
+    accounts: [
+      { iban: "CH29 0076 2011 6238 0005 5", label: "Private account", currency: "CHF", balance: 7340.2, transactions: [
+        { date: "2026-10-09", label: "October salary", amount: 4900 },
+        { date: "2026-10-04", label: "Coop Bern", amount: -57.9 },
+        { date: "2026-10-01", label: "Rent", amount: -1590 },
+      ] },
+      { iban: "CH37 0483 5012 3456 0005 6", label: "Savings account", currency: "CHF", balance: 18500, transactions: [{ date: "2026-09-30", label: "Interest", amount: 25.3 }] },
+    ],
+  },
+  // Quatrième client de démo VIERGE, réservé au deuxième passage devant le jury.
+  "CH-0006": {
+    firstName: "Elena", lastName: "Rossi", password: "second0006",
+    accounts: [
+      { iban: "CH15 0076 2011 6238 0006 7", label: "Private account", currency: "CHF", balance: 11280.35, transactions: [
+        { date: "2026-10-09", label: "October salary", amount: 6100 },
+        { date: "2026-10-06", label: "Denner Lugano", amount: -48.6 },
+        { date: "2026-10-01", label: "Rent", amount: -1840 },
+      ] },
+      { iban: "CH43 0483 5012 3456 0006 8", label: "Savings account", currency: "CHF", balance: 24000, transactions: [{ date: "2026-09-30", label: "Interest", amount: 33.7 }] },
+    ],
+  },
   "CH-0002": {
     firstName: "Paul", lastName: "Exemple", password: "demo5678",
     accounts: [{ iban: "CH12 0900 0000 1234 5678 9", label: "Private account", currency: "CHF", balance: 2310.4, transactions: [{ date: "2026-10-02", label: "Transfer received", amount: 500 }] }],

@@ -1,0 +1,62 @@
+== npm run validate:2
+[OK ] 1 Clé Swissquote générée au premier lancement, dans le stockage de bank-mock (mode 600) ; seule la clé publique est exposée
+[OK ] 2 Enregistrement des comptes : A (ancienne clé) et B (nouvelle clé) pour CH-0001, un compte pour CH-0002 ; client inconnu refusé
+[OK ] 3 Identité non vérifiée : /guardian/sign refuse (sans jeton, jeton inventé) ; re-KYC avec un mauvais code refusé
+[OK ] 4 Après re-KYC mocké : Swissquote signe la recovery du compte A vers le compte B du même client, avec SA clé
+[OK ] 5 Swissquote refuse : dépense courante du client, recovery vers une adresse étrangère, coins d'un autre client
+[OK ] 6 Tiers signe (code de la console guardian) ; PSBT combiné finalisable ; refusé par le nœud avant D, accepté à D (aperçu étape 3)
+[OK ] 7 bank-mock arrêté : /guardian/sign injoignable, mais le client dépense seul (signature externe, diffusion)
+[OK ] 8 Aucune clé privée, graine ou import de signature dans client/src et client/dist ; graine Swissquote absente
+== npm run validate:7
+[OK ] 7-1 Client de démo vierge CH-0003 : connexion, comptes CHF, aucun compte Bitcoin
+[OK ] 7-2 Preuve valide : défi Swissquote pour l'adresse n°3, signé par le Wallet du client, vérifié par Swissquote (mode strict)
+[OK ] 7-3 Rejeu d'un défi déjà utilisé : refusé
+[OK ] 7-4 Signature d'un message différent du défi : refusée
+[OK ] 7-5 Signature du bon défi par une autre clé que celle du client : refusée
+[OK ] 7-6 Bonne clé mais format BIP-137 (ancien) : refusé, seule une signature BIP-322 pour l'adresse de la clé est acceptée
+[OK ] 7-7 Défi demandé par un autre client pour ce compte : refusé
+[OK ] 7-8 Le Wallet du client refuse de prouver pour un compte qui n'est pas sur l'appareil
+== npm run validate:8-alerts
+[OK ] 8-11 1 confirmation (recovery dans 5 blocs) : aucune alerte
+[OK ] 8-12 Recovery dans 2 blocs : alerte « bientôt » créée une seule fois (pas de doublon au passage suivant)
+[OK ] 8-13 Recovery ouverte (D confirmations) : alerte « ouverte » créée
+[OK ] 8-14 Swissquote signe une recovery : le client reçoit immédiatement l'alerte « Swissquote a signé une demande de recovery »
+[OK ] 8-15 Chaque alerte est aussi « envoyée » par email simulé (outbox.log)
+[OK ] 8-16 Alertes marquées lues ; un autre client ne voit pas ces alertes
+== npm run validate:10
+[OK ] 10-1 Wallet : 0,25 BTC (≥ seuil de 0,2 BTC) marqué « montant élevé » ; signature refusée sans les 6 derniers caractères de l'adresse ou avec des caractères faux, ac
+[OK ] 10-2 Wallet : 0,05 BTC (sous le seuil) signé avec la seule biométrie
+[OK ] 10-3 Swissquote : step-up impossible sans passkey enregistrée, sans session, ou avec une assertion inventée
+== npm run validate:11
+[OK ] 11-1 Retrait sans preuve de propriété : refusé (Travel Rule) ; vers une adresse qui n'est pas un wallet enregistré du client : refusé
+[OK ] 11-2 Après preuve de propriété vérifiée : retrait de 0,3 BTC envoyé on-chain par le portefeuille omnibus de Swissquote, reçu dans le wallet ; solde Swissquote débit
+[OK ] 11-3 Enregistrement Travel Rule du retrait : donneur d'ordre et bénéficiaire, wallet auto-hébergé, référence de la preuve
+[OK ] 11-4 Retrait supérieur aux avoirs : refusé
+[OK ] 11-5 Dépôts : celui du wallet du client (provenance vérifiée) est crédité ; celui d'une source inconnue est mis en attente, non crédité
+[OK ] 11-6 Signet : compte crypto Swissquote non disponible (portefeuille omnibus non approvisionné), refus explicite
+== npm run validate:12
+[OK ] 12-1 Le client dépose la demande (session requise) ; le tiers la lit par l'identifiant du lien, sans copier-coller
+[OK ] 12-2 Signature du tiers renvoyée par le relais et récupérée par le client ; PSBT d'une autre transaction refusé ; identifiant inconnu refusé
+== npm run test:attacks
+[OK ] attaque-1 — Attacker with phone and email, without the guardians' keys
+[OK ] attaque-2 — Swissquote + trusted contact collusion before D
+[OK ] attaque-3 — Swissquote stopped: the client spends alone
+[OK ] invariant-1 — Swissquote alone tries to spend (after D, through both paths)
+== npm run validate:37
+[OK ] 37-1 Création sans biométrie, avec un PIN seul ou avec une clé biométrique invalide : refusée
+[OK ] 37-2 Graine chiffrée sur le disque par le secret biométrique : ni la phrase ni ses mots en clair, pas de PIN ; HKDF + AES-256-GCM ; le bon secret la redonne
+[OK ] 37-3 Vue publique : identifiant de la passkey et sel PRF seulement (ni phrase, ni texte chiffré, ni secret)
+[OK ] 37-4 Signature avec un autre secret biométrique, sans rien, ou avec un PIN : refusée
+[OK ] 37-5 Signature avec le bon secret biométrique : PSBT signé (une signature ajoutée)
+[OK ] 37-6 Après 5 échecs : wallet bloqué, même le bon secret est refusé pendant 60 s
+[OK ] 37-7 Ancien wallet PIN : signalé PIN sans biométrie ; migration refusée avec un PIN faux, acceptée avec le bon ; ensuite le PIN est supprimé et seule la biométrie s
+[OK ] 37-8 Ancien wallet en clair : protection par PIN refusée, protection biométrique acceptée ; la phrase en clair disparaît du disque
+== npm run validate:47
+[OK ] 47-1 Serveur du wallet : politique refusée sans biométrie ou avec un mauvais secret (403), invalide refusée (400), acceptée avec la biométrie
+[OK ] 47-2 Première politique : écran de confirmation (contact, empreinte du contact et de Swissquote, délai) ; rien d'enregistré avant la biométrie, enregistrée après
+[OK ] 47-3 Clé de contact substituée par l'appli : changement signalé (ancienne → nouvelle empreinte), refus remonté à l'appli, politique inchangée
+[OK ] 47-4 Clé Swissquote différente de la politique actuelle : alerte affichée
+== npm run validate:50
+[OK ] 50-1 Plus de retour au PIN : set-pin et remove-bio refusés (400) ; « check » refuse un mauvais PIN (403), accepte le bon sans rien changer
+[OK ] 50-2 Montant élevé vers deux destinataires externes : signature refusée même avec les 6 caractères du premier ; vers un seul destinataire : signée
+[OK ] 50-3 Interface : une 2e demande de signature pendant la confirmation est refusée ; l'écran garde la 1re, et c'est elle qui est signée

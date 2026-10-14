@@ -1,0 +1,29 @@
+[OK ] 54-1 Compte Ethereum ajouté depuis l'interface : adresse dérivée dans le Client Wallet, Safe recalculé par Swissquote
+       Safe 0x0f8947E7C575D44fCcA6cB8f5e239F7B5aB4Afd2 ; propriétaire 0xd81d31643Dbf9Cf4682a229aF1230f342d68b449 ; contact 0x3B7D4E7421FB6D431075C8574C68c558B1DAB04c
+[OK ] 54-2 Activation sur Sepolia : écran du wallet en clair (module, 2 gardiens, frais parrainés), signée par biométrie ; Safe déployé, gardiens Swissquote + contact, seuil 2, 0 ETH
+       Activation: 0x116aab02468ce1ba9c626bd0415cb6a4cba40c32267e4f72476a2ec9ff27b825 ; gardiens 0x3B7D4E7421FB6D431075C8574C68c558B1DAB04c, 0xe0E790c571798A0a32D6e072E30132a37b12494e (Swissquote 0xe0E790c571798A0a32D6e072E30132a37b12494e) ; seuil 2 ; propriétaire 0xd81d31643Dbf9Cf4682a229aF1230f342d68b449 ; contrôles {"deployed":true,"module":true,"threshold":true,"guardians":true,"owner":true,"screenModule":true,"screenSponsor":true}
+[OK ] 54-3 Client Wallet : refuse un appel non reconnu, et l'ajout d'un gardien de l'attaquant avec seuil 1 (étape 48), sur le Safe déployé
+       inconnu : 400 « refused: not decoded: do not sign unless you know what it does » ; gardien : 400 « refused: a single guardian could take over your account (recovery threshold below 2) »
+[OK ] 54-4 Swissquote refuse de signer une recovery sans re-KYC, vers le propriétaire actuel, et vers chacun des gardiens (contact compris)
+       403 identity not verified: re-KYC required before any signature ; propriétaire : 403 ; gardiens 0x3B7D4E7421FB6D431075C8574C68c558B1DAB04c, 0xe0E790c571798A0a32D6e072E30132a37b12494e : 403, 403
+[OK ] 54-5 Demande relayée au contact : sa console affiche la nouvelle clé et signe (EIP-712), Swissquote vérifie la signature du contact enregistré
+       nouvelle clé 0xA362C98e73c70bd98ad4aC253D70b5D7f6CAb350 ; lien http://localhost:5222/?req=e9898fa963724a900db4acf5c52c2dbd
+[OK ] 54-6 Recovery démarrée (Swissquote + contact), relayée par le Safe de la nouvelle clé, signée par biométrie ; délai affiché, propriétaire inchangé pendant le délai
+       Recovery started: 0x45f377a06775af11c7342c18c274b60252f216c274025a5dadd0532472a7d44d ; applicable après 2026-10-13T15:50:48.000Z
+[OK ] 54-7 Après le délai (3 min, contrat) : recovery finalisée depuis l'interface ; propriétaire = nouvelle clé
+       Recovery completed: 0x0067166109cabac6e70ea4ad4984bf85055d07051affaf4f648f1a55149ef157 ; propriétaires 0xA362C98e73c70bd98ad4aC253D70b5D7f6CAb350
+[OK ] 54-8 La nouvelle clé signe depuis le Safe récupéré : signatures de gardiens restantes invalidées (nonce du module)
+       nonce 0 -> 2
+[OK ] 54-9 Aucune erreur dans les consoles des navigateurs ni réponse 5xx
+       aucune ; 5xx : aucune
+
+RÉSUMÉ
+54-1 fonctionne         Compte Ethereum ajouté depuis l'interface : adresse dérivée dans le Client Wallet, Safe recalculé par Swissquote
+54-2 fonctionne         Activation sur Sepolia : écran du wallet en clair (module, 2 gardiens, frais parrainés), signée par biométrie ; Safe déployé, gardiens Swissquote + contact, seuil 2, 0 ETH
+54-3 fonctionne         Client Wallet : refuse un appel non reconnu, et l'ajout d'un gardien de l'attaquant avec seuil 1 (étape 48), sur le Safe déployé
+54-4 fonctionne         Swissquote refuse de signer une recovery sans re-KYC, vers le propriétaire actuel, et vers chacun des gardiens (contact compris)
+54-5 fonctionne         Demande relayée au contact : sa console affiche la nouvelle clé et signe (EIP-712), Swissquote vérifie la signature du contact enregistré
+54-6 fonctionne         Recovery démarrée (Swissquote + contact), relayée par le Safe de la nouvelle clé, signée par biométrie ; délai affiché, propriétaire inchangé pendant le délai
+54-7 fonctionne         Après le délai (3 min, contrat) : recovery finalisée depuis l'interface ; propriétaire = nouvelle clé
+54-8 fonctionne         La nouvelle clé signe depuis le Safe récupéré : signatures de gardiens restantes invalidées (nonce du module)
+54-9 fonctionne         Aucune erreur dans les consoles des navigateurs ni réponse 5xx

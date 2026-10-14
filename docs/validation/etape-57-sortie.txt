@@ -1,0 +1,8 @@
+[OK ] 57-1 Changement de contact en cours : la saisie survit au passage en largeur téléphone (390 px) puis au retour (1280 px)
+       390 px : formulaire 1, nom « Bob », clé conservée ; 1280 px : formulaire 1, nom « Bob », clé conservée
+[OK ] 57-2 Changement préparé puis fenêtre réduite : la préparation est conservée, avec la mise en page téléphone (panneau sous l'en-tête)
+       bouton de signature présent : 1 ; erreurs JS : aucune
+
+RÉSUMÉ
+57-1 fonctionne         Changement de contact en cours : la saisie survit au passage en largeur téléphone (390 px) puis au retour (1280 px)
+57-2 fonctionne         Changement préparé puis fenêtre réduite : la préparation est conservée, avec la mise en page téléphone (panneau sous l'en-tête)

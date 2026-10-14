@@ -1,0 +1,8 @@
+[OK ] 42-1 Wallet à PIN seul : la demande affiche « biométrie requise » et un bouton « Open wallet settings » (plus de renvoi vers « ci-dessous » invisible)
+       réglages visibles avant clic : 0 ; bouton : true
+[OK ] 42-2 Le bouton ouvre les réglages ; « Enable biometrics » apparaît pour ce wallet et demande l'ancien PIN pour migrer
+       champ PIN : 1 ; erreurs JS : 0
+
+RÉSUMÉ
+42-1 fonctionne         Wallet à PIN seul : la demande affiche « biométrie requise » et un bouton « Open wallet settings » (plus de renvoi vers « ci-dessous » invisible)
+42-2 fonctionne         Le bouton ouvre les réglages ; « Enable biometrics » apparaît pour ce wallet et demande l'ancien PIN pour migrer

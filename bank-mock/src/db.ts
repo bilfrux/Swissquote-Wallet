@@ -22,8 +22,9 @@ db.exec(`
   );
 `);
 
-// Migration : nom du tiers (ajouté à l'étape 6).
+// Migration : nom du tiers (ajouté à l'étape 6) ; clé Swissquote propre au compte (étape 56, vide = clé historique).
 if (!(db.prepare("pragma table_info(accounts)").all() as any[]).some((c) => c.name === "tiers_name")) db.exec("alter table accounts add column tiers_name text");
+if (!(db.prepare("pragma table_info(accounts)").all() as any[]).some((c) => c.name === "swissquote_key")) db.exec("alter table accounts add column swissquote_key text");
 
 // Défis de preuve de propriété (étape 7).
 db.exec(`create table if not exists ownership_challenges (
@@ -43,3 +44,6 @@ db.exec(`create table if not exists evm_accounts (
   id integer primary key, customer_id text not null, owner text not null unique, safe text not null,
   tiers text not null, tiers_name text, created_at text not null default (datetime('now'))
 )`);
+
+// Étape 56 : index de l'adresse de gardien Swissquote propre au Safe (vide = adresse historique, index 0).
+if (!(db.prepare("pragma table_info(evm_accounts)").all() as any[]).some((c) => c.name === "sq_index")) db.exec("alter table evm_accounts add column sq_index integer");

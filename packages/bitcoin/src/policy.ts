@@ -25,12 +25,35 @@ export async function compileRecoveryPolicy(delay: number) {
 const ACCOUNT_KEY_RE = /^\[([0-9a-f]{8})((?:\/\d+['h]?)+)\]([tv]pub[1-9A-HJ-NP-Za-km-z]{100,112})$/;
 export type AccountKey = { fingerprint: string; originPath: string; xpub: string; raw: string };
 
-export function parseAccountKey(raw: string, network: NetworkName): AccountKey {
-  const m = raw.trim().match(ACCOUNT_KEY_RE);
-  if (!m) throw new Error("key expected in the format [fingerprint/48'/1'/0'/2']tpub…");
-  HDKey.fromExtendedKey(m[3], btcNetwork(network).bip32); // vérifie le xpub (somme de contrôle, version)
-  return { fingerprint: m[1], originPath: "m" + m[2].replace(/h/g, "'"), xpub: m[3], raw: raw.trim() };
+// Altérations inoffensives d'un copier-coller : apostrophes typographiques (macOS Notes, TextEdit, Messages),
+// espaces, retours à la ligne et caractères invisibles. Une clé ne contient jamais aucun de ces caractères.
+export const normalizeAccountKey = (raw: string) => raw.replace(/[‘’ʼ′`´]/g, "'").replace(/[\s​-‍⁠﻿]/g, "");
+
+function keyFormatError(key: string): string {
+  const expected = "key expected in the format [fingerprint/48'/1'/0'/2']tpub…";
+  if (!key) return expected;
+  if (!key.startsWith("[")) return `${expected} (the [fingerprint/…] origin is missing at the start)`;
+  const xpub = key.slice(key.indexOf("]") + 1);
+  const bad = [...xpub].findIndex((c) => !/[1-9A-HJ-NP-Za-km-z]/.test(c));
+  if (key.includes("]") && bad >= 0) return `${expected} (invalid character "${xpub[bad]}" in the tpub, position ${bad + 1}; 0, O, I and l never appear in a public key)`;
+  return expected;
 }
+
+export function parseAccountKey(raw: string, network: NetworkName): AccountKey {
+  const key = normalizeAccountKey(raw);
+  const m = key.match(ACCOUNT_KEY_RE);
+  if (!m) throw new Error(keyFormatError(key));
+  try {
+    HDKey.fromExtendedKey(m[3], btcNetwork(network).bip32); // vérifie le xpub (somme de contrôle, version)
+  } catch (e: any) {
+    throw new Error(`invalid tpub (${e.message}): check that it was copied without a typo`);
+  }
+  return { fingerprint: m[1], originPath: "m" + m[2].replace(/h/g, "'"), xpub: m[3], raw: key };
+}
+
+const labelled = (label: string, f: () => AccountKey) => {
+  try { return f(); } catch (e: any) { throw new Error(`${label}: ${e.message}`); }
+};
 
 export type WalletConfig = {
   network: NetworkName;
@@ -43,7 +66,11 @@ export type WalletConfig = {
 
 export async function createWalletConfig(p: { network: NetworkName; delay: number; client: string; swissquote: string; tiers: string }): Promise<WalletConfig> {
   const { miniscript } = await compileRecoveryPolicy(p.delay);
-  const keys = { client: parseAccountKey(p.client, p.network), swissquote: parseAccountKey(p.swissquote, p.network), tiers: parseAccountKey(p.tiers, p.network) };
+  const keys = {
+    client: labelled("Your public key", () => parseAccountKey(p.client, p.network)),
+    swissquote: labelled("Swissquote's public key", () => parseAccountKey(p.swissquote, p.network)),
+    tiers: labelled("Trusted contact's public key", () => parseAccountKey(p.tiers, p.network)),
+  };
   const xs = [keys.client.xpub, keys.swissquote.xpub, keys.tiers.xpub];
   if (new Set(xs).size !== 3) throw new Error("the three keys must be distinct");
   return { network: p.network, delay: p.delay, miniscript, ...keys };

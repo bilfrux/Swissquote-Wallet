@@ -1,6 +1,7 @@
 // Console du TIERS DE CONFIANCE : indépendante de l'app cliente et de Swissquote.
 // La phrase du tiers est lue dans le champ au moment du clic, utilisée, puis effacée : jamais mise dans l'état React,
-// jamais écrite dans localStorage/sessionStorage, jamais journalisée.
+// jamais écrite dans localStorage/sessionStorage, jamais journalisée. Seule exception : à la création de l'identité, la
+// phrase est affichée une fois (état React, en mémoire) jusqu'au clic « I have written down my phrase ».
 import { useEffect, useRef, useState } from "react";
 import { btc } from "@bitcoinerlab/descriptors-scure";
 import { base64 } from "@scure/base";
@@ -15,6 +16,9 @@ import { EXPLORER, RECOVERY_DELAY_LABEL, readState, recoveryTypedData } from "@s
 const BANK_URL = import.meta.env.VITE_BANK_MOCK_URL ?? "http://localhost:4000";
 const REQ = new URLSearchParams(location.search).get("req");
 const NETWORK = (import.meta.env.VITE_BTC_NETWORK ?? "signet") as NetworkName;
+// Empreinte de la clé ([empreinte/48'/1'/0'/2']tpub…) : le client la compare, par un autre canal, avec celle que son
+// Client Wallet affiche avant d'enregistrer la politique du compte.
+const fingerprintOf = (key: string) => key.match(/^\[([0-9a-f]{8})\//)?.[1] ?? "?";
 const fmt = (s: bigint) => `${s.toString().padStart(9, "0").replace(/(\d{8})$/, ".$1")} BTC`;
 
 // nSequence BIP68 : délai relatif en blocs si le bit 31 (désactivation) et le bit 22 (unité de temps) sont à 0.
@@ -64,11 +68,21 @@ export function Console() {
   };
 
   // Demande de recovery Ethereum (relais A3, format JSON) : signée en EIP-712 par la clé Ethereum du tiers.
-  const evmReq: { kind: "evm-recovery"; safe: `0x${string}`; newOwner: `0x${string}`; nonce: string } | null = psbt.trim().startsWith("{") ? JSON.parse(psbt) : null;
+  // Demande Ethereum : JSON reçu par le relais. Un texte collé illisible ne doit pas faire planter la page.
+  let evmReq: { kind: "evm-recovery"; safe: `0x${string}`; newOwner: `0x${string}`; nonce: string } | null = null;
+  let evmError: string | null = null;
+  if (psbt.trim().startsWith("{")) {
+    try {
+      const j = JSON.parse(psbt);
+      if (j?.kind === "evm-recovery" && typeof j.safe === "string" && typeof j.newOwner === "string" && typeof j.nonce === "string") evmReq = j;
+      else evmError = "unreadable Ethereum request";
+    } catch { evmError = "unreadable request (invalid JSON)"; }
+  }
   if (evmReq) return <EvmRecovery req={evmReq} phraseRef={phraseRef} withPhrase={withPhrase} error={error} setError={setError} />;
   let decoded: ReturnType<typeof decode> | null = null;
   let decodeError: string | null = null;
-  if (psbt.trim()) try { decoded = decode(psbt); } catch (e: any) { decodeError = `unreadable PSBT: ${e.message}`; }
+  if (evmError) decodeError = evmError;
+  else if (psbt.trim()) try { decoded = decode(psbt); } catch (e: any) { decodeError = `unreadable PSBT: ${e.message}`; }
   const recovery = decoded?.inputs.every((i) => i.delay !== null);
 
   return (
@@ -98,6 +112,7 @@ export function Console() {
             )}
             <p><strong>Public key to send to the client:</strong></p>
             <p className="mono address identity-key">{identity.key}</p>
+            <p>Fingerprint to read out to the client when they confirm you in their wallet: <strong className="mono" data-testid="identity-fingerprint">{fingerprintOf(identity.key)}</strong></p>
             <p><strong>Ethereum address to send to the client</strong> (same phrase):</p>
             <p className="mono address identity-evm">{identity.evm}</p>
           </>
@@ -111,7 +126,7 @@ export function Console() {
         <button className="secondary small" onClick={() => withPhrase((p) => setPubKey(accountKey(masterFromMnemonic(p, NETWORK))))}>
           Show my public key (to send to the client)
         </button>
-        {pubKey && <p className="mono address">{pubKey}</p>}
+        {pubKey && <><p className="mono address">{pubKey}</p><p>Fingerprint: <strong className="mono">{fingerprintOf(pubKey)}</strong></p></>}
         <button className="secondary small" onClick={() => withPhrase((p) => setEvmAddr(evmAddressFromMnemonic(p)))}>
           Show my Ethereum address (to send to the client)
         </button>

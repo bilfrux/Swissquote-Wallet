@@ -5,19 +5,23 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { randomBytes } from "node:crypto";
 import { Verifier } from "bip322-js";
-import { type NetworkName, type WalletConfig, addresses, clientKeyAddress, combinePsbts, createWalletConfig, inputsBelongTo, outputAt, simulate } from "@sq/bitcoin";
+import { type NetworkName, type WalletConfig, addresses, normalizeAccountKey, parseAccountKey, clientKeyAddress, combinePsbts, createWalletConfig, inputsBelongTo, outputAt, simulate } from "@sq/bitcoin";
 import { db } from "./db.ts";
-import { signAsSwissquote, signEvmRecovery, swissquoteAccountKey, swissquoteEvmAddress } from "./guardian.ts";
+import { accountIndexOf, signAsSwissquote, signEvmRecoveryAt, swissquoteAccountKey, swissquoteEvmAddress, swissquoteEvmAddressAt, swissquoteKeyFor } from "./guardian.ts";
 import { getAddress, isAddress, verifyTypedData, type Address } from "viem";
 import { ownersOf, readState, recoveryNonce, recoveryTypedData, safeAddressOf } from "@sq/evm";
-import { TEST_CUSTOMERS, customerFromToken, verifyIdentity } from "./kyc.ts";
+import { TEST_CUSTOMERS, customerFromToken, kycLockedFor, verifyIdentity } from "./kyc.ts";
 import { CUSTOMERS, createSession, customerFromSession, login } from "./bank.ts";
 import { authenticationOptions, passkeyCount, recordStepup, registrationOptions, verifyAuthentication, verifyRegistration } from "./passkeys.ts";
+import { LOCK_ENABLED, type Scope, allows, grantUnlock, revokeUnlock, unlockState } from "./cryptoLock.ts";
 import { notify, runAlerts } from "./alerts.ts";
 import { marketHistory, marketPrices } from "./market.ts";
 import { CustodyError, balance, depositAddress, records, syncDeposits, withdraw } from "./custody.ts";
 
 const PORT = Number(process.env.BANK_MOCK_PORT ?? 4000);
+// Boucle locale seulement : le backend simulé n'est pas joignable depuis le réseau local.
+const HOST = process.env.BANK_MOCK_HOST ?? "localhost";
+const MAX_BODY = 1_000_000; // octets : un PSBT de recovery tient largement
 const ORIGINS = (process.env.BANK_MOCK_ORIGINS ?? "http://localhost:5173,http://localhost:5174,http://localhost:5175").split(",");
 const NETWORKS: NetworkName[] = ["regtest", "signet"];
 
@@ -29,12 +33,29 @@ const network = (n: unknown): NetworkName => {
   return n as NetworkName;
 };
 
-type AccountRow = { id: number; customer_id: string; network: NetworkName; delay: number; client_key: string; tiers_key: string; tiers_name: string | null; created_at: string };
-const publicAccount = (r: AccountRow) => ({ id: r.id, delay: r.delay, client: r.client_key, tiers: r.tiers_key, tiersName: r.tiers_name, swissquote: swissquoteAccountKey(r.network), createdAt: r.created_at });
+// Session bancaire + déverrouillage de la partie crypto (cryptoLock.ts). "recovery" suffit pour ce dont une recovery a
+// besoin ; tout le reste (compte crypto Swissquote, preuve de propriété) exige la passkey ("full").
+function needCrypto(req: IncomingMessage, need: Scope): string {
+  const id = customerFromSession(req.headers.authorization);
+  if (!id) throw new HttpError(401, "session expired: please log in again");
+  if (!allows(req.headers.authorization, id, need))
+    throw new HttpError(403, need === "full" ? "crypto locked: confirm with your biometrics" : "crypto locked: confirm with your biometrics or verify your identity");
+  return id;
+}
+
+type AccountRow = { id: number; customer_id: string; network: NetworkName; delay: number; client_key: string; tiers_key: string; tiers_name: string | null; swissquote_key: string | null; created_at: string };
+// Clé Swissquote du compte : la sienne (étape 56), ou la clé historique commune pour les comptes enregistrés avant.
+const sqKeyOf = (r: AccountRow) => r.swissquote_key ?? swissquoteAccountKey(r.network);
+const publicAccount = (r: AccountRow) => ({ id: r.id, delay: r.delay, client: r.client_key, tiers: r.tiers_key, tiersName: r.tiers_name, swissquote: sqKeyOf(r), createdAt: r.created_at });
 const configOf = (a: AccountRow): Promise<WalletConfig> =>
-  createWalletConfig({ network: a.network, delay: a.delay, client: a.client_key, swissquote: swissquoteAccountKey(a.network), tiers: a.tiers_key });
+  createWalletConfig({ network: a.network, delay: a.delay, client: a.client_key, swissquote: sqKeyOf(a), tiers: a.tiers_key });
+// Adresse Ethereum de gardien de Swissquote pour un Safe : la sienne (étape 56), ou l'adresse historique (index 0).
+type EvmRow = { id: number; owner: string; safe: string; tiers: string; tiers_name: string | null; sq_index: number | null; created_at: string };
+const sqIndexOf = (r: EvmRow) => r.sq_index ?? 0;
+const publicEvm = (r: EvmRow) => ({ id: r.id, owner: r.owner, safe: r.safe, tiers: r.tiers, tiersName: r.tiers_name, swissquote: swissquoteEvmAddressAt(sqIndexOf(r)), createdAt: r.created_at });
 
 // Analyse d'une demande de recovery : d'où viennent les coins, où vont-ils, par quel chemin.
+const MAX_RECOVERY_FEE_PCT = BigInt(process.env.BANK_MOCK_MAX_RECOVERY_FEE_PCT ?? 5);
 async function reviewRecovery(customerId: string, net: NetworkName, psbt: string) {
   const rows = db.prepare("select * from accounts where customer_id = ? and network = ?").all(customerId, net) as AccountRow[];
   const accounts = await Promise.all(rows.map(async (r) => ({ row: r, cfg: await configOf(r) })));
@@ -47,6 +68,9 @@ async function reviewRecovery(customerId: string, net: NetworkName, psbt: string
     return summary.outputs.every((o) => own.has(o.address));
   })());
   if (!dest) throw new HttpError(403, "all outputs must go to ANOTHER registered account of the same client (new client key)");
+  // Frais : une recovery signée par Swissquote ne doit pas pouvoir partir en frais de minage (au profit d'un mineur complice).
+  const total = summary.inputs.reduce((s, i) => s + i.value, 0n);
+  if (summary.fee * 100n > total * MAX_RECOVERY_FEE_PCT) throw new HttpError(403, `fee too high for a recovery: ${summary.fee} sats for ${total} sats spent (maximum ${MAX_RECOVERY_FEE_PCT} %)`);
   return { source: source.row.id, destination: dest.row.id, summary };
 }
 
@@ -56,24 +80,57 @@ async function route(req: IncomingMessage, body: any, url: URL) {
     case "GET /health":
       return { ok: true, service: "bank-mock" };
 
-    case "GET /guardian/key":
-      return { accountKey: swissquoteAccountKey(network(url.searchParams.get("network"))) };
+    case "GET /guardian/key": {
+      // Clé Swissquote du compte qui sera créé avec cette clé client (données publiques, déterministes).
+      const net = network(url.searchParams.get("network"));
+      let client: string;
+      try { client = parseAccountKey(normalizeAccountKey(String(url.searchParams.get("client") ?? "")), net).raw; }
+      catch { throw new HttpError(400, "client account key required (?client=[fingerprint/48'/1'/0'/2']tpub…): Swissquote uses one key per account"); }
+      return { accountKey: swissquoteKeyFor(net, client) };
+    }
 
     case "POST /accounts/register": {
       // Session bancaire MOCKÉE : le client est identifié par son identifiant de la banque simulée.
-      // Client identifié par sa session bancaire (appli) ou, pour les scripts de validation, par son identifiant.
-      const customerId = customerFromSession(req.headers.authorization) ?? body.customerId;
+      // Client identifié par sa session bancaire déverrouillée (biométrie ou re-KYC). Le repli par simple identifiant,
+      // sans session, n'existe que si le verrou est désactivé (scripts de validation antérieurs à l'étape 38).
+      const customerId = LOCK_ENABLED ? needCrypto(req, "recovery") : (customerFromSession(req.headers.authorization) ?? body.customerId);
       if (!TEST_CUSTOMERS[customerId]) throw new HttpError(403, "client unknown to the simulated bank");
       body.customerId = customerId;
       const net = network(body.network);
-      const cfg = await createWalletConfig({ network: net, delay: Number(body.delay), client: body.client, swissquote: swissquoteAccountKey(net), tiers: body.tiers }).catch((e) => {
+      // Clé Swissquote propre à ce compte, recalculée ici depuis la clé du client (Swissquote ne fait pas confiance à l'appli).
+      let sq: string;
+      try { sq = swissquoteKeyFor(net, parseAccountKey(String(body.client ?? ""), net).raw); } catch (e: any) { throw new HttpError(400, e.message); }
+      const cfg = await createWalletConfig({ network: net, delay: Number(body.delay), client: body.client, swissquote: sq, tiers: body.tiers }).catch((e) => {
         throw new HttpError(400, e.message);
       });
-      db.prepare("insert or ignore into accounts (customer_id, network, delay, client_key, tiers_key, tiers_name) values (?, ?, ?, ?, ?, ?)")
-        .run(body.customerId, net, cfg.delay, cfg.client.raw, cfg.tiers.raw, typeof body.tiersName === "string" ? body.tiersName.slice(0, 80) : null);
-      const row = db.prepare("select id, customer_id from accounts where network = ? and client_key = ?").get(net, cfg.client.raw) as any;
+      db.prepare("insert or ignore into accounts (customer_id, network, delay, client_key, tiers_key, tiers_name, swissquote_key) values (?, ?, ?, ?, ?, ?, ?)")
+        .run(body.customerId, net, cfg.delay, cfg.client.raw, cfg.tiers.raw, typeof body.tiersName === "string" ? body.tiersName.slice(0, 80) : null, cfg.swissquote.raw);
+      const row = db.prepare("select * from accounts where network = ? and client_key = ?").get(net, cfg.client.raw) as AccountRow;
       if (row.customer_id !== body.customerId) throw new HttpError(409, "this client key is already registered by another client");
-      return { accountId: row.id };
+      return { accountId: row.id, swissquote: sqKeyOf(row) };
+    }
+
+    case "POST /accounts/tiers": {
+      // Changement du contact de confiance d'un compte Bitcoin : le client a déjà déplacé ses coins vers la nouvelle règle
+      // (même clé client et même clé Swissquote, nouveau contact). Swissquote met à jour son registre pour pouvoir signer une
+      // recovery selon la NOUVELLE règle ; sinon sa revue (les coins appartiennent-ils à un compte enregistré ?) échouerait.
+      // Verrou biométrique complet exigé. Cela ne donne aucun pouvoir de dépense : la règle réelle est celle des coins, on-chain.
+      const customerId = needCrypto(req, "full");
+      const net = network(body.network);
+      const row = db.prepare("select * from accounts where customer_id = ? and network = ? and client_key = ?").get(customerId, net, String(body.client ?? "")) as AccountRow | undefined;
+      if (!row) throw new HttpError(403, "this account does not belong to the logged-in client");
+      const tiers = String(body.tiers ?? "");
+      if (tiers === row.tiers_key) throw new HttpError(409, "this is already the trusted contact of the account");
+      if (tiers === row.client_key || tiers === sqKeyOf(row) || tiers === swissquoteAccountKey(net)) throw new HttpError(400, "the trusted contact must be a third party (not you, not Swissquote)");
+      await createWalletConfig({ network: net, delay: row.delay, client: row.client_key, swissquote: sqKeyOf(row), tiers }).catch((e) => { throw new HttpError(400, `invalid trusted contact key: ${e.message}`); });
+      const name = typeof body.tiersName === "string" ? body.tiersName.trim().slice(0, 80) : "";
+      if (!name) throw new HttpError(400, "the trusted contact's name is required");
+      db.exec("create table if not exists tiers_changes (id integer primary key, customer_id text not null, account_id integer not null, old_key text not null, old_name text, new_key text not null, new_name text not null, created_at text not null default (datetime('now')))");
+      db.prepare("insert into tiers_changes (customer_id, account_id, old_key, old_name, new_key, new_name) values (?, ?, ?, ?, ?, ?)").run(customerId, row.id, row.tiers_key, row.tiers_name, tiers, name);
+      db.prepare("update accounts set tiers_key = ?, tiers_name = ? where id = ?").run(tiers, name, row.id);
+      notify(customerId, row.id, "contact-change", "Trusted contact changed",
+        `The trusted contact of your account #${row.id} is now ${name} (it was ${row.tiers_name ?? "another contact"}). If this was not you, refresh your coins from your wallet and change your password.`, `tiers:${row.id}:${Date.now()}`);
+      return publicAccount(db.prepare("select * from accounts where id = ?").get(row.id) as AccountRow);
     }
 
     // ---- Ethereum (étape 17) : Safe du client, Swissquote est l'un des deux gardiens du module de recovery ----
@@ -83,34 +140,62 @@ async function route(req: IncomingMessage, body: any, url: URL) {
     case "GET /market/history":
       return Promise.resolve().then(() => marketHistory(String(url.searchParams.get("coin")), String(url.searchParams.get("period")))).catch((e) => { throw new HttpError(503, `market data unavailable: ${e.message}`); });
 
-    case "GET /guardian/evm-address":
-      return { address: swissquoteEvmAddress };
+    case "GET /guardian/evm-address": {
+      // Adresse de gardien de Swissquote pour le Safe de ce propriétaire (une par compte, étape 56).
+      const owner = url.searchParams.get("owner");
+      if (!owner || !isAddress(owner)) throw new HttpError(400, "owner address required (?owner=0x…): Swissquote uses one guardian address per account");
+      const row = db.prepare("select * from evm_accounts where owner = ?").get(getAddress(owner)) as EvmRow | undefined;
+      return { address: swissquoteEvmAddressAt(row ? sqIndexOf(row) : accountIndexOf(getAddress(owner))) };
+    }
 
     case "POST /evm/accounts/register": {
-      const customerId = customerFromSession(req.headers.authorization);
-      if (!customerId) throw new HttpError(401, "session expired: please log in again");
+      const customerId = needCrypto(req, "recovery");
       if (!isAddress(String(body.owner)) || !isAddress(String(body.tiers))) throw new HttpError(400, "invalid Ethereum address");
       const owner = getAddress(body.owner), tiers = getAddress(body.tiers);
-      if (tiers === owner || tiers === swissquoteEvmAddress) throw new HttpError(400, "the trusted contact must be a third party (not you, not Swissquote)");
+      const sqIndex = accountIndexOf(owner);
+      if (tiers === owner || tiers === swissquoteEvmAddress || tiers === swissquoteEvmAddressAt(sqIndex)) throw new HttpError(400, "the trusted contact must be a third party (not you, not Swissquote)");
       const safe = safeAddressOf(owner); // recalculé ici : Swissquote ne fait pas confiance à l'appli
-      db.prepare("insert or ignore into evm_accounts (customer_id, owner, safe, tiers, tiers_name) values (?, ?, ?, ?, ?)")
-        .run(customerId, owner, safe, tiers, typeof body.tiersName === "string" ? body.tiersName.slice(0, 80) : null);
-      const row = db.prepare("select * from evm_accounts where owner = ?").get(owner) as any;
+      db.prepare("insert or ignore into evm_accounts (customer_id, owner, safe, tiers, tiers_name, sq_index) values (?, ?, ?, ?, ?, ?)")
+        .run(customerId, owner, safe, tiers, typeof body.tiersName === "string" ? body.tiersName.slice(0, 80) : null, sqIndex);
+      const row = db.prepare("select * from evm_accounts where owner = ?").get(owner) as EvmRow & { customer_id: string };
       if (row.customer_id !== customerId) throw new HttpError(409, "this Ethereum key is already registered by another client");
-      return { id: row.id, owner, safe, tiers: row.tiers, tiersName: row.tiers_name, swissquote: swissquoteEvmAddress };
+      return publicEvm(row);
     }
 
     case "GET /evm/accounts": {
-      const customerId = customerFromSession(req.headers.authorization);
-      if (!customerId) throw new HttpError(401, "session expired: please log in again");
-      const rows = db.prepare("select * from evm_accounts where customer_id = ? order by id").all(customerId) as any[];
-      return { swissquote: swissquoteEvmAddress, accounts: rows.map((r) => ({ id: r.id, owner: r.owner, safe: r.safe, tiers: r.tiers, tiersName: r.tiers_name, createdAt: r.created_at })) };
+      const customerId = needCrypto(req, "recovery");
+      const rows = db.prepare("select * from evm_accounts where customer_id = ? order by id").all(customerId) as EvmRow[];
+      return { accounts: rows.map(publicEvm) };
+    }
+
+    case "POST /evm/accounts/tiers": {
+      // Changement du contact de confiance Ethereum (étape 58) : le client l'a fait on-chain (lot signé dans son Client
+      // Wallet). Swissquote met son registre à jour d'après la chaîne, lue au bloc de l'opération : le nouveau contact est
+      // gardien, l'ancien ne l'est plus, Swissquote l'est toujours, seuil 2. Le registre sert à vérifier la signature du
+      // contact dans le relais ; il ne donne aucun pouvoir sur le Safe.
+      const customerId = needCrypto(req, "full");
+      if (!isAddress(String(body.safe)) || !isAddress(String(body.tiers))) throw new HttpError(400, "invalid Ethereum address");
+      const row = db.prepare("select * from evm_accounts where customer_id = ? and safe = ?").get(customerId, getAddress(String(body.safe))) as (EvmRow & { customer_id: string }) | undefined;
+      if (!row) throw new HttpError(404, "unknown account");
+      const tiers = getAddress(String(body.tiers));
+      const name = typeof body.tiersName === "string" ? body.tiersName.trim().slice(0, 80) : "";
+      if (!name) throw new HttpError(400, "the trusted contact's name is required");
+      const block = body.blockNumber ? BigInt(body.blockNumber) : undefined;
+      const st = await readState(getAddress(row.safe), block);
+      const g = st.guardians.map((a) => getAddress(a));
+      const sqAddress = swissquoteEvmAddressAt(sqIndexOf(row));
+      if (!(g.length === 2 && g.includes(tiers) && g.includes(sqAddress) && !g.includes(getAddress(row.tiers)) && st.threshold === 2n))
+        throw new HttpError(409, `the chain does not show this change (guardians ${g.join(", ")}, threshold ${st.threshold})`);
+      db.prepare("update evm_accounts set tiers = ?, tiers_name = ? where id = ?").run(tiers, name, row.id);
+      notify(customerId, null, "contact-change", "Ethereum trusted contact changed",
+        `The trusted contact of your Ethereum account ${row.safe} is now ${name} (${tiers}). If this was not you, cancel any recovery from your wallet and change your password.`, `evmtiers:${row.id}:${Date.now()}`);
+      return publicEvm(db.prepare("select * from evm_accounts where id = ?").get(row.id) as EvmRow);
     }
 
     case "POST /evm/accounts/sync": {
       // Après une recovery : le propriétaire enregistré est remplacé par celui que la chaîne indique.
-      const customerId = customerFromSession(req.headers.authorization);
-      if (!customerId) throw new HttpError(401, "session expired: please log in again");
+      const customerId = needCrypto(req, "recovery");
+      if (!isAddress(String(body.safe))) throw new HttpError(400, "invalid Ethereum address");
       const row = db.prepare("select * from evm_accounts where customer_id = ? and safe = ?").get(customerId, getAddress(String(body.safe))) as any;
       if (!row) throw new HttpError(404, "unknown account");
       // Lecture AU bloc de la finalisation (le nœud public peut renvoyer un état en retard juste après), avec réessais.
@@ -122,7 +207,7 @@ async function route(req: IncomingMessage, body: any, url: URL) {
       }
       if (owners.length === 1 && getAddress(owners[0]) !== getAddress(row.owner)) db.prepare("update evm_accounts set owner = ? where id = ?").run(getAddress(owners[0]), row.id);
       const r = db.prepare("select * from evm_accounts where id = ?").get(row.id) as any;
-      return { id: r.id, owner: r.owner, safe: r.safe, tiers: r.tiers, tiersName: r.tiers_name };
+      return publicEvm(r);
     }
 
     case "POST /guardian/evm/sign-recovery": {
@@ -139,15 +224,18 @@ async function route(req: IncomingMessage, body: any, url: URL) {
         if (!row) throw new HttpError(403, "this account does not belong to the verified client");
         const st = await readState(safe);
         if (!st.moduleEnabled) throw new HttpError(409, "recovery is not active on this account");
-        if (st.owners.map(getAddress).includes(newOwner) || st.guardians.map(getAddress).includes(newOwner) || newOwner === swissquoteEvmAddress)
+        // `map((a) => getAddress(a))` et non `map(getAddress)` : viem lirait l'index du tableau comme un chainId (casse
+        // EIP-1191), et la comparaison échouait dès le 2e gardien de la liste.
+        const sqAddress = swissquoteEvmAddressAt(sqIndexOf(row));
+        if (st.owners.map((a) => getAddress(a)).includes(newOwner) || st.guardians.map((a) => getAddress(a)).includes(newOwner) || newOwner === sqAddress || newOwner === swissquoteEvmAddress)
           throw new HttpError(403, "the new owner must be a new key of the client (not the current owner, not a guardian)");
         const nonce = await recoveryNonce(safe);
-        const signature = await signEvmRecovery((await recoveryTypedData(safe, newOwner, nonce)) as any);
+        const signature = await signEvmRecoveryAt(sqIndexOf(row), (await recoveryTypedData(safe, newOwner, nonce)) as any);
         log("signé", `evm ${safe} -> ${newOwner} (nonce ${nonce})`);
         notify(customerId, null, "recovery-signee", "Swissquote signed an Ethereum recovery request",
           `Swissquote signed a request to give your Ethereum account ${safe} to the new key ${newOwner}, after identity verification. If this was not you, cancel it from your wallet as soon as it starts.`,
           `evmsign:${customerId}:${safe}:${Date.now()}`);
-        return { signer: swissquoteEvmAddress, signature, nonce: nonce.toString() };
+        return { signer: sqAddress, signature, nonce: nonce.toString() };
       } catch (e: any) {
         log("refusé", e.message);
         throw e;
@@ -169,12 +257,57 @@ async function route(req: IncomingMessage, body: any, url: URL) {
     case "POST /auth/passkey/register/options": {
       const id = customerFromSession(req.headers.authorization);
       if (!id) throw new HttpError(401, "session expired: please log in again");
+      // Une première passkey s'enregistre avec la seule session. Les suivantes exigent d'être déjà déverrouillé
+      // (passkey ou re-KYC) : sinon un détenteur de la session ajouterait sa propre passkey pour se déverrouiller.
+      if (passkeyCount(id) > 0 && !allows(req.headers.authorization, id, "recovery")) throw new HttpError(403, "unlock the crypto part first (biometrics or identity check)");
       return registrationOptions(id);
     }
     case "POST /auth/passkey/register/verify": {
       const id = customerFromSession(req.headers.authorization);
       if (!id) throw new HttpError(401, "session expired: please log in again");
-      return verifyRegistration(id, body.response).catch((e) => { throw new HttpError(403, e.message); });
+      if (passkeyCount(id) > 0 && !allows(req.headers.authorization, id, "recovery")) throw new HttpError(403, "unlock the crypto part first (biometrics or identity check)");
+      const r = await verifyRegistration(id, body.response).catch((e) => { throw new HttpError(403, e.message); });
+      grantUnlock(req.headers.authorization, id, "full"); // la biométrie vient d'être vérifiée à l'enregistrement
+      return r;
+    }
+
+    // ---- Verrou de la partie crypto (cryptoLock.ts) ----
+    case "GET /auth/crypto-unlock": {
+      const id = customerFromSession(req.headers.authorization);
+      if (!id) throw new HttpError(401, "session expired: please log in again");
+      // `enabled: false` seulement pour les tests automatisés antérieurs à l'étape 38.
+      return { enabled: LOCK_ENABLED, passkeys: passkeyCount(id), ...unlockState(req.headers.authorization, id) };
+    }
+    case "POST /auth/crypto-unlock/options": {
+      const id = customerFromSession(req.headers.authorization);
+      if (!id) throw new HttpError(401, "session expired: please log in again");
+      return authenticationOptions(id, "crypto").catch((e) => { throw new HttpError(404, e.message); });
+    }
+    case "POST /auth/crypto-unlock/verify": {
+      const id = customerFromSession(req.headers.authorization);
+      if (!id) throw new HttpError(401, "session expired: please log in again");
+      await verifyAuthentication(id, "crypto", body.response).catch((e) => { throw new HttpError(403, e.message); });
+      grantUnlock(req.headers.authorization, id, "full");
+      notify(id, null, "crypto-deverrouille", "Crypto part unlocked by biometrics",
+        "The crypto part of your account was unlocked with your biometrics. If this was not you, change your password.", `unlock:${id}:${Date.now()}`);
+      return { scope: "full" };
+    }
+    case "POST /auth/crypto-unlock/kyc": {
+      // Appareil ou passkey perdus : le re-KYC (jeton obtenu par /identity/verify) donne un niveau « recovery » seulement.
+      const id = customerFromSession(req.headers.authorization);
+      if (!id) throw new HttpError(401, "session expired: please log in again");
+      if (customerFromToken(body.token) !== id) throw new HttpError(403, "identity not verified: re-KYC required");
+      if (unlockState(req.headers.authorization, id).scope === "full") return { scope: "full" }; // jamais de rétrogradation
+      grantUnlock(req.headers.authorization, id, "recovery");
+      notify(id, null, "crypto-deverrouille-kyc", "Crypto part opened by identity check",
+        "The wallet recovery screens of your account were opened after an identity check (no biometrics). If this was not you, refresh your coins from your wallet.", `unlock-kyc:${id}:${Date.now()}`);
+      return { scope: "recovery" };
+    }
+    case "POST /auth/crypto-unlock/lock": {
+      const id = customerFromSession(req.headers.authorization);
+      if (!id) throw new HttpError(401, "session expired: please log in again");
+      revokeUnlock(req.headers.authorization);
+      return { scope: null };
     }
     // Ré-authentification avant un envoi de montant élevé : enregistrée et signalée au client (alerte).
     case "POST /auth/stepup/options": {
@@ -200,8 +333,7 @@ async function route(req: IncomingMessage, body: any, url: URL) {
     case "GET /custody/deposit-address":
     case "POST /custody/sync":
     case "GET /custody/travel-rule": {
-      const id = customerFromSession(req.headers.authorization);
-      if (!id) throw new HttpError(401, "session expired: please log in again");
+      const id = needCrypto(req, "full");
       const net = network(url.searchParams.get("network") ?? body.network);
       const rows = db.prepare("select * from accounts where customer_id = ? and network = ?").all(id, net) as AccountRow[];
       const ctx = { accounts: await Promise.all(rows.map(async (r) => ({ id: r.id, cfg: await configOf(r) }))) };
@@ -224,16 +356,14 @@ async function route(req: IncomingMessage, body: any, url: URL) {
 
     case "GET /wallet/accounts": {
       // Comptes Bitcoin (clés PUBLIQUES) du client connecté : un nouvel appareil retrouve son wallet.
-      const id = customerFromSession(req.headers.authorization);
-      if (!id) throw new HttpError(401, "session expired: please log in again");
+      const id = needCrypto(req, "recovery");
       const rows = db.prepare("select * from accounts where customer_id = ? and network = ? order by id").all(id, network(url.searchParams.get("network"))) as AccountRow[];
       return { accounts: rows.map(publicAccount) };
     }
 
     case "POST /ownership/challenge": {
       // Défi de preuve de propriété pour une adresse d'un compte du client connecté (usage unique, 10 min).
-      const customerId = customerFromSession(req.headers.authorization);
-      if (!customerId) throw new HttpError(401, "session expired: please log in again");
+      const customerId = needCrypto(req, "full");
       const net = network(body.network);
       const row = db.prepare("select * from accounts where customer_id = ? and network = ? and client_key = ?").get(customerId, net, String(body.client ?? "")) as AccountRow | undefined;
       if (!row) throw new HttpError(403, "this account does not belong to the logged-in client");
@@ -249,16 +379,14 @@ async function route(req: IncomingMessage, body: any, url: URL) {
 
     case "GET /ownership/status": {
       // Cette adresse a-t-elle déjà une preuve de propriété vérifiée (Travel Rule) ?
-      const customerId = customerFromSession(req.headers.authorization);
-      if (!customerId) throw new HttpError(401, "session expired: please log in again");
+      const customerId = needCrypto(req, "full");
       const row = db.prepare("select id, verified_at from ownership_challenges where customer_id = ? and address = ? and verified_at is not null order by verified_at desc limit 1")
         .get(customerId, String(url.searchParams.get("address") ?? "")) as any;
       return { verified: !!row, proofId: row?.id ?? null, verifiedAt: row ? new Date(row.verified_at).toISOString() : null };
     }
 
     case "POST /ownership/verify": {
-      const customerId = customerFromSession(req.headers.authorization);
-      if (!customerId) throw new HttpError(401, "session expired: please log in again");
+      const customerId = needCrypto(req, "full");
       const c = db.prepare("select * from ownership_challenges where id = ? and customer_id = ?").get(String(body.challengeId ?? ""), customerId) as any;
       if (!c) throw new HttpError(404, "unknown challenge");
       if (c.used_at) throw new HttpError(409, "challenge already used");
@@ -286,8 +414,7 @@ async function route(req: IncomingMessage, body: any, url: URL) {
     // un lien (identifiant aléatoire de 128 bits) et y renvoie sa signature. Swissquote ne fait que transporter :
     // la signature du tiers ne se fait que dans sa console.
     case "POST /relay": {
-      const customerId = customerFromSession(req.headers.authorization);
-      if (!customerId) throw new HttpError(401, "session expired: please log in again");
+      const customerId = needCrypto(req, "recovery");
       const id = randomBytes(16).toString("hex");
       db.prepare("insert into relay (id, customer_id, psbt) values (?, ?, ?)").run(id, customerId, String(body.psbt ?? ""));
       return { id };
@@ -335,6 +462,8 @@ async function route(req: IncomingMessage, body: any, url: URL) {
       return runAlerts(configOf, body.network ? [network(body.network)] : undefined);
 
     case "POST /identity/verify": {
+      const wait = kycLockedFor(body.customerId);
+      if (wait) throw new HttpError(429, `identity verification locked after too many failed attempts: try again in ${Math.ceil(wait / 60)} min`);
       const session = verifyIdentity(body);
       if (!session) throw new HttpError(403, "identity verification rejected (unknown test file or incorrect answers)");
       return session;
@@ -381,16 +510,30 @@ createServer(async (req, res: ServerResponse) => {
     res.setHeader("access-control-allow-methods", "GET, POST, OPTIONS");
   }
   if (req.method === "OPTIONS") return res.writeHead(204).end();
+  const fail = (status: number, error: string) => res.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify({ error }));
+  // JSON seulement : une requête « simple » d'un autre site (text/plain, formulaire) n'est pas précédée d'un contrôle CORS,
+  // elle atteindrait sinon les routes sans session (relais, re-KYC).
+  if (req.method === "POST" && !/^application\/json(;|$)/.test(String(req.headers["content-type"] ?? ""))) return fail(415, "application/json required");
   let raw = "";
-  for await (const chunk of req) raw += chunk;
+  // Corps trop gros : on répond et on ferme la connexion (la lecture interrompue détruit le flux de la requête).
+  for await (const chunk of req) { raw += chunk; if (raw.length > MAX_BODY) { res.setHeader("connection", "close"); return fail(413, "request too large"); } }
+  let body: any = {};
+  if (raw) { try { body = JSON.parse(raw); } catch { return fail(400, "invalid JSON"); } }
+  // Journal des appels (diagnostic) : méthode, chemin, statut ; les lectures qui réussissent sont omises (sondages).
+  const logCall = (status: number, msg?: string) => {
+    if (req.method === "GET" && status < 400) return;
+    console.log(`[bank-mock] ${new Date().toISOString().slice(11, 19)} ${req.method} ${(req.url ?? "").split("?")[0]} -> ${status}${msg ? ` (${msg})` : ""}`);
+  };
   try {
-    const out = await route(req, raw ? JSON.parse(raw) : {}, new URL(req.url ?? "/", "http://localhost"));
+    const out = await route(req, body ?? {}, new URL(req.url ?? "/", "http://localhost"));
     res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(out));
+    logCall(200);
   } catch (e: any) {
     const status = e instanceof HttpError || e instanceof CustodyError ? e.status : 500;
     res.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify({ error: e.message, ...(e instanceof CustodyError ? e.extra : {}) }));
+    logCall(status, e.message);
   }
-}).listen(PORT, () => console.log(`[bank-mock] guardian Swissquote sur http://localhost:${PORT}`));
+}).listen(PORT, HOST, () => console.log(`[bank-mock] guardian Swissquote sur http://localhost:${PORT} (interface ${HOST})`));
 
 // Surveillance périodique des comptes (alertes au client) : regtest toutes les 30 s ; signet toutes les 15 min
 // (API Esplora publique limitée à 700 requêtes/heure/IP chez blockstream). 0 désactive.

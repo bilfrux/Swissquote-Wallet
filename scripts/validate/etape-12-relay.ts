@@ -10,7 +10,7 @@ import { makeReport, miner, rpc } from "./lib.ts";
 const BANK = "http://localhost:4160";
 const DATA = `${process.cwd()}/.local/e2e-12`;
 rmSync(DATA, { recursive: true, force: true });
-const proc: ChildProcess = spawn("npm", ["run", "-s", "dev", "-w", "bank-mock"], { env: { ...process.env, BANK_MOCK_PORT: "4160", BANK_MOCK_DATA: DATA, ALERT_INTERVAL_MS: "0", ALERT_SIGNET_INTERVAL_MS: "0" }, stdio: "ignore", detached: true });
+const proc: ChildProcess = spawn("npm", ["run", "-s", "dev", "-w", "bank-mock"], { env: { ...process.env, BANK_MOCK_CRYPTO_LOCK: "off", BANK_MOCK_PORT: "4160", BANK_MOCK_DATA: DATA, ALERT_INTERVAL_MS: "0", ALERT_SIGNET_INTERVAL_MS: "0" }, stdio: "ignore", detached: true });
 for (let i = 0; i < 100; i++) { try { if ((await fetch(`${BANK}/health`)).ok) break; } catch {} await new Promise((r) => setTimeout(r, 200)); }
 const call = async (method: string, path: string, token?: string, body?: unknown) => {
   const r = await fetch(BANK + path, { method, headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: body ? JSON.stringify(body) : undefined });
@@ -21,8 +21,9 @@ const { report, summary } = makeReport();
 try {
   const token = (await call("POST", "/auth/login", undefined, { customerId: "CH-0003", password: "demo0003" })).body.token;
   const tiersSeed = newMnemonic();
-  const sq = (await call("GET", "/guardian/key?network=regtest")).body.accountKey;
-  const cfg = await createWalletConfig({ network: "regtest", delay: 6, client: accountKey(masterFromMnemonic(newMnemonic(), "regtest")), swissquote: sq, tiers: accountKey(masterFromMnemonic(tiersSeed, "regtest")) });
+  const client = accountKey(masterFromMnemonic(newMnemonic(), "regtest"));
+  const sq = (await call("GET", `/guardian/key?network=regtest&client=${encodeURIComponent(client)}`)).body.accountKey; // clé du compte (étape 56)
+  const cfg = await createWalletConfig({ network: "regtest", delay: 6, client, swissquote: sq, tiers: accountKey(masterFromMnemonic(tiersSeed, "regtest")) });
   const m = await miner();
   await m.pay(outputAt(cfg, 0, 0).getAddress(), 0.2);
   await m.mine(7); // délai D=6 atteint : chemin de recovery

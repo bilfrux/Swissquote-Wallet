@@ -1,0 +1,14 @@
+[OK ] 47-1 Serveur du wallet : politique refusée sans biométrie ou avec un mauvais secret (403), invalide refusée (400), acceptée avec la biométrie
+       sans : 403 ; mauvais secret : 403 ; invalide : 400 ; biométrie : 200
+[OK ] 47-2 Première politique : écran de confirmation (contact, empreinte du contact et de Swissquote, délai) ; rien d'enregistré avant la biométrie, enregistrée après
+       affiché : contact deca9e93, Swissquote 120cc943 ; avant confirmation : null ; réponse true
+[OK ] 47-3 Clé de contact substituée par l'appli : changement signalé (ancienne → nouvelle empreinte), refus remonté à l'appli, politique inchangée
+       Trusted contact change: Marie Dupont (deca9e93) → Marie Dupont (cd8e1c0a) ; réponse {"ok":false,"error":"refused by the client"} ; contact enregistré : deca9e93
+[OK ] 47-4 Clé Swissquote différente de la politique actuelle : alerte affichée
+       alerte affichée
+
+RÉSUMÉ
+47-1 fonctionne         Serveur du wallet : politique refusée sans biométrie ou avec un mauvais secret (403), invalide refusée (400), acceptée avec la biométrie
+47-2 fonctionne         Première politique : écran de confirmation (contact, empreinte du contact et de Swissquote, délai) ; rien d'enregistré avant la biométrie, enregistrée après
+47-3 fonctionne         Clé de contact substituée par l'appli : changement signalé (ancienne → nouvelle empreinte), refus remonté à l'appli, politique inchangée
+47-4 fonctionne         Clé Swissquote différente de la politique actuelle : alerte affichée

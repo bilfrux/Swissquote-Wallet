@@ -1,6 +1,6 @@
 # Handoff: state of the project and what remains
 
-Branch `modele-2-guardians`. Read `CLAUDE.md` (rules), `SPEC.md` (the later sections take precedence), then this file.
+Branch `remediation-audit` (from `worktree-docs-soumission`, the most advanced branch; `modele-2-guardians` is behind it). Read `CLAUDE.md` (rules), `SPEC.md` (the later sections take precedence), then this file.
 
 ## Project
 
@@ -13,7 +13,7 @@ Model: the client holds their own key in the **Client Wallet** (separate referen
 | Area | State |
 | --- | --- |
 | Bitcoin core | Policy, descriptors, PSBT, scan, history, fees (Esplora + bitcoind), refresh, recovery refused before D and accepted at D (regtest and real signet) |
-| Apps | Swissquote-style e-banking (desktop + phone), Crypto tab, Client Wallet (PIN scrypt+AES-GCM, confirmation screen), guardian console, attack panel (3 attacks + invariants 1 and 5) |
+| Apps | Swissquote-style e-banking (desktop + phone), Crypto tab, Client Wallet (biometrics, WebAuthn PRF + HKDF + AES-GCM, confirmation screen), guardian console, attack panel (3 attacks + invariants 1 and 5) |
 | Step 7 | BIP-322 address ownership proof; blank client `CH-0003` (`demo0003`, re-KYC `Martin` / `1992-03-21` / `246810`) |
 | Step 8 | PIN, alerts (bell + simulated email), signet UI create phase |
 | Step 9 | History and fee estimation, Esplora rate-limit handling |
@@ -25,8 +25,16 @@ Model: the client holds their own key in the **Client Wallet** (separate referen
 | Step 14 | Regtest: the recovered key spends, the old one cannot; race after D (client first / guardians first / mempool replacement) |
 | A4 | `docs/custody-models.md`, `docs/travel-rule.md`, `docs/business-case.md` (illustrative assumptions kept for now) |
 | Steps 15-16 | EVM on the real Sepolia with no ETH (Candide public bundler + paymaster): Safe + recovery module (3 min) + 2 guardians; Swissquote alone refused; early finalize refused; recovery to a new key; old key refused; owner cancels a hostile recovery. Script only (`scripts/feasibility/e2e-sepolia.ts`) |
+| Steps 17-18 | Ethereum in the product: one phrase, two accounts; Safe activation, USDC balance and send (sponsored), refusal to sign what the wallet cannot decode; recovery from the interface (re-KYC, EIP-712 signatures of Swissquote and the contact via the relay, countdown, completion). `packages/evm`, `validate:17`, `validate:18` |
+| Steps 19-26 | One network at a time (MetaMask-style selector), Ethereum activity read on-chain, market prices and charts, Esplora rate-limit resilience, public site (markets, login) in EN/FR/DE/IT, crypto screens in French, Bitcoin refresh and recovery countdown on signet, threat model covers Ethereum |
+| Steps 27-35 | Passkey login removed (passkey kept for step-up and the smart account), passkey wording and rules, Client Wallet and contact console visuals aligned, testnet assets valued, direct USDC unlock |
+| Steps 36-37 | Client Wallet unlocked by biometrics (WebAuthn PRF, HKDF + AES-256-GCM); the PIN format is kept only to migrate old wallets. Step 37 repaired commit 36 (missing `vault.ts`/`store.ts`) and added `validate:37` |
+| Submission docs | README rewritten for Bitcoin and Ethereum (it still said Ethereum was out of scope); `docs/ia.md` unchanged |
+| Steps 38-43 | Crypto part locked by a passkey checked by bank-mock; relock when leaving; wallets belong to the device; exit kit (spend without Swissquote); biometrics migration from a signature request; change of trusted contact (Bitcoin) |
+| Steps 44-55 (audit remediation) | 44 PRF biometrics validated in Chrome; 45 full journey replayed with biometrics and the crypto lock; 46 loopback-only servers, `Host` check, erase requires biometrics; 47 policy confirmed in the wallet (contact fingerprint, biometrics); 48 Ethereum guardian changes and thresholds below 2 refused; 49 regtest RPC relay whitelisted; 50 no way back to a PIN, one recipient above the threshold, no request substitution; 51 invariant 5 covers Ethereum keys and says what it cannot search; 52 bank-mock JSON only, serialized withdrawals, recovery fee cap, re-KYC lockout; 53 small fixes; 54 Ethereum journey on the real Sepolia with biometrics, guardian address comparison fixed; 55 documentation |
+| Steps 56-62 | 56 one Swissquote key per account (Bitcoin and Ethereum); 57 phone/desktop layout switch keeps forms; 58 Ethereum change of trusted contact (real Sepolia); 59 manual Touch ID check (`npm run check:touchid`, not run); 60 bitcoind recreated on 127.0.0.1 with the chain kept; 61 uncommitted work of `docs-soumission` taken over (no relock during a wallet request, demo clients CH-0004 to CH-0006); 62 README features |
 
-Last verified: `npm run typecheck`; `validate:6:ui` desktop 19/19 and phone 20/20; `validate:1,2,3,7,8:pin,8:alerts,9,10,11,12,inv5`, `test:attacks` all pass. Reports in `docs/validation/etape-N.md` (raw outputs in `*-sortie.txt`, kept as recorded, French).
+Last verified (13 Oct, branch `remediation-audit`, step 55): `npm run typecheck` (with `packages/evm`); `validate:6:ui` desktop 19/19 and phone 20/20; `validate:1,2,3,7,8:alerts,9:budget,10,11,12,37,38,40,41,42,43,44,46,47,48,49,50,52,53,inv5` and `test:attacks` all pass; `validate:54` (real Sepolia) 9/9. `validate:9` 5/6 (9-6 depends on signet demo data, fails on the code before the remediation too). `validate:8:pin`, `validate:17`, `validate:18` are obsolete (they type a PIN) and replaced by `validate:37`, `validate:44`, `validate:54`. Summary: `docs/validation/etape-55-regressions-sortie.txt`. Reports in `docs/validation/etape-N.md` (raw outputs in `*-sortie.txt`, French).
 
 ## Remaining
 
@@ -35,12 +43,14 @@ Last verified: `npm run typecheck`; `validate:6:ui` desktop 19/19 and phone 20/2
 2. **A3 rest**: trusted contact inbox and notification (today the link is passed by hand).
 3. Not tested: high-value amount with Swissquote unreachable in the UI; deposit button flow in Chrome; one unexplained 500 seen once in the desktop test (cause unknown; the test now logs any 5xx).
 4. Not rerun after A3/step 13: signet scripts; old `etape-1/2/3-ui` scripts target the pre-redesign UI.
+5. `validate:9` test 9-6 (real signet history of CH-0003's original wallet) fails, also on the code before the remediation: it depends on the state of the signet demo data.
+6. Still to do by hand: run `npm run check:touchid` once (real Touch ID); merge `remediation-audit` into the submission branch (the `docs-soumission` worktree still holds its own uncommitted copy of the step-61 changes, plus `docs/qa-technique.md` and `docs/slides/`); restart the running demos on the new code. Legacy scripts not updated for per-account keys: `etape-2-ui`, `etape-3-signet`, `etape-8-signet-ui`.
 
-### Ethereum (in progress)
-Decisions taken (11 Oct): ERC-4337 + paymaster; local fork then real Sepolia; local demo dApp (no WalletConnect). Done: steps 15-16 (script). Next: client EOA derived from the Client Wallet seed, Swissquote EVM guardian in bank-mock, contact EIP-712 signature in the console, interface; USDC transfer (test USDC needed); then compliant dApp. Pitfall observed: read chain state at the receipt's block (public RPC node returns stale state).
+### Ethereum
+Decisions taken (11 Oct): ERC-4337 + paymaster; local fork then real Sepolia; local demo dApp (no WalletConnect). Done: steps 15-18 (script, then interface: account, USDC send, recovery), replayed with biometrics in step 54 (`validate:54`, real Sepolia). Changing the Ethereum contact is refused by the wallet (step 48) until a dedicated screen exists. Gasless is delivered by Candide's public paymaster (no Swissquote policy). **Not done: compliant dApp interaction** (no code: approved list, sanctions screening, dApp connection). Pitfall observed: read chain state at the receipt's block (public RPC node returns stale state).
 
 ### A4 written deliverables (cheap, worth many points)
-Done: comparison of the 5 custody models, custody and grey-zone argument, Travel Rule, business case. Remaining: pitch/slides; backup video; complete `docs/ia.md` ("to be completed by the team" row). Open question: clean the demo data of CH-0001/CH-0002?
+Done: comparison of the 5 custody models, custody and grey-zone argument, Travel Rule, business case. Remaining: backup video; complete `docs/ia.md` (the pitch slides exist on branch `worktree-slides-pitch`, not merged here) ("to be completed by the team" row). Open question: clean the demo data of CH-0001/CH-0002?
 
 ### Housekeeping
 Code comments and `CLAUDE.md` are still in French (CLAUDE.md quotes the old French heading "Révisions après revue critique", now "Revisions after critical review" in `SPEC.md`). Background `npm run demo:signet` may still be running (user's own processes on 5173/5174/5175 must not be killed). Existing `bank-mock/data` keeps old French alerts/records.

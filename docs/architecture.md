@@ -52,6 +52,14 @@ Legend: green = real, yellow = mocked, grey-blue = reference implementation or d
 
 The relay between the app and the trusted-contact console goes through bank-mock (`/relay`): the client deposits the PSBT signed by Swissquote, the contact opens it through a link (`?req=…`) and sends back their signature; bank-mock only accepts a signed version of the same transaction. If Swissquote is unavailable, the manual exchange remains.
 
+Network exposure: the Client Wallet, bank-mock and the attack server listen on the loopback interface only; the wallet
+also rejects a foreign `Host` header. On regtest, the bank app reaches bitcoind through a development relay
+(`client/vite.config.ts`) that forwards only the RPC methods the app uses, on read-only `sq-watch-*` wallets.
+
+Account policy: the bank app sends it to the Client Wallet, which shows the trusted contact's name and fingerprint,
+Swissquote's fingerprint and the delay, and saves it only after biometrics. The contact's console shows the same
+fingerprint, to be compared by another channel.
+
 Other signers: Bitcoin Core (`walletprocesspsbt`, validated) can replace the Client Wallet through the "Other external wallet (PSBT)" option; `tools/client-signer` serves the test scripts.
 
 ## Policy and spending paths

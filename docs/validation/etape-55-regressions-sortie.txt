@@ -1,0 +1,31 @@
+# Suite de non-régression finale (branche remediation-audit, 13 oct. 2026)
+typecheck | exit 0 | 0 OK | 0 KO
+inv5 | exit 0 | 4 OK | 0 KO
+v1 | exit 0 | 6 OK | 0 KO (relancé après correction du test : portefeuille Bitcoin Core déjà sur le disque)
+v2 | exit 0 | 8 OK | 0 KO
+v3 | exit 0 | 7 OK | 0 KO
+v6-desktop | exit 0 | 19 OK | 0 KO
+v6-mobile | exit 0 | 20 OK | 0 KO
+v7 | exit 0 | 8 OK | 0 KO
+v8-alerts | exit 0 | 6 OK | 0 KO
+v9-budget | exit 0 | 1 OK | 0 KO
+v10 | exit 0 | 3 OK | 0 KO
+v11 | exit 0 | 6 OK | 0 KO
+v12 | exit 0 | 2 OK | 0 KO
+attacks | exit 0 | 4 OK | 0 KO
+v37 | exit 0 | 8 OK | 0 KO
+v38 | exit 0 | 8 OK | 0 KO
+v40 | exit 0 | 3 OK | 0 KO
+v41 | exit 0 | 5 OK | 0 KO
+v42 | exit 0 | 2 OK | 0 KO
+v43 | exit 0 | 6 OK | 0 KO
+v44 | exit 0 | 5 OK | 0 KO
+v46 | exit 0 | 4 OK | 0 KO
+v47 | exit 0 | 4 OK | 0 KO
+v48 | exit 0 | 12 OK | 0 KO
+v49 | exit 0 | 3 OK | 0 KO
+v50 | exit 0 | 3 OK | 0 KO
+v52 | exit 0 | 4 OK | 0 KO
+v53 | exit 0 | 1 OK | 0 KO
+DONE
+v54 (Sepolia réel) | exit 0 | 9 OK | 0 KO (étape 54, même code)

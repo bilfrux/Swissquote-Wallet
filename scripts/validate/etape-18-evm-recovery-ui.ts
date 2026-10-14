@@ -127,7 +127,7 @@ try {
   await rec.getByTestId("evm-countdown").waitFor({ timeout: 30000 });
   await shot(app, "2-recovery-demarree");
   report("18-3", "Recovery démarrée depuis l'interface (Swissquote + tiers), relayée et parrainée ; délai affiché, propriétaire inchangé pendant le délai",
-    !!pending.pending && pending.pending.newOwners.map(getAddress).includes(newOwner) && getAddress(pending.owners[0]) === getAddress(before.owners[0]) && startScreen.includes("Relay the guardians' signatures"),
+    !!pending.pending && pending.pending.newOwners.map((a) => getAddress(a)).includes(newOwner) && getAddress(pending.owners[0]) === getAddress(before.owners[0]) && startScreen.includes("Relay the guardians' signatures"),
     `${started.trim()} ; applicable après ${pending.pending ? new Date(pending.pending.executeAfter * 1000).toISOString() : "?"} ; écran : ${startScreen.replace(/\s+/g, " ").slice(80, 260)}`);
 
   // 18-6 La progression survit à un rechargement de la page (mémorisée dans la session, étape 20).

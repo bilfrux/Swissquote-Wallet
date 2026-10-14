@@ -1,0 +1,18 @@
+[KO ] 57-1 Changement de contact en cours : la saisie survit au passage en largeur téléphone (390 px) puis au retour (1280 px)
+       390 px : formulaire 0, nom «  », clé perdue ; 1280 px : formulaire 0, nom «  », clé perdue
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+locator.click: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for getByRole('button', { name: 'Prepare the change' })[22m
+
+    at <anonymous> (/private/tmp/claude-502/-Users-f8114-Florian-Travail-ESILV-A4-DVB-Hackathons-EPFL-Hack-Swissquote-Wallet/5cc56ad7-1363-4dfe-a040-218e6b9d2322/scratchpad/b57/scripts/validate/etape-57-layout.ts:75:63) {
+  log: [
+    "  - waiting for getByRole('button', { name: 'Prepare the change' })"
+  ],
+  name: 'TimeoutError'
+}
+
+Node.js v24.10.0

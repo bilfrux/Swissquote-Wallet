@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Swissquote self-custody wallet: 5-minute pitch</title>
+<style>
+  @page { size: A4; margin: 15mm 15mm 16mm 15mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; color: #1f2633; font-size: 10.4pt; line-height: 1.42; margin: 0; }
+  header { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #fe5e3a; padding-bottom: 8px; margin-bottom: 14px; }
+  header img { height: 30px; }
+  header .tag { font-size: 9pt; color: #6b7487; text-align: right; }
+  h1 { font-size: 21pt; margin: 4px 0 2px; color: #22272f; }
+  h2 { font-size: 13.5pt; margin: 18px 0 6px; color: #22272f; border-left: 5px solid #fe5e3a; padding-left: 8px; page-break-after: avoid; }
+  p { margin: 5px 0; }
+  .sub { color: #6b7487; margin-bottom: 8px; }
+  .box { background: #eef1f7; border-radius: 8px; padding: 9px 12px; margin: 8px 0; page-break-inside: avoid; }
+  .box.warn { background: #fff0ec; border: 1px solid #fe5e3a; }
+  .box b.k { color: #d6401f; }
+  table { width: 100%; border-collapse: collapse; margin: 6px 0 10px; }
+  th { background: #22272f; color: #fff; text-align: left; padding: 5px 7px; font-size: 9pt; }
+  td { border-bottom: 1px solid #e2e7f0; padding: 6px 7px; vertical-align: top; }
+  tr { page-break-inside: avoid; }
+  td.t { white-space: nowrap; color: #d6401f; font-weight: 700; width: 11%; }
+  td.s { width: 22%; font-weight: 700; }
+  .say { font-style: italic; }
+  .q { margin: 7px 0; page-break-inside: avoid; }
+  .q b { color: #22272f; }
+  ul { margin: 4px 0 4px 18px; padding: 0; }
+  li { margin: 2px 0; }
+  code { font-family: Menlo, Consolas, monospace; font-size: 9pt; background: #eef1f7; padding: 1px 4px; border-radius: 3px; }
+  footer { margin-top: 16px; font-size: 8.5pt; color: #6b7487; border-top: 1px solid #e2e7f0; padding-top: 6px; }
+</style>
+</head>
+<body>
+
+<header>
+  <img src="img/swissquote-logo.png" alt="Swissquote">
+  <div class="tag">EPFL Hackathon · Swissquote track<br>Pitch: 5 minutes (about 2 min of slides, then live demo)</div>
+</header>
+
+<h1>Your keys. Your control.</h1>
+<p class="sub">A self-custody wallet one step from your Swissquote account. The bank builds the tool, but never holds the keys.</p>
+
+<div class="box">
+  <b>The demonstration: A + B.</b><br>
+  <b class="k">A</b>: the client's own key, always able to spend alone.<br>
+  <b class="k">B</b>: a rule enforced by the chain, not by Swissquote: Swissquote and a trusted contact recover together, only after a delay.<br>
+  From A + B, four properties follow, each tested on a real node: Swissquote alone can do nothing; with the contact, before the delay, the network refuses; a client who stays active restarts the delay; a lost key is recoverable after the delay.
+</div>
+
+<h2>Part 1: slides, about 2:00</h2>
+<p class="sub">Deck: <code>swissquote-wallet-2min.pptx</code>, 6 slides. About 250 words, read at an easy pace.</p>
+<table>
+  <tr><th>Time</th><th>Slide</th><th>Say</th></tr>
+  <tr><td class="t">0:00</td><td class="s">1. Your keys. Your control.</td><td class="say">"Self-custody means leaving the bank. We built the wallet where clients keep their keys and stay with Swissquote."</td></tr>
+  <tr><td class="t">0:10</td><td class="s">2. A + B: why it holds</td><td class="say">"Our design is A plus B. A: the client's own key, always able to spend alone. B: a rule enforced by the chain: Swissquote and a trusted contact can recover, but only after a delay. So Swissquote alone can do nothing, before the delay the network refuses, and a lost key is recoverable. All tested on a real node."</td></tr>
+  <tr><td class="t">0:35</td><td class="s">3. One answer to each point of the brief</td><td class="say">"Every point of the brief has a one-line answer here. Two to notice: the server checks a biometric passkey to open the crypto area, so a stolen password gets nothing; and if Swissquote disappears, an Emergency exit signs with the client's key alone."</td></tr>
+  <tr><td class="t">0:55</td><td class="s">4. Why not MPC or a smart wallet?</td><td class="say">"Why not MPC or a smart wallet? I looked at both first. MPC lets Swissquote and a partner sign immediately: the delay is only software. My first plan, a Safe with a passkey, had too many problems, and it is Ethereum only, so no Bitcoin. So the key is a plain seed and the delay is Bitcoin consensus. On Ethereum, we do use a Safe."</td></tr>
+  <tr><td class="t">1:25</td><td class="s">5. What Swissquote gains</td><td class="say">"Why Swissquote? Today self-custody means the client withdraws and takes the trades away. Here the flows stay in the app. Swissquote cannot move the funds alone, so, subject to a lawyer, no custody burden. Travel Rule proofs become automatic. Honestly, break-even is about 2,700 clients at our illustrative numbers."</td></tr>
+  <tr><td class="t">1:55</td><td class="s">6. Real and mocked, openly</td><td class="say">"Real: keys, scripts, delays, transactions. Mocked: the bank and the KYC. Now, live."</td></tr>
+</table>
+<p>Slides 3 to 5 are dense on purpose: the jury can read them while you talk. If you run long, shorten slide 5 first, not the A + B slide.</p>
+
+<h2>Part 2: live demo</h2>
+<p>Two Swissquote accounts, on two separate stacks. <b>Start on the first, finish on the second.</b></p>
+<table>
+  <tr><th></th><th>CH-0003: existing tokens</th><th>CH-0004: created live</th></tr>
+  <tr><td><b>App (start here)</b></td><td><code>http://localhost:5175</code></td><td><code>http://localhost:5173</code></td></tr>
+  <tr><td><b>Login</b></td><td><code>CH-0003</code> / <code>demo0003</code></td><td><code>CH-0004</code> / <code>pitch0004</code></td></tr>
+  <tr><td><b>Trusted-contact console</b></td><td>5176</td><td>5174</td></tr>
+  <tr><td><b>Client Wallet (opens by itself)</b></td><td>5290</td><td>5190</td></tr>
+  <tr><td><b>Network</b></td><td>signet and Sepolia, old data</td><td>regtest, fresh data</td></tr>
+  <tr><td><b>Re-KYC (recovery)</b></td><td>Martin, 1992-03-21, 246810</td><td>Keller, 1994-07-12, 135790</td></tr>
+</table>
+<div class="box warn">Do <b>not</b> open ports 4000, 5180, 5183 or 5184: they belong to another running session.</div>
+
+<p><b>Before the talk (not on stage)</b></p>
+<ul>
+  <li>Both stacks are running (ports above). Check each app loads.</li>
+  <li>On the CH-0004 stack, open the contact console (5174), create the contact's identity, keep its public key at hand and keep that tab open.</li>
+  <li>Do one full dry run of <b>both</b> stacks with Touch ID. The CH-0003 passkey was created on another port: it should work (the WebAuthn identifier is <code>localhost</code>) but it was not tested. The first opening of the crypto area for CH-0004 creates its passkey.</li>
+  <li>Record a video of the full run as a backup.</li>
+</ul>
+
+<p><b>On stage</b></p>
+<table>
+  <tr><th>Time</th><th>Action</th><th>What to say</th></tr>
+  <tr><td class="t">2:00</td><td><b>CH-0003 (5175)</b>: log in, open Crypto: "Crypto is locked". Touch ID. The tokens appear.</td><td class="say">"The password alone opens nothing: the server asks for the client's biometrics. Here are the tokens of an existing wallet."</td></tr>
+  <tr><td class="t">2:25</td><td><b>CH-0004 (5173)</b>: log in, Crypto, "Create my wallet", paste the contact's key, Touch ID, the phrase appears once, send the public key.</td><td class="say">"A new client creates a wallet. The seed is made on their own device and shown once. The bank only receives public keys."</td></tr>
+  <tr><td class="t">3:15</td><td>Fund it: <code>npm run regtest -- fund &lt;address&gt; 0.5</code>, reload. Send, sign in the Client Wallet (point at the confirmation screen).</td><td class="say">"That is A: the client signs in their own wallet, which shows exactly what leaves."</td></tr>
+  <tr><td class="t">3:50</td><td>Wallet: "Simulate losing this device". Second profile: "I lost my wallet", re-KYC, new wallet, Swissquote signs, the contact signs in the console.</td><td class="say">"Now the client loses everything. Swissquote verifies identity and signs; the contact signs separately."</td></tr>
+  <tr><td class="t">4:30</td><td>Broadcast: <b>the network refuses it</b> (<code>non-BIP68-final</code>). Then <code>npm run regtest -- mine 6</code> and broadcast again: accepted.</td><td class="say">"That is B: before the delay, Bitcoin itself says no. After the delay, the funds move."</td></tr>
+  <tr><td class="t">4:50</td><td>Closing line.</td><td class="say">"Create, sign, lose it, recover. Self-custody, with a Swiss bank one step away."</td></tr>
+</table>
+<div class="box warn">
+  <b>This runs longer than 3 minutes if everything is live.</b> Cut in this order: the send (3:15), then the funding step (fund before going on stage), then the CH-0003 part. <b>Do not cut the refused broadcast</b>: it is the proof of B.<br>
+  <b>If something breaks</b>: play the recorded video. Do not debug on stage.
+</div>
+
+<h2>Likely questions</h2>
+<div class="q"><b>A Swissquote employee with bad intentions tries to open my crypto area from their own PC?</b> Their biometrics unlock <i>their</i> key, not mine. The server checks a signature against the public key registered for my account, so it refuses. Two limits, said plainly: the first passkey is registered with the session alone, so enrol it right after creating the account; and the "I lost my device" path gives a limited level after a re-KYC (mocked here: name, birth date, code), where production needs real identity checks. And an insider who <b>controls the bank server</b> can bypass the lock, because it is a server rule. They still cannot move funds from my wallet: the key is on my device behind its own biometrics, and a recovery needs the contact and the delay.</div>
+<div class="q"><b>You said you looked at MPC and a smart wallet: why not just use them?</b> MPC cannot enforce a delay on-chain: Swissquote and a partner can sign immediately, and the delay is a rule in software they run. A smart wallet exists only on Ethereum, so it cannot cover Bitcoin. We use one (a Safe) on Ethereum. The security gain of MPC against a stolen device is real, and we say so: a stolen seed lets a thief spend at once in our design.</div>
+<div class="q"><b>What if Swissquote disappears?</b> On Bitcoin, the Emergency exit in the Client Wallet reads the coins from the chain and signs with the client's key alone, without the site or the bank server. It needs the device with its wallet. If the client loses the device and Swissquote is gone, the funds are lost (stated in the README). Ethereum has no exit kit yet.</div>
+<div class="q"><b>Can the client change their trusted contact?</b> Yes on Bitcoin: it changes the script, so the coins move to a new address and the delay restarts.</div>
+<div class="q"><b>Is Swissquote custodian?</b> Alone, it can move nothing. With the contact, it can after the delay, to any destination (the grey zone). The client resets the delay by spending.</div>
+<div class="q"><b>Does it make money?</b> Not on fees alone at our illustrative values (break-even about 2,730 retained clients). The case rests on Swissquote's real volumes and on the strategic value of keeping the client.</div>
+<div class="q"><b>Is the gasless real?</b> Real, through Candide's public paymaster (a third party). No abuse control of our own.</div>
+<div class="q"><b>Compliant dApp?</b> Not implemented. The wallet decodes operations in plain language and refuses what it cannot explain.</div>
+<div class="q"><b>Why does the repository differ from the demo?</b> The submission is the state pushed at 09:48 and 09:49. After 10:00, we added the key-pasting fix and a demo client, and merged the biometric-lock branch locally. Nothing was pushed or backdated.</div>
+
+<h2>To check before presenting</h2>
+<div class="box warn">
+  <ul>
+    <li>The validation reports of the biometric lock, the Emergency exit, the device-bound wallet and the contact change come from another session and were <b>not re-run</b>. Only the "crypto locked" refusal was observed directly.</li>
+    <li>The MPC library limits were read in its documentation, not executed. The smart-wallet problems come from risks identified in the spec: do not say "it failed".</li>
+    <li>All business-case figures are illustrative, none comes from Swissquote. The "no custody burden" point is a hypothesis to confirm with a lawyer.</li>
+  </ul>
+</div>
+
+<footer>Swissquote self-custody wallet · EPFL Hackathon, Swissquote track · Pitch script, English version</footer>
+</body>
+</html>

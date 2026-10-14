@@ -6,12 +6,19 @@ import { NETWORK } from "./config";
 export const WALLET_URL = import.meta.env.VITE_CLIENT_WALLET_URL ?? "http://localhost:5180";
 const WALLET_ORIGIN = new URL(WALLET_URL).origin;
 
+// Nombre de demandes en cours auprès du wallet. Tant qu'il y en a une, la page de l'appli peut passer en arrière-plan
+// (la fenêtre du wallet est au premier plan, c'est voulu) sans que le verrou crypto se remette : sinon l'enregistrement
+// du compte, juste après la création du wallet, était refusé par Swissquote (403 « crypto locked »).
+let pending = 0;
+export const walletBusy = () => pending > 0;
+
 export function walletRequest<T>(action: "create" | "sign" | "policy" | "prove" | "evm-address" | "evm-sign", payload: unknown): Promise<T> {
   return new Promise((resolve, reject) => {
     const id = crypto.randomUUID();
     let sent = false;
     let win: Window | null = null;
-    const finish = (f: () => void) => { window.removeEventListener("message", onMsg); clearInterval(watch); f(); };
+    pending += 1;
+    const finish = (f: () => void) => { pending = Math.max(0, pending - 1); window.removeEventListener("message", onMsg); clearInterval(watch); f(); };
     const onMsg = (e: MessageEvent) => {
       if (e.origin !== WALLET_ORIGIN) return; // seule l'origine du wallet est écoutée
       if (e.data?.type === "wallet-ready" && !sent) {

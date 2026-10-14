@@ -1,0 +1,16 @@
+(node:15062) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+[OK ] 56-1 Clé Swissquote propre au compte : différente pour deux clients, stable pour un même compte, jamais la clé historique ; même empreinte Swissquote ; sans clé client : 400
+       A [e6d2cc19/48'/1'/1005488413'/2']… ; B [e6d2cc19/48'/1'/500652030'/2']t… ; clés publiques Swissquote à l'index 0 : 0327e47e0c4d… ≠ 032674096ae6… ; sans clé client : 400
+[OK ] 56-2 Enregistrement : clé Swissquote recalculée par Swissquote (une clé imposée par l'appli est ignorée), renvoyée et listée pour chaque compte
+       compte A 200 → e6d2cc19…48'/1'/1005488 ; compte B → 48'/1'/5006520 ; listés : 2
+[OK ] 56-3 Recovery d'un compte à clé propre : signée par Swissquote (clé du compte) et le contact ; refusée avant D, acceptée à D
+       Swissquote 200 (+1) ; avant D : non-BIP68-final ; à D : accepted
+[OK ] 56-4 Compte historique (sans clé propre en base) : listé avec la clé commune, et sa recovery reste signée par Swissquote
+       clé listée = clé historique : true ; signature Swissquote : 200 (+1)
+
+RÉSUMÉ
+56-1 fonctionne         Clé Swissquote propre au compte : différente pour deux clients, stable pour un même compte, jamais la clé historique ; même empreinte Swissquote ; sans clé client : 400
+56-2 fonctionne         Enregistrement : clé Swissquote recalculée par Swissquote (une clé imposée par l'appli est ignorée), renvoyée et listée pour chaque compte
+56-3 fonctionne         Recovery d'un compte à clé propre : signée par Swissquote (clé du compte) et le contact ; refusée avant D, acceptée à D
+56-4 fonctionne         Compte historique (sans clé propre en base) : listé avec la clé commune, et sa recovery reste signée par Swissquote

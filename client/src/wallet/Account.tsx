@@ -16,6 +16,7 @@ import { useIsMobile } from "../ui/useIsMobile";
 import { Send } from "./Send";
 import { Transfer } from "./Transfer";
 import { useT } from "../i18n";
+import { ChangeContact } from "./ChangeContact";
 
 export const RECEIVE_KEY = (cfg: WalletConfig) => `sq-wallet:receive-index:${cfg.network}:${cfg.client.fingerprint}`;
 const KIND: Record<HistoryEntry["kind"], string> = {
@@ -30,7 +31,7 @@ export const BtcIcon = ({ size = 44 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="22" fill="#f7931a" /><text x="22" y="30" textAnchor="middle" fontSize="24" fontWeight="700" fill="#fff" fontFamily="Arial">₿</text></svg>
 );
 
-export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig; account: BtcAccount; onLost: () => void; onBalance: (s: bigint) => void }) {
+export function Account({ cfg, account, onLost, onBalance, onContactChanged }: { cfg: WalletConfig; account: BtcAccount; onLost: () => void; onBalance: (s: bigint) => void; onContactChanged: (a: BtcAccount) => void }) {
   const mobile = useIsMobile();
   const market = usePrices();
   const { tr, lang } = useT();
@@ -234,6 +235,7 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
             <div className="sec-item"><p className="sec-who">Swissquote + {tiersLabel}</p><p className="small">{tr("Only together, and only for coins that have not moved for {d} blocks.", { d: cfg.delay })}</p></div>
             <div className="sec-item"><p className="sec-who">{tr("Swissquote alone")}</p><p className="small">{tr("Cannot spend anything.")}</p></div>
           </div>
+          <ChangeContact cfg={cfg} account={account} onChanged={onContactChanged} />
           <button className="btn-secondary" onClick={onLost}>{tr("I lost my wallet: recover my bitcoin")}</button>
         </div>
       )}
@@ -257,14 +259,13 @@ export function Account({ cfg, account, onLost, onBalance }: { cfg: WalletConfig
           {tr("If this is not a recovery you asked for, use “Refresh” to reset the delay.")}
         </p>
       )}
-      {mobile ? (
-        <>{header}<div ref={panelRef}>{sidePanel}</div>{chart}{tabs}</>
-      ) : (
-        <div className="crypto-grid">
-          <div>{header}{chart}{tabs}</div>
-          <div ref={panelRef} className="crypto-side">{sidePanel}</div>
-        </div>
-      )}
+      {/* Même arbre en téléphone et en ordinateur (seule la classe change) : basculer de mise en page au passage des 820 px
+          ne remonte pas les composants, donc n'efface pas un formulaire en cours (étape 57). En téléphone, le CSS remet le
+          panneau latéral juste sous l'en-tête. */}
+      <div className={mobile ? "crypto-grid stack" : "crypto-grid"}>
+        <div className="crypto-main">{header}{chart}{tabs}</div>
+        <div ref={panelRef} className="crypto-side">{sidePanel}</div>
+      </div>
     </div>
   );
 }

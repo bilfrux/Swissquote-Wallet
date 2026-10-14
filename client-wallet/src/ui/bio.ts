@@ -7,6 +7,8 @@ const b64u = (b: ArrayBuffer | Uint8Array) =>
   btoa(String.fromCharCode(...new Uint8Array(b instanceof Uint8Array ? b : new Uint8Array(b)))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const fromB64u = (s: string) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)), (c) => c.charCodeAt(0));
 const random = (n: number) => crypto.getRandomValues(new Uint8Array(n));
+// Délai de la demande de biométrie : sans authentificateur (passkey supprimée), le navigateur attendrait sans fin.
+const TIMEOUT_MS = 60_000;
 
 export type BioKey = { credentialId: string; prfSalt: string };
 export type Auth = { pin: string } | { prf: string } | Record<string, never>;
@@ -25,7 +27,7 @@ export async function bioRegister(label: string): Promise<BioKey> {
   try {
     cred = (await navigator.credentials.create({
       publicKey: {
-        challenge: random(32), // aucune vérification par un serveur : seul le secret PRF compte
+        challenge: random(32), timeout: TIMEOUT_MS, // aucune vérification par un serveur : seul le secret PRF compte
         rp: { name: "Client Wallet", id: location.hostname },
         user: { id: random(16), name: `Client Wallet · ${label}`, displayName: `Client Wallet · ${label}` },
         pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
@@ -46,7 +48,7 @@ export async function bioSecret(k: BioKey): Promise<string> {
   try {
     a = (await navigator.credentials.get({
       publicKey: {
-        challenge: random(32), rpId: location.hostname, userVerification: "required",
+        challenge: random(32), timeout: TIMEOUT_MS, rpId: location.hostname, userVerification: "required",
         allowCredentials: [{ type: "public-key", id: fromB64u(k.credentialId) }],
         extensions: { prf: { eval: { first: fromB64u(k.prfSalt) } } } as AuthenticationExtensionsClientInputs,
       },
