@@ -12,8 +12,15 @@ PRF. Cela exige le doigt de l'utilisateur : ce n'est pas automatisable.
 d'authentificateur virtuel), création de la passkey du wallet avec Touch ID, vérification que la graine se déchiffre avec le
 secret rendu, puis vraie signature d'un PSBT regtest après un nouveau Touch ID. Prérequis : `npm run regtest:up`.
 
-## Validation
+## Validation exécutée (14 oct. 2026, par l'utilisateur, Touch ID réel)
 
-**Non exécutée** : elle demande trois poses du doigt. À lancer par l'utilisateur ; le résultat attendu est « Touch ID :
-fonctionne avec le Client Wallet ». Si Chrome refuse le PRF pour la passkey de la plateforme, l'hypothèse « la biométrie
-de l'appareil chiffre la graine » est fausse sur cette machine : à signaler avant la démo.
+| Commande | Résultat observé |
+| --- | --- |
+| `npm run check:touchid` | 2/2 (`etape-59-sortie.txt`) |
+
+Observé : authentificateur de plateforme disponible ; passkey du wallet créée avec Touch ID ; secret PRF rendu ; graine
+chiffrée et déchiffrée avec ce secret ; après un nouveau Touch ID, PSBT regtest signé (une signature ajoutée).
+L'hypothèse « la biométrie de l'appareil chiffre la graine » est donc vérifiée sur cette machine (macOS, Chrome).
+
+Première exécution : la création et le secret ont réussi, la signature a échoué (« biometric check cancelled or not
+recognised ») parce que la troisième demande de Touch ID a été annulée par l'utilisateur ; deuxième exécution : réussie.

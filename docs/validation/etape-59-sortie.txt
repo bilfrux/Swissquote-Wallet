@@ -1,0 +1,8 @@
+Touch ID : posez le doigt quand Chrome le demande (création de la passkey du wallet, puis lecture du secret).
+[OK ] Passkey du wallet créée avec Touch ID, secret PRF rendu, graine chiffrée et déchiffrable
+       authentificateur de plateforme : true ; création 200
+Touch ID : posez le doigt pour signer la transaction de test.
+[OK ] Signature d'un PSBT regtest après Touch ID (secret redemandé à l'authentificateur)
+       200 signatures ajoutées : 1
+
+Touch ID : fonctionne avec le Client Wallet.
