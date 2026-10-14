@@ -1,0 +1,32 @@
+== npm run validate:48 (hors ligne)
+[OK ] 48-13 Accepté : changement de contact (retrait de l'ancien, ajout du nouveau, invalidation), gardiens connus
+[OK ] 48-14 Accepté : même changement, avec annulation d'une recovery en cours
+[OK ] 48-15 Refusé : même changement, gardiens actuels inconnus du wallet
+[OK ] 48-16 Refusé : « changement » vers le propriétaire lui-même
+[OK ] 48-17 Refusé : « changement » vers un gardien déjà présent
+[OK ] 48-18 Refusé : retrait d'une adresse qui n'est pas gardien
+[OK ] 48-19 Refusé : changement avec seuil final 1
+[OK ] 48-20 Refusé : changement + envoi d'USDC dans le même lot
+[OK ] 48-1 Accepté : activation de l'appli (module + Swissquote seuil 1 + contact seuil 2)
+[OK ] 48-2 Accepté : envoi d'USDC
+[OK ] 48-3 Accepté : annulation d'une recovery (cancelRecovery + invalidateNonce)
+[OK ] 48-4 Refusé : ajout d'un gardien de l'attaquant avec seuil 1 (seul)
+[OK ] 48-5 Refusé : ajout d'un gardien, seuil 2 (hors activation)
+[OK ] 48-6 Refusé : activation avec seuil final 1
+[OK ] 48-7 Refusé : activation avec un seul gardien
+[OK ] 48-8 Refusé : activation où le propriétaire est gardien
+[OK ] 48-9 Refusé : activation avec deux fois le même gardien
+[OK ] 48-10 Refusé : remplacement du contact par l'attaquant (ajout puis retrait, seuil 2)
+[OK ] 48-11 Refusé : retrait d'un gardien avec seuil 1
+[OK ] 48-12 Refusé : activation + retrait dans le même lot
+== npm run validate:54 (vrai Sepolia)
+[OK ] 54-1 Compte Ethereum ajouté depuis l'interface : adresse dérivée dans le Client Wallet, Safe recalculé par Swissquote
+[OK ] 54-2 Activation sur Sepolia : écran du wallet en clair (module, 2 gardiens, frais parrainés), signée par biométrie ; Safe déployé, gardiens Swis
+[OK ] 54-3 Client Wallet : refuse un appel non reconnu, et l'ajout d'un gardien de l'attaquant avec seuil 1 (étape 48), sur le Safe déployé
+[OK ] 54-4 Swissquote refuse de signer une recovery sans re-KYC, vers le propriétaire actuel, et vers chacun des gardiens (contact compris)
+[OK ] 54-5 Demande relayée au contact : sa console affiche la nouvelle clé et signe (EIP-712), Swissquote vérifie la signature du contact enregistré
+[OK ] 54-6 Recovery démarrée (Swissquote + contact), relayée par le Safe de la nouvelle clé, signée par biométrie ; délai affiché, propriétaire inchan
+[OK ] 54-7 Après le délai (3 min, contrat) : recovery finalisée depuis l'interface ; propriétaire = nouvelle clé
+[OK ] 54-8 La nouvelle clé signe depuis le Safe récupéré : signatures de gardiens restantes invalidées (nonce du module)
+[OK ] 54-9 Aucune erreur dans les consoles des navigateurs ni réponse 5xx
+== npm run typecheck : succès

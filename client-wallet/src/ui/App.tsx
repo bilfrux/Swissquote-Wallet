@@ -9,7 +9,7 @@ import { type Auth, type BioKey, bioAvailable, bioEnroll, bioSecret } from "./bi
 const ALLOWED = (import.meta.env.VITE_WALLET_ALLOWED_ORIGINS ?? "http://localhost:5173")
   .split(",").map((origin: string) => origin.trim()).filter(Boolean);
 type Req = { id: string; action: "create" | "sign" | "policy" | "prove" | "evm-address" | "evm-sign"; network: "regtest" | "signet"; payload: any; origin: string; source: Window };
-type WalletView = { id: string; label: string; accountKey: string; createdAt: string; protected: boolean; unlock?: { pin: boolean; bio: BioKey | null }; evmAddress?: string; policy?: { delay: number; tiersName?: string; network: string } };
+type WalletView = { id: string; label: string; accountKey: string; createdAt: string; protected: boolean; unlock?: { pin: boolean; bio: BioKey | null }; evmAddress?: string; policy?: { delay: number; tiersName?: string; network: string; swissquote?: string; tiers?: string } };
 
 // Saisie conservée uniquement pour migrer un ancien wallet PIN vers la biométrie.
 function PinInput({ value, onChange, label = "Wallet PIN" }: { value: string; onChange: (v: string) => void; label?: string }) {
@@ -23,8 +23,8 @@ function PinInput({ value, onChange, label = "Wallet PIN" }: { value: string; on
 const pinOk = (p: string) => /^\d{6,12}$/.test(p);
 
 // Les signatures utilisent toujours la biométrie. Le PIN n'est accepté ici que pour migrer un ancien wallet.
-function UnlockAction({ wallet, label, disabled, allowPin = false, onAuth, onRefuse, onError }: {
-  wallet: WalletView | null | undefined; label: string; disabled?: boolean; allowPin?: boolean; onAuth: (a: Auth) => Promise<void>; onRefuse?: () => void; onError: (e: string) => void;
+function UnlockAction({ wallet, label, disabled, allowPin = false, onAuth, onRefuse, refuseLabel = "Refuse", onError }: {
+  wallet: WalletView | null | undefined; label: string; disabled?: boolean; allowPin?: boolean; onAuth: (a: Auth) => Promise<void>; onRefuse?: () => void; refuseLabel?: string; onError: (e: string) => void;
 }) {
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
@@ -48,7 +48,7 @@ function UnlockAction({ wallet, label, disabled, allowPin = false, onAuth, onRef
         </>
       )}
       <div className="row">
-        {onRefuse && <button className="secondary" onClick={onRefuse}>Refuse</button>}
+        {onRefuse && <button className="secondary" onClick={onRefuse}>{refuseLabel}</button>}
         {mode !== "unavailable" && <button disabled={disabled || busy || (mode === "pin" && !pinOk(pin))} onClick={go}>{busy && mode === "bio" ? "Waiting for biometrics…" : label}</button>}
       </div>
     </>
@@ -80,13 +80,22 @@ export function App() {
     window.addEventListener("open-wallet-settings", open);
     return () => window.removeEventListener("open-wallet-settings", open);
   }, []);
-  const reply =(ok: boolean, data: unknown) => {
+  // Demande en attente de la décision du client. Tant qu'elle n'a pas reçu de réponse, une autre demande est refusée :
+  // sinon l'appli pourrait remplacer la transaction affichée juste avant le clic (l'écran montrerait encore l'ancienne).
+  const pending = useRef<string | null>(null);
+  const reply = (ok: boolean, data: unknown) => {
+    pending.current = null;
     req!.source.postMessage({ type: "wallet-response", id: req!.id, ok, ...(ok ? { data } : { error: data }) }, req!.origin);
   };
 
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
       if (!ALLOWED.includes(e.origin) || e.data?.type !== "wallet-request") return; // origine non autorisée : ignorée
+      if (pending.current && pending.current !== e.data.id) {
+        (e.source as Window).postMessage({ type: "wallet-response", id: e.data.id, ok: false, error: "another request is already waiting for your confirmation in the wallet" }, e.origin);
+        return;
+      }
+      pending.current = e.data.id;
       setReq({ ...e.data, origin: e.origin, source: e.source as Window });
       setDone(null);
       setError(null);
@@ -108,10 +117,19 @@ export function App() {
       </header>
       {error && <p className="error">{error}</p>}
       {done && <p className="done">{done}</p>}
-      {req?.action === "create" && !done && <Create req={req} onDone={(d) => { reply(true, d); setDone("Public key sent to Swissquote. You can close this window."); }} onError={setError} />}
-      {req?.action === "policy" && !done && <PolicyReq req={req} onDone={(d) => { reply(true, d); setDone("Account policy saved in your wallet."); }} onError={setError} />}
+      {req?.action === "create" && !done && <Create key={req.id} req={req} onDone={(d) => { reply(true, d); setDone("Public key sent to Swissquote. You can close this window."); }} onError={setError} />}
+      {req?.action === "policy" && !done && (
+        <PolicyReq
+          key={req.id}
+          req={req}
+          onDone={(d) => { reply(true, d); setDone("Account policy saved in your wallet."); }}
+          onRefuse={() => { reply(false, "refused by the client"); setDone("Account policy refused: nothing was saved."); }}
+          onError={setError}
+        />
+      )}
       {req?.action === "sign" && !done && (
         <Sign
+          key={req.id}
           req={req}
           onDone={(d) => { reply(true, d); setDone("Transaction signed and returned to the app. You can close this window."); }}
           onRefuse={() => { reply(false, "refused by the client"); setDone("Signature refused."); }}
@@ -120,6 +138,7 @@ export function App() {
       )}
       {req?.action === "prove" && !done && (
         <Prove
+          key={req.id}
           req={req}
           onDone={(d) => { reply(true, d); setDone("Proof signed and returned to the app. No funds were moved."); }}
           onRefuse={() => { reply(false, "refused by the client"); setDone("Proof refused."); }}
@@ -128,6 +147,7 @@ export function App() {
       )}
       {req?.action === "evm-address" && !done && (
         <EvmAddress
+          key={req.id}
           req={req}
           onDone={(d) => { reply(true, d); setDone("Ethereum address sent to Swissquote. You can close this window."); }}
           onRefuse={() => { reply(false, "refused by the client"); setDone("Refused."); }}
@@ -136,6 +156,7 @@ export function App() {
       )}
       {req?.action === "evm-sign" && !done && (
         <EvmSign
+          key={req.id}
           req={req}
           onDone={(d) => { reply(true, d); setDone("Operation signed and returned to the app. You can close this window."); }}
           onRefuse={() => { reply(false, "refused by the client"); setDone("Signature refused."); }}
@@ -150,13 +171,18 @@ export function App() {
 function Create({ req, onDone, onError }: { req: Req; onDone: (d: unknown) => void; onError: (e: string) => void }) {
   const [created, setCreated] = useState<{ wallet: WalletView; mnemonic: string } | null>(null);
   const [noted, setNoted] = useState(false);
-  const [method, setMethod] = useState<"bio" | null>(null);
+  // `null` : vérification en cours. Revérifiée au clic : un authentificateur branché ou activé après l'ouverture de la
+  // fenêtre (clé de sécurité, Touch ID déverrouillé) ne doit pas laisser le bouton désactivé pour toujours.
+  const [available, setAvailable] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
-  useEffect(() => { Promise.resolve(bioAvailable()).then((ok) => setMethod(ok ? "bio" : null)); }, []);
+  useEffect(() => { Promise.resolve(bioAvailable()).then((ok) => setAvailable(!!ok)); }, []);
   const words = useRef<string[]>([]);
   const generate = async () => {
     setBusy(true);
     try {
+      const ok = !!(await bioAvailable());
+      setAvailable(ok);
+      if (!ok) throw new Error("This device does not provide the required biometric authenticator.");
       const unlock = { bio: await bioEnroll(req.payload?.label ?? "My wallet") };
       const c = await api("/api/wallets", { network: req.network, label: req.payload?.label, ...unlock });
       words.current = c.mnemonic.split(" "); setCreated(c);
@@ -168,9 +194,9 @@ function Create({ req, onDone, onError }: { req: Req; onDone: (d: unknown) => vo
         <h2>Create your Bitcoin wallet</h2>
         <p>The app <strong>{req.origin}</strong> is asking to create a wallet. Your secret phrase will be generated here, on this device. Swissquote will only receive your public key.</p>
         <p className="small">Biometrics are required to unlock and sign with this wallet. Your device will ask for your fingerprint or face twice: once to create the wallet key, once to use it.</p>
-        {!method && <p className="error">This device does not provide the required biometric authenticator.</p>}
-        <button disabled={busy || !method} onClick={generate}>
-          {busy && method === "bio" ? "Waiting for biometrics…" : "Generate my secret phrase"}
+        {available === false && <p className="error">This device does not provide the required biometric authenticator.</p>}
+        <button disabled={busy || available === null} onClick={generate}>
+          {busy ? "Waiting for biometrics…" : "Generate my secret phrase"}
         </button>
       </section>
     );
@@ -187,11 +213,41 @@ function Create({ req, onDone, onError }: { req: Req; onDone: (d: unknown) => vo
   );
 }
 
-function PolicyReq({ req, onDone, onError }: { req: Req; onDone: (d: unknown) => void; onError: (e: string) => void }) {
-  useEffect(() => {
-    api(`/api/wallets/${req.payload.walletId}/policy`, { policy: req.payload.policy }).then(onDone, (e) => onError(e.message));
-  }, [req]); // eslint-disable-line react-hooks/exhaustive-deps
-  return <section><p>Saving the account policy…</p></section>;
+// Empreinte d'une clé de compte « [empreinte/48'/1'/0'/2']tpub… » : ce que le contact lit dans sa console.
+const fingerprintOf = (key: string | undefined) => key?.match(/^\[([0-9a-f]{8})\//)?.[1] ?? "?";
+type PolicyView = { network: string; delay: number; swissquote: string; tiers: string; tiersName?: string };
+
+// Politique du compte, envoyée par l'appli : jamais enregistrée en silence. Une appli compromise pourrait remplacer la clé
+// du contact par la sienne (Swissquote + « contact » = Swissquote seule après le délai) : le client compare l'empreinte
+// avec celle que son contact lit dans sa console, puis confirme par biométrie.
+function PolicyReq({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unknown) => void; onRefuse: () => void; onError: (e: string) => void }) {
+  const p = req.payload.policy as PolicyView;
+  const [w, setW] = useState<WalletView | null | undefined>(undefined);
+  useEffect(() => { api("/api/wallets").then((l: WalletView[]) => setW(l.find((x) => x.id === req.payload.walletId) ?? null), (e) => onError(e.message)); }, [req]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (w === undefined) return <section><p>Loading…</p></section>;
+  if (!w) return <section><p className="error">No wallet on this device matches this request.</p><button className="secondary" onClick={onRefuse}>Close</button></section>;
+  const old = w.policy;
+  const contactChanged = !!old && old.tiers !== p.tiers;
+  const sqChanged = !!old && old.swissquote !== p.swissquote;
+  return (
+    <section>
+      <h2>{old ? "Update your account policy" : "Confirm your account policy"}</h2>
+      <p className="small muted">Request from <strong>{req.origin}</strong> · wallet “{w.label}” ({p.network})</p>
+      <div className="card">
+        <p><span className="k">You</span> spend alone, at any time.</p>
+        <p><span className="k">Recovery</span> Swissquote <strong>and</strong> {p.tiersName ?? "your trusted contact"} together, only for coins that have not moved for <strong>{p.delay} blocks</strong>.</p>
+        <p data-testid="policy-contact"><span className="k">Trusted contact</span> {p.tiersName ?? "(no name)"} · fingerprint <strong className="mono">{fingerprintOf(p.tiers)}</strong></p>
+        <p className="mono small">{p.tiers}</p>
+        <p><span className="k">Swissquote key</span> fingerprint <strong className="mono">{fingerprintOf(p.swissquote)}</strong></p>
+      </div>
+      {contactChanged && <p className="warn" data-testid="policy-change">Trusted contact change: {old!.tiersName ?? "previous contact"} ({fingerprintOf(old!.tiers)}) → {p.tiersName ?? "new contact"} ({fingerprintOf(p.tiers)}).</p>}
+      {sqChanged && <p className="error">The Swissquote key is different from the one in your current policy. Refuse unless you know why.</p>}
+      {old && old.delay !== p.delay && <p className="warn">Recovery delay change: {old.delay} → {p.delay} blocks.</p>}
+      <p className="hint">Ask {p.tiersName ?? "your trusted contact"}, by phone or in person, to read the fingerprint shown in their guardian console: it must be <strong className="mono">{fingerprintOf(p.tiers)}</strong>. If it differs, refuse: someone else's key would share the recovery with Swissquote.</p>
+      <UnlockAction wallet={w} label="Confirm and save" onRefuse={onRefuse} onError={onError}
+        onAuth={async (a) => onDone(await api(`/api/wallets/${w.id}/policy`, { policy: p, ...a }))} />
+    </section>
+  );
 }
 
 function Sign({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unknown) => void; onRefuse: () => void; onError: (e: string) => void }) {
@@ -236,7 +292,8 @@ function Sign({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unknow
         <p><span className="k">Fee</span> {btc(d.fee)}</p>
       </div>
       <p className="hint">Check the recipient's address by a means other than the app that suggested it.</p>
-      {d.high && (
+      {d.high && ext.length > 1 && <p className="error" data-testid="high-multi">High-value amount to several recipients: your wallet only signs a high-value transfer to one recipient at a time.</p>}
+      {d.high && ext.length <= 1 && (
         <div className="high">
           <p><strong>High-value amount</strong> (threshold: {btc(d.highValueSats)}). To confirm, enter the <strong>last 6 characters</strong> of the recipient's address.</p>
           <label className="pin"><span>Last 6 characters of the address</span>
@@ -245,7 +302,7 @@ function Sign({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unknow
         </div>
       )}
       <UnlockAction wallet={d.wallet} label="Confirm and sign" onRefuse={onRefuse} onError={onError}
-        disabled={d.path !== "client" || !d.wallet || (d.high && confirmDest.length !== 6)}
+        disabled={d.path !== "client" || !d.wallet || (d.high && (ext.length > 1 || confirmDest.length !== 6))}
         onAuth={async (a) => onDone(await api("/api/sign", { psbt: req.payload.psbt, network: req.network, nextPolicy: req.payload.nextPolicy, confirmDest, ...a }))} />
     </section>
   );
@@ -347,9 +404,10 @@ function Wallets() {
           )}
           {w.policy && w.protected && <p><button className="secondary" onClick={() => setExiting(w)}>Emergency exit (works without Swissquote)</button></p>}
           {confirming === w.id ? (
-            <div className="row">
-              <button className="secondary" onClick={() => setConfirming(null)}>Cancel</button>
-              <button className="danger" onClick={async () => { try { await api(`/api/wallets/${w.id}`, undefined, "DELETE"); setConfirming(null); refresh(); } catch (e: any) { setErr(e.message); } }}>Erase permanently</button>
+            <div>
+              {/* Effacement = perte de la seule copie de la graine sur l'appareil : biométrie exigée (vérifiée par le serveur). */}
+              <UnlockAction wallet={w} label="Erase permanently" allowPin onRefuse={() => setConfirming(null)} refuseLabel="Cancel" onError={setErr}
+                onAuth={async (a) => { await api(`/api/wallets/${w.id}`, a, "DELETE"); setConfirming(null); refresh(); }} />
             </div>
           ) : (
             <button className="secondary" onClick={() => setConfirming(w.id)}>Simulate losing this device</button>
@@ -377,7 +435,7 @@ function EvmAddress({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: 
   );
 }
 
-type EvmDescription = { wallet: WalletView; owner: string; safe: string; deploys: boolean; sponsored: boolean; paymaster: string | null; calls: { kind: string; text: string; risk?: string }[] };
+type EvmDescription = { wallet: WalletView; owner: string; safe: string; deploys: boolean; sponsored: boolean; paymaster: string | null; calls: { kind: string; text: string; risk?: string }[]; contactChange: { from: string; to: string } | null };
 // Confirmation d'une opération Ethereum : décodée par le wallet lui-même ; tout appel non reconnu bloque la signature.
 function EvmSign({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unknown) => void; onRefuse: () => void; onError: (e: string) => void }) {
   const [d, setD] = useState<EvmDescription | null>(null);
@@ -390,6 +448,13 @@ function EvmSign({ req, onDone, onRefuse, onError }: { req: Req; onDone: (d: unk
       <p className="small muted">Request from <strong>{req.origin}</strong> · account <span className="mono">{d.safe}</span> (Sepolia)</p>
       <div className="card">
         {d.deploys && <p><span className="k">Account</span> created on-chain with this operation</p>}
+        {d.contactChange && (
+          <div className="warn" data-testid="evm-contact-change">
+            <p><strong>Change of trusted contact</strong> (recovery guardian)</p>
+            <p>Removed: <span className="mono">{d.contactChange.from}</span> — it must be your <strong>current trusted contact</strong>, not Swissquote.</p>
+            <p>Added: <span className="mono">{d.contactChange.to}</span> — ask your new contact, by another channel, to read the Ethereum address shown in their guardian console: it must be exactly this one.</p>
+          </div>
+        )}
         <ol className="calls">{d.calls.map((c, i) => <li key={i} className={c.risk ? "risk" : ""}>{c.text}{c.risk && <strong> · {c.risk}</strong>}</li>)}</ol>
         <p><span className="k">Network fees</span> {d.sponsored ? `paid by a sponsor (paymaster ${d.paymaster}), not by you` : "paid in ETH by your account"}</p>
       </div>
@@ -419,7 +484,8 @@ function UnlockSettings({ w, onChanged }: { w: WalletView; onChanged: () => void
           <UnlockAction wallet={w} label="Confirm" allowPin={!bio} onRefuse={close} onError={setErr}
             onAuth={async (auth) => {
               // Vérification du déverrouillage AVANT de créer une passkey (sinon passkey orpheline si le PIN est faux).
-              const extra = { bio: await (async () => { await api(`/api/wallets/${w.id}/unlock`, { op: "check", auth }).catch((e) => { if (!/unknown operation/.test(e.message)) throw e; }); return bioEnroll(w.label); })() };
+              await api(`/api/wallets/${w.id}/unlock`, { op: "check", auth });
+              const extra = { bio: await bioEnroll(w.label) };
               await api(`/api/wallets/${w.id}/unlock`, { op, auth, ...extra });
               close(); onChanged();
             }} />

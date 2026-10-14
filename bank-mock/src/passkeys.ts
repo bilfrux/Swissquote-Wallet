@@ -10,7 +10,8 @@ import { CUSTOMERS } from "./bank.ts";
 import { db } from "./db.ts";
 
 export const RP_ID = process.env.BANK_MOCK_RP_ID ?? "localhost";
-const ORIGINS = (process.env.BANK_MOCK_ORIGINS ?? "http://localhost:5173,http://localhost:5174").split(",");
+// Mêmes origines par défaut que le CORS de server.ts.
+const ORIGINS = (process.env.BANK_MOCK_ORIGINS ?? "http://localhost:5173,http://localhost:5174,http://localhost:5175").split(",");
 const TTL = 5 * 60 * 1000;
 
 db.exec(`

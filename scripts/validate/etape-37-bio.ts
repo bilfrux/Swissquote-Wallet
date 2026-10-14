@@ -49,7 +49,7 @@ try {
   const sqKey = accountKey(masterFromMnemonic(newMnemonic(), "regtest"));
   const tKey = accountKey(masterFromMnemonic(newMnemonic(), "regtest"));
   const cfg = await createWalletConfig({ network: "regtest", delay: 6, client: c.body.wallet.accountKey, swissquote: sqKey, tiers: tKey });
-  await post(`/api/wallets/${c.body.wallet.id}/policy`, { policy: { network: "regtest", delay: 6, swissquote: sqKey, tiers: tKey } });
+  await post(`/api/wallets/${c.body.wallet.id}/policy`, { policy: { network: "regtest", delay: 6, swissquote: sqKey, tiers: tKey }, prf: bio.prf });
   const m = await miner();
   await m.pay(outputAt(cfg, 0, 0).getAddress(), 0.05);
   await m.mine(1);

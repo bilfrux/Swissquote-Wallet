@@ -2,7 +2,7 @@
 // la graine chez lui et ne renvoie que la clé publique. L'appli compile la politique et l'enregistre chez Swissquote.
 import { useState } from "react";
 import { createWalletConfig, parseAccountKey } from "@sq/bitcoin";
-import { fetchSwissquoteKey, registerAccount } from "../lib/bank";
+import { fetchSwissquoteKey, passkeyStatus, registerAccount, registerPasskey } from "../lib/bank";
 import { type BtcAccount, DELAY, NETWORK } from "../lib/config";
 import { walletRequest } from "../lib/walletBridge";
 import { useT } from "../i18n";
@@ -20,8 +20,6 @@ export function CreateWallet({ onCreated }: { onCreated: (a: BtcAccount) => void
   const create = async (source: "wallet" | "paste") => {
     setError(null);
     try {
-      setStatus(tr("Fetching Swissquote's public key…"));
-      const swissquote = await fetchSwissquoteKey();
       // Clé du tiers vérifiée AVANT d'ouvrir le wallet : pas de graine créée pour rien.
       try { parseAccountKey(tiersKey, NETWORK); } catch (e: any) { throw new Error(`Trusted contact's public key: ${e.message}`); }
       let client = ownKey.trim();
@@ -32,13 +30,25 @@ export function CreateWallet({ onCreated }: { onCreated: (a: BtcAccount) => void
         client = r.accountKey;
         walletId = r.walletId;
       }
+      // Clé Swissquote propre à ce compte (étape 56), calculée par Swissquote à partir de la clé du client.
+      setStatus(tr("Fetching Swissquote's public key…"));
+      const swissquote = await fetchSwissquoteKey(parseAccountKey(client, NETWORK).raw);
       const cfg = await createWalletConfig({ network: NETWORK, delay: DELAY, client, swissquote, tiers: tiersKey });
       setStatus(tr("Registering with Swissquote…"));
-      const { accountId } = await registerAccount({ delay: DELAY, client: cfg.client.raw, tiers: cfg.tiers.raw, tiersName });
+      const reg = await registerAccount({ delay: DELAY, client: cfg.client.raw, tiers: cfg.tiers.raw, tiersName });
+      if (reg.swissquote !== cfg.swissquote.raw) throw new Error("Swissquote registered this account with another key than the one announced: account not saved in your wallet");
+      const accountId = reg.accountId;
       const account: BtcAccount = { id: accountId, client: cfg.client.raw, swissquote, tiers: cfg.tiers.raw, tiersName, delay: DELAY, walletId };
       if (walletId) {
         setStatus(tr("Saving the policy in your wallet…"));
         await walletRequest("policy", { walletId, policy: { network: NETWORK, delay: DELAY, swissquote, tiers: cfg.tiers.raw, tiersName } });
+      }
+      // La passkey bancaire est activée dès la création : plus d'activation à faire plus tard. Un refus ne bloque pas
+      // le wallet ; l'activation reste possible dans « Sécurité du compte » ou au premier montant élevé.
+      if (walletId) {
+        try {
+          if ((await passkeyStatus()).count === 0) { setStatus(tr("Enabling your passkey…")); await registerPasskey(); }
+        } catch { /* repli : activation manuelle */ }
       }
       setStatus(null);
       onCreated(account);

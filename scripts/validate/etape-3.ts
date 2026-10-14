@@ -11,11 +11,11 @@ const bank = await startBankMock(4101, ".local/bm-test-3");
 const { addr: minerAddr, mine, pay } = await miner();
 
 try {
-  const sqKey = (await bank.api("/guardian/key?network=regtest")).json.accountKey;
+  const sqFor = async (client: string) => (await bank.api(`/guardian/key?network=regtest&client=${encodeURIComponent(client)}`)).json.accountKey as string; // une clé par compte (étape 56)
   const tiers = newMnemonic();
   const key = (m: string) => accountKey(masterFromMnemonic(m, "regtest"));
   const account = async (clientSeed: string) => {
-    const cfg = await createWalletConfig({ network: "regtest", delay: D, client: key(clientSeed), swissquote: sqKey, tiers: key(tiers) });
+    const cfg = await createWalletConfig({ network: "regtest", delay: D, client: key(clientSeed), swissquote: await sqFor(key(clientSeed)), tiers: key(tiers) });
     await bank.api("/accounts/register", { customerId: "CH-0001", network: "regtest", delay: D, client: cfg.client.raw, tiers: cfg.tiers.raw });
     return cfg;
   };

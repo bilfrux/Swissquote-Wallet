@@ -109,6 +109,7 @@ export const CRYPTO_FR: Record<string, string> = {
   "Fees sponsored by a paymaster (third party, not Swissquote). Your Client Wallet shows the transfer in clear before signing.": "Frais parrainés par un paymaster (un tiers, pas Swissquote). Votre Client Wallet affiche l'envoi en clair avant de signer.",
   "Fetch the trusted contact's signature": "Récupérer la signature du contact de confiance",
   "Fetching Swissquote's public key…": "Récupération de la clé publique de Swissquote…",
+  "Enabling your passkey…": "Activation de votre passkey…",
   "For the Travel Rule, prove to Swissquote that you control this address. Your wallet signs a challenge, without moving any funds.": "Pour la Travel Rule, prouvez à Swissquote que vous contrôlez cette adresse. Votre wallet signe un défi, sans déplacer de fonds.",
   "from": "de",
   "Funds go from your Swissquote account to address #{i} of your wallet. Swissquote first checks that this wallet really is yours (Travel Rule).": "Les fonds partent de votre compte Swissquote vers l'adresse n°{i} de votre wallet. Swissquote vérifie d'abord que ce wallet est bien le vôtre (Travel Rule).",
@@ -336,6 +337,11 @@ export const CRYPTO_FR: Record<string, string> = {
   "Biometrics could not be enabled on this device:": "La biométrie n'a pas pu être activée sur cet appareil :",
   // Changement du contact de confiance (étape 43)
   "Change my trusted contact": "Changer mon contact de confiance",
+  "Trusted contact changed": "Contact de confiance changé",
+  "New contact's Ethereum address": "Adresse Ethereum du nouveau contact",
+  "This address is already your key, your account or a guardian.": "Cette adresse est déjà votre clé, votre compte ou un gardien.",
+  "Shown in their guardian console. Check it with them by another means: your Client Wallet will show it again before signing.": "Affichée dans sa console de gardien. Vérifiez-la avec lui par un autre moyen : votre Client Wallet l'affichera de nouveau avant la signature.",
+  "The recovery in progress will be cancelled in the same operation.": "La recovery en cours sera annulée dans la même opération.",
   "Swissquote and this contact together can help you recover your coins. You can replace the contact: your coins are moved to a new rule that includes the new contact, and the delay restarts.":
     "Swissquote et ce contact peuvent ensemble vous aider à récupérer vos coins. Vous pouvez le remplacer : vos coins sont déplacés vers une nouvelle règle qui inclut le nouveau contact, et le délai repart de zéro.",
   "New contact's name": "Nom du nouveau contact",

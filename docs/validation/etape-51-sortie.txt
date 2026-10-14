@@ -1,0 +1,10 @@
+[OK ] Témoins : la recherche retrouve les graines là où elles sont stockées, et une clé Ethereum ou un tprv isolés glissés dans un fichier
+       25 fichier(s) trouvé(s) sur 25 contenant des graines ; fichiers témoins détectés : 2/2
+[OK ] Aucune des 25 graines en clair de la machine, ni leurs clés privées Bitcoin (tprv) et Ethereum (hex), dans client/
+       grep -rlF -f <100 secrets de 44 fichiers de .local/, bank-mock/data/, client-wallet/data/> client/src client/dist client/index.html client/vite.config.ts -> rien ; graines du Client Wallet chiffrées (non cherchables en clair) : 42
+[OK ] Aucune clé privée étendue (xprv/tprv), aucune clé WIF ni valeur hexadécimale de 32 octets dans les sources, pas de liste BIP39 dans le bundle
+       grep '[tx]prv…' -> rien ; '<WIF>' client/src -> rien ; '0x<64 hex>' client/src -> rien ; '"abandon","ability"' client/dist -> rien
+[OK ] client/src n'importe ni signature, ni graine, ni dérivation de clé privée (Bitcoin et Ethereum)
+       grep -rnE '@sq/bitcoin/(sign|keys)|@sq/evm/keys|viem/accounts|mnemonicToAccount|privateKeyToAccount|signOp(…' client/src -> rien
+
+info : noms de fonctions de signature de bibliothèque présents dans le bundle (code non appelé, aucune clé) : signECPair, signBIP32

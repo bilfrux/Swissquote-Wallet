@@ -1,0 +1,5 @@
+[OK ] 53-1 Console du contact : JSON invalide, demande inconnue et texte quelconque → message d'erreur, page toujours utilisable, aucune exception
+       messages : « unreadable request (invalid JSON) » ; « unreadable Ethereum request » ; « unreadable PSBT: invalid base64 » ; page utilisable : true ; exceptions : aucune
+
+RÉSUMÉ
+53-1 fonctionne         Console du contact : JSON invalide, demande inconnue et texte quelconque → message d'erreur, page toujours utilisable, aucune exception

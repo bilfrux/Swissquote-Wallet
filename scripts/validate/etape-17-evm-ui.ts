@@ -97,7 +97,7 @@ try {
     st = await readState(safe);
     const sq = (await (await fetch(`${BANK}/guardian/evm-address`)).json()).address as Address;
     report("17-2", "Activation depuis l'interface : écran du wallet en clair (module, 2 gardiens, frais parrainés), Safe déployé, gardiens Swissquote + tiers, seuil 2, 0 ETH",
-      st.deployed && st.moduleEnabled && st.threshold === 2n && st.guardians.map(getAddress).sort().join() === [sq, getAddress(tiersEvm)].sort().join() && st.owners[0] === owner
+      st.deployed && st.moduleEnabled && st.threshold === 2n && st.guardians.map((a) => getAddress(a)).sort().join() === [sq, getAddress(tiersEvm)].sort().join() && st.owners[0] === owner
         && screen.includes("Enable the recovery module") && screen.includes("paid by a sponsor"),
       `${done.trim()} ; écran : ${screen.replace(/\s+/g, " ").slice(0, 260)}`);
   } else report("17-2", "Activation (déjà faite lors d'un essai précédent)", true, `gardiens ${st.guardians.join(", ")} ; seuil ${st.threshold}`);

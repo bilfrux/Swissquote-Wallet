@@ -58,7 +58,7 @@ const fs = await esplora.feeRates();
 report("9-5", "Frais signet : estimation réelle de l'API Esplora, planchérisée au minimum de relais (1 sat/vB)", fs.source === "réseau" && fs.slow >= MIN_RELAY_FEE && fs.fast >= fs.slow, JSON.stringify(fs));
 // Wallet signet de CH-0003 qui a reçu le coin du faucet. Après la recovery de l'étape 8, il a été effacé du Wallet du
 // client : sa clé publique reste dans l'état du test (.local/signet-ui), avec la politique du wallet signet actuel.
-const wf = "client-wallet/data/wallets.json";
+const wf = `${process.env.CLIENT_WALLET_DATA ?? "client-wallet/data"}/wallets.json`; // CLIENT_WALLET_DATA : données d'une autre copie du dépôt
 const w = existsSync(wf) ? (JSON.parse(readFileSync(wf, "utf8")) as any[]).filter((x) => x.policy?.network === "signet").at(-1) : null;
 const sf = ".local/signet-ui/state.json";
 const lost = existsSync(sf) ? JSON.parse(readFileSync(sf, "utf8")).lostAccountKey : null;

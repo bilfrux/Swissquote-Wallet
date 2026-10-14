@@ -15,11 +15,11 @@ import { Signer } from "bip322-js";
 import { BitcoindBackend, type ChainBackend, EsploraBackend, type NetworkName, addresses, btcNetwork, buildSpend, createWalletConfig, finalizePsbt, keyAddressOf, scan, simulate } from "@sq/bitcoin";
 import { accountKey, masterFromMnemonic, newMnemonic } from "@sq/bitcoin/keys";
 import { signPsbtWithMnemonic } from "@sq/bitcoin/sign";
-import { type JsonOp, describeOp, ownersOf, safeAddressOf, signOp } from "@sq/evm";
+import { type JsonOp, describeOp, ownersOf, readState, safeAddressOf, signOp } from "@sq/evm";
 import { evmAccountFromMnemonic, evmAddressFromMnemonic } from "@sq/evm/keys";
 import { getAddress, type Address } from "viem";
 import { type Policy, type StoredWallet, load, publicView, save } from "./store.ts";
-import { open, openBio, seal, sealBio, validBio, validPin, validPrf } from "./vault.ts";
+import { open, openBio, sealBio, validBio, validPin, validPrf } from "./vault.ts";
 
 // Déverrouillage par code PIN (`pin`) ou par biométrie (`prf` : secret rendu par la passkey du wallet après Touch ID,
 // Face ID…), selon ce que le client a activé. 5 échecs, puis blocage de 60 s (compteur en mémoire du processus).
@@ -50,6 +50,10 @@ const PORT = Number(process.env.CLIENT_WALLET_PORT ?? 5180);
 // Au-delà de ce montant envoyé vers l'extérieur, le wallet exige une confirmation renforcée (en plus du PIN ou de la biométrie).
 const HIGH_VALUE_SATS = BigInt(process.env.CLIENT_WALLET_HIGH_VALUE_SATS ?? 20_000_000);
 const SELF = `http://localhost:${PORT}`;
+// Interface réseau : boucle locale seulement (jamais le Wi-Fi). En-têtes Host acceptés : contre le « DNS rebinding »
+// (une page d'un autre domaine qui se ferait résoudre en 127.0.0.1 lirait l'API en même origine, sans en-tête Origin).
+const HOST = process.env.CLIENT_WALLET_HOST ?? "localhost";
+const HOSTS = new Set([`localhost:${PORT}`, `127.0.0.1:${PORT}`, `[::1]:${PORT}`]);
 const root = new URL("..", import.meta.url).pathname;
 
 // Kit de sortie : dépenser avec sa clé sans le site, sans bank-mock, sans compte Swissquote. Seuls ce wallet, sa politique
@@ -118,13 +122,15 @@ async function describe(psbt: string, network: NetworkName, nextPolicy?: Policy)
 async function describeEvm(op: JsonOp, wallets: StoredWallet[]) {
   if (!op?.sender || !op.callData) throw new HttpError(400, "operation missing");
   const sender = getAddress(op.sender);
-  const owners = (await ownersOf(sender).catch(() => { throw new HttpError(502, "cannot read the account on-chain"); })).map(getAddress);
+  const owners = (await ownersOf(sender).catch(() => { throw new HttpError(502, "cannot read the account on-chain"); })).map((a) => getAddress(a));
   const w = owners.length
     ? wallets.find((x) => x.evmAddress && owners.includes(getAddress(x.evmAddress)))
     : wallets.find((x) => x.evmAddress && safeAddressOf(x.evmAddress as Address) === sender);
   if (!w) throw new HttpError(400, "this operation is not for an account controlled by your wallets");
+  // Gardiens actuels, lus on-chain par le wallet lui-même : seule base pour accepter un changement de contact (étape 58).
+  const guardians = owners.length ? (await readState(sender).catch(() => { throw new HttpError(502, "cannot read the account on-chain"); })).guardians : [];
   let d;
-  try { d = describeOp(op); } catch (e: any) { throw new HttpError(400, `operation not decodable: ${e.message}`); }
+  try { d = describeOp(op, {}, getAddress(w.evmAddress!), guardians); } catch (e: any) { throw new HttpError(400, `operation not decodable: ${e.message}`); }
   return { wallet: publicView(w), owner: w.evmAddress, ...d };
 }
 
@@ -156,8 +162,11 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
     }
 
     case "DELETE /api/wallets/:id": {
-      if (!wallets.some((w) => w.id === id)) throw new HttpError(404, "unknown wallet");
-      save(wallets.filter((w) => w.id !== id));
+      // Effacer un wallet détruit la seule copie de la graine sur l'appareil : biométrie exigée, comme pour signer.
+      const w = wallets.find((x) => x.id === id);
+      if (!w) throw new HttpError(404, "unknown wallet");
+      unlock(w, authOf(body));
+      save(wallets.filter((x) => x.id !== id));
       return { deleted: id };
     }
 
@@ -174,30 +183,35 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
     }
 
     case "POST /api/wallets/:id/unlock": {
-      // Changer de façon de déverrouiller, après déverrouillage par une façon déjà active (`auth`) :
-      // activer ou retirer la biométrie, choisir ou retirer le PIN. Il en reste toujours au moins une.
+      // Seule opération : passer à la biométrie (ancien wallet PIN, ou nouvelle passkey), après déverrouillage par la façon
+      // déjà active (`auth`). L'ancienne protection PIN est alors supprimée. Plus de PIN choisi ni de biométrie retirée :
+      // un PIN de 6 chiffres se casse hors ligne si le fichier est volé (étape 36). `check` vérifie seulement `auth`,
+      // avant de créer une passkey (sinon passkey orpheline si le PIN est faux).
       const w = wallets.find((x) => x.id === id);
       if (!w) throw new HttpError(404, "unknown wallet");
-      if (!w.sealed && !w.bio) throw new HttpError(409, "wallet not protected: protect it with a PIN first");
+      if (!w.sealed && !w.bio) throw new HttpError(409, "wallet not protected: protect it with biometrics first");
       const op = String(body.op);
-      if (op === "set-pin" && !validPin(body.newPin)) throw new HttpError(400, "PIN required: 6 to 12 digits");
+      if (op !== "set-bio" && op !== "check") throw new HttpError(400, "unknown operation (the wallet only supports switching to biometrics)");
       if (op === "set-bio" && !validBio(body.bio)) throw new HttpError(400, "invalid biometric key (passkey with the PRF extension required)");
-      if (!["set-pin", "set-bio", "remove-pin", "remove-bio"].includes(op)) throw new HttpError(400, "unknown operation");
-      if ((op === "remove-pin" && !w.bio) || (op === "remove-bio" && !w.sealed)) throw new HttpError(409, "this is your only way to unlock the wallet: enable the other one first");
       const mnemonic = unlock(w, authOf(body.auth));
-      if (op === "set-pin") w.sealed = seal(mnemonic, body.newPin);
-      if (op === "set-bio") { w.bio = sealBio(mnemonic, body.bio); delete w.sealed; }
-      if (op === "remove-pin") delete w.sealed;
-      if (op === "remove-bio") delete w.bio;
+      if (op === "check") return { ok: true };
+      w.bio = sealBio(mnemonic, body.bio);
+      delete w.sealed;
       save(wallets);
       return publicView(w);
     }
 
     case "POST /api/wallets/:id/policy": {
+      // La politique décide quelles sorties le wallet reconnaît comme « à vous » et qui est le contact de confiance.
+      // Une appli compromise pourrait y glisser une clé de contact à elle : l'écran du wallet l'affiche (contact, empreintes,
+      // délai, changement éventuel) et l'enregistrement exige la biométrie du client, vérifiée ici.
       const w = wallets.find((x) => x.id === id);
       if (!w) throw new HttpError(404, "unknown wallet");
-      const p = body.policy as Policy;
-      await createWalletConfig({ ...p, client: w.accountKey }); // la politique doit compiler avec la clé de ce wallet
+      const q = body.policy ?? {};
+      if (!["regtest", "signet"].includes(q.network) || typeof q.swissquote !== "string" || typeof q.tiers !== "string") throw new HttpError(400, "invalid policy");
+      const p: Policy = { network: q.network, delay: Number(q.delay), swissquote: q.swissquote.trim(), tiers: q.tiers.trim(), ...(typeof q.tiersName === "string" && q.tiersName.trim() ? { tiersName: q.tiersName.trim().slice(0, 80) } : {}) };
+      await createWalletConfig({ ...p, client: w.accountKey }).catch((e) => { throw new HttpError(400, `invalid policy: ${e.message}`); }); // doit compiler avec la clé de ce wallet
+      unlock(w, authOf(body));
       w.policy = p;
       save(wallets);
       return publicView(w);
@@ -276,6 +290,10 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
       if (d.path !== "client") throw new HttpError(400, "this PSBT uses the recovery path (Swissquote + trusted contact): your wallet must not sign it");
       const w = wallets.find((x) => x.id === d.wallet!.id)!;
       // Montant élevé : le client ressaisit les 6 derniers caractères de l'adresse de destination (contre une adresse substituée).
+      // Un seul destinataire externe dans ce cas : sinon la saisie ne vérifierait que l'un d'eux, et une autre sortie pourrait
+      // emporter l'essentiel du montant vers une adresse jamais confirmée.
+      if (d.high && d.outputs.filter((o) => !o.mine).length > 1)
+        throw new HttpError(400, "high-value amount to several recipients: send to one recipient at a time");
       if (d.high && String(body.confirmDest ?? "").trim().toLowerCase() !== d.confirmTarget!.slice(-6).toLowerCase())
         throw new HttpError(400, "high-value amount: enter the last 6 characters of the destination address");
       const r = signPsbtWithMnemonic(body.psbt, unlock(w, authOf(body)), body.network);
@@ -287,19 +305,22 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
 }
 
 const server = createServer(async (req, res) => {
-  if (!req.url?.startsWith("/api/")) return vite.middlewares(req, res);
   const send = (status: number, body: unknown) => res.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify(body));
+  if (!HOSTS.has(String(req.headers.host))) return send(403, { error: `host rejected: ${req.headers.host}` });
+  if (!req.url?.startsWith("/api/")) return vite.middlewares(req, res);
   // Aucune en-tête CORS : seule l'interface du wallet (même origine) ou un outil local peut appeler l'API.
   // Un navigateur envoie toujours Origin sur un POST d'une autre origine : il est refusé AVANT exécution.
   const origin = req.headers.origin;
   if (origin && origin !== SELF) return send(403, { error: `origin rejected: ${origin}` });
   // Un POST « simple » (text/plain, formulaire) n'est pas précédé d'un contrôle CORS : on exige du JSON.
-  if (req.method === "POST" && req.headers["content-type"] !== "application/json") return send(415, { error: "application/json required" });
+  if (req.method === "POST" && !/^application\/json(;|$)/.test(String(req.headers["content-type"] ?? ""))) return send(415, { error: "application/json required" });
   let raw = "";
-  for await (const c of req) raw += c;
-  try { send(200, await api(req, raw ? JSON.parse(raw) : {})); }
+  for await (const c of req) { raw += c; if (raw.length > 1_000_000) { res.setHeader("connection", "close"); return send(413, { error: "request too large" }); } }
+  let body: any = {};
+  if (raw) { try { body = JSON.parse(raw); } catch { return send(400, { error: "invalid JSON" }); } }
+  try { send(200, await api(req, body ?? {})); }
   catch (e: any) { send(e instanceof HttpError ? e.status : 500, { error: e.message }); }
 });
 // Interface servie par Vite dans CE processus ; le rechargement à chaud passe par le même serveur HTTP (pas de port en plus).
 const vite = await createVite({ root, configFile: false, envDir: "..", plugins: [react()], server: { middlewareMode: true, hmr: { server } }, appType: "spa" });
-server.listen(PORT, () => console.log(`[wallet du client] ${SELF}`));
+server.listen(PORT, HOST, () => console.log(`[wallet du client] ${SELF} (interface ${HOST})`));

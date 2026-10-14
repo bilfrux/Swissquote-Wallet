@@ -1,0 +1,14 @@
+typecheck | exit 0 | 0 OK | 0 KO
+v2 | exit 0 | 8 OK | 0 KO
+v3 | exit 0 | 7 OK | 0 KO
+v6-desktop | exit 0 | 19 OK | 0 KO
+v6-mobile | exit 0 | 20 OK | 0 KO
+v7 | exit 0 | 8 OK | 0 KO
+v8-alerts | exit 0 | 6 OK | 0 KO
+v11 | exit 0 | 6 OK | 0 KO
+v12 | exit 0 | 2 OK | 0 KO
+attacks | exit 0 | 4 OK | 0 KO
+v43 | exit 0 | 6 OK | 0 KO (relancé : variable en double introduite dans le test, corrigée)
+v52 | exit 0 | 4 OK | 0 KO
+v54 | exit 0 | 9 OK | 0 KO
+DONE

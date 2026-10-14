@@ -74,7 +74,11 @@ report("2", "Réception sur les adresses 0 et 1 du compte, retrouvées par le sc
 {
   utxos = await scan(cfg, rpc);
   const core = "client-core";
-  if (!(await rpc.call("listwallets")).includes(core)) await rpc.call("createwallet", [core, false, true, "", false, true]);
+  // Déjà sur le disque mais non chargé (après un redémarrage du nœud) : on le charge au lieu de le recréer.
+  if (!(await rpc.call("listwallets")).includes(core)) {
+    const onDisk = ((await rpc.call("listwalletdir")).wallets as { name: string }[]).some((w) => w.name === core);
+    await rpc.call(onDisk ? "loadwallet" : "createwallet", onDisk ? [core] : [core, false, true, "", false, true]);
+  }
   const priv = accountPrivateKey(masters.client);
   const imports = [];
   for (const change of [0, 1] as const) {

@@ -1,0 +1,11 @@
+[OK ] 61-1 Page de la banque cachée puis réaffichée pendant les demandes au Client Wallet : le verrou crypto ne se remet pas, le compte est enregistré
+       compte créé : true ; erreur affichée : «  » ; réponses 403 de bank-mock : aucune
+[OK ] 61-2 Sans demande en cours au Client Wallet, une page cachée reverrouille toujours la partie crypto (étape 39)
+       écran verrouillé : true
+[OK ] 61-3 Clients de démo vierges CH-0004, CH-0005, CH-0006 : connexion et re-KYC
+       CH-0004 : connexion 200, re-KYC 200 ; CH-0005 : connexion 200, re-KYC 200 ; CH-0006 : connexion 200, re-KYC 200
+
+RÉSUMÉ
+61-1 fonctionne         Page de la banque cachée puis réaffichée pendant les demandes au Client Wallet : le verrou crypto ne se remet pas, le compte est enregistré
+61-2 fonctionne         Sans demande en cours au Client Wallet, une page cachée reverrouille toujours la partie crypto (étape 39)
+61-3 fonctionne         Clients de démo vierges CH-0004, CH-0005, CH-0006 : connexion et re-KYC

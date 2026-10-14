@@ -1,0 +1,14 @@
+[OK ] 52-1 Requêtes : text/plain et formulaire refusés (415), JSON invalide 400, corps de 2 Mo refusé (413), JSON avec charset accepté
+       text/plain 415 ; formulaire 415 ; JSON invalide 400 « invalid JSON » ; 2 Mo 413 ; charset 200
+[OK ] 52-2 Deux retraits simultanés de 0,5 BTC pour 0,8 BTC d'avoirs : un seul passe, l'autre est refusé ; solde et réception cohérents
+       statuts 200 / 400 (« insufficient funds in the Swissquote account ») ; solde 80000000 → 30000000 sats ; reçu dans le wallet : 50000000 sats
+[OK ] 52-3 Recovery dont les frais dépassent 5 % du montant : Swissquote refuse de signer (403) ; frais normaux : signée
+       frais 31800 sats sur 100000 : 403 « fee too high for a recovery: 31800 sats for 100000 sats spent (maximum 5 %) » ; frais 318 sats : 200
+[OK ] 52-4 Re-KYC : après 5 codes faux, même le bon code est refusé (429) ; les autres clients ne sont pas touchés
+       codes faux : 403, 403, 403, 403, 403 ; bon code ensuite : 429 « identity verification locked after too many failed attempts: try again in 15 min » ; autre client : 200
+
+RÉSUMÉ
+52-1 fonctionne         Requêtes : text/plain et formulaire refusés (415), JSON invalide 400, corps de 2 Mo refusé (413), JSON avec charset accepté
+52-2 fonctionne         Deux retraits simultanés de 0,5 BTC pour 0,8 BTC d'avoirs : un seul passe, l'autre est refusé ; solde et réception cohérents
+52-3 fonctionne         Recovery dont les frais dépassent 5 % du montant : Swissquote refuse de signer (403) ; frais normaux : signée
+52-4 fonctionne         Re-KYC : après 5 codes faux, même le bon code est refusé (429) ; les autres clients ne sont pas touchés

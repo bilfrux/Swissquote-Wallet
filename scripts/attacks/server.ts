@@ -5,6 +5,7 @@ import { createServer } from "node:http";
 import { ATTACKS } from "./attacks.ts";
 
 const PORT = Number(process.env.ATTACKS_PORT ?? 4200);
+const HOST = process.env.ATTACKS_HOST ?? "localhost"; // boucle locale seulement
 const ORIGINS = (process.env.ATTACKS_ORIGINS ?? "http://localhost:5173").split(",");
 let running = false;
 
@@ -20,4 +21,4 @@ createServer(async (req, res) => {
   if (running) return send(409, { error: "une attaque est déjà en cours" });
   running = true;
   try { send(200, await ATTACKS[m[1]]()); } catch (e: any) { send(500, { error: e.message }); } finally { running = false; }
-}).listen(PORT, () => console.log(`[attaques] démo regtest sur http://localhost:${PORT}`));
+}).listen(PORT, HOST, () => console.log(`[attaques] démo regtest sur http://localhost:${PORT}`));

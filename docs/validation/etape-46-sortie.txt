@@ -1,0 +1,14 @@
+[OK ] 46-1 Client Wallet, bank-mock et serveur d'attaques : injoignables depuis l'adresse du réseau local, joignables en boucle locale
+       adresse réseau local 192.168.1.194 : 5210 → ECONNREFUSED, 4420 → ECONNREFUSED, 4421 → ECONNREFUSED ; localhost : 200, 200, 404
+[OK ] 46-2 Client Wallet : en-tête Host d'un autre domaine refusé (DNS rebinding), API et interface ; Host de boucle locale accepté
+       Host attacker.example : API 403, interface 403 ; Host 127.0.0.1 : 200
+[OK ] 46-3 Effacer un wallet : refusé sans biométrie ou avec un mauvais secret (wallet conservé), accepté avec le bon secret
+       sans rien : 403 ; mauvais secret : 403 biometric unlock failed (3 attempt(s) left) ; encore présent : true ; bon secret : 200 ; effacé : true
+[OK ] 46-4 docker/regtest.yml : RPC bitcoind publié sur 127.0.0.1 seulement
+       {"mode":"ingress","host_ip":"127.0.0.1","target":18443,"published":"18443","protocol":"tcp"}
+
+RÉSUMÉ
+46-1 fonctionne         Client Wallet, bank-mock et serveur d'attaques : injoignables depuis l'adresse du réseau local, joignables en boucle locale
+46-2 fonctionne         Client Wallet : en-tête Host d'un autre domaine refusé (DNS rebinding), API et interface ; Host de boucle locale accepté
+46-3 fonctionne         Effacer un wallet : refusé sans biométrie ou avec un mauvais secret (wallet conservé), accepté avec le bon secret
+46-4 fonctionne         docker/regtest.yml : RPC bitcoind publié sur 127.0.0.1 seulement

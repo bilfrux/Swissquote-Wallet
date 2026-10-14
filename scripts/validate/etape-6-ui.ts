@@ -6,13 +6,10 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync } from "node:fs";
 import { type BrowserContext, type Page, chromium } from "playwright-core";
 import { buildSpend, createWalletConfig, outputAt, scan } from "@sq/bitcoin";
-import { open } from "../../client-wallet/src/vault.ts";
 import { makeReport, miner, rpc } from "./lib.ts";
 
-const PIN = "482916";
-// Choix du PIN à la création (deux champs), puis saisie sur les écrans de signature et de preuve.
-const choosePin = async (w: Page) => { await w.getByLabel("New PIN (6 to 12 digits)").fill(PIN); await w.getByLabel("Confirm the PIN").fill(PIN); };
-const typePin = (w: Page) => w.getByLabel("Wallet PIN").fill(PIN);
+// Depuis l'étape 36, le Wallet du client se déverrouille par biométrie (WebAuthn PRF) : chaque fenêtre du wallet reçoit
+// un authentificateur virtuel avec PRF (étape 39), qui garde sa passkey tant que la fenêtre reste ouverte.
 
 const APP = "http://localhost:5191";
 const BANK = "http://localhost:4110";
@@ -56,14 +53,28 @@ const device = async () => {
   ctx.on("page", watch);
   return ctx;
 };
-// Authentificateur WebAuthn virtuel de Chrome (CDP) : simule une passkey avec vérification de l'utilisateur réussie.
+// Authentificateur WebAuthn virtuel de Chrome (CDP) : simule une passkey avec vérification de l'utilisateur réussie,
+// et l'extension PRF (biométrie du Wallet du client).
 const addAuthenticator = async (ctx: BrowserContext, p: Page) => {
   const cdp = await ctx.newCDPSession(p);
   await cdp.send("WebAuthn.enable");
-  await cdp.send("WebAuthn.addVirtualAuthenticator", { options: { protocol: "ctap2", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true } });
+  await cdp.send("WebAuthn.addVirtualAuthenticator", { options: { protocol: "ctap2", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true, hasPrf: true } } as any);
 };
 const shot = (p: Page, n: string) => p.screenshot({ path: `${SHOTS}/etape-6-${MOBILE ? "mobile" : "desktop"}-${n}.png`, fullPage: true });
-const popupOf = async (ctx: BrowserContext, click: () => Promise<void>) => { const [p] = await Promise.all([ctx.waitForEvent("page"), click()]); await p.waitForLoadState(); return p; };
+const popupOf = async (ctx: BrowserContext, click: () => Promise<void>) => { const [p] = await Promise.all([ctx.waitForEvent("page"), click()]); await p.waitForLoadState(); await addAuthenticator(ctx, p); return p; };
+// Onglet Crypto : depuis l'étape 38, il est verrouillé tant que la biométrie (passkey vérifiée par bank-mock) n'a pas
+// été donnée ; il se reverrouille quand on le quitte (étape 39). Renvoie ce qui a été fait.
+const openCrypto = async (p: Page): Promise<"enabled" | "unlocked" | "open"> => {
+  await p.getByRole("button", { name: "Crypto", exact: true }).click();
+  const locked = p.getByTestId("crypto-locked");
+  await locked.or(p.getByTestId("btc-balance")).or(p.getByPlaceholder("Marie Dupont")).first().waitFor({ timeout: 20000 });
+  if (!(await locked.isVisible())) return "open";
+  const enable = p.getByRole("button", { name: "Enable biometrics" });
+  const how = (await enable.isVisible()) ? "enabled" : "unlocked";
+  await (how === "enabled" ? enable : p.getByRole("button", { name: "Unlock with biometrics" })).click();
+  await locked.waitFor({ state: "detached", timeout: 20000 });
+  return how;
+};
 const login = async (p: Page) => {
   await p.goto(APP);
   await p.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
@@ -106,41 +117,50 @@ try {
   await app.getByRole("button", { name: "Log in", exact: true }).click();
   await app.getByText(MOBILE ? "Savings" : "Private account").first().waitFor();
   await app.getByText(/8[’']420\.15/).first().waitFor(); // comptes CHF chargés
-  await app.getByText(MOBILE ? "Create" : "Create my wallet").first().waitFor(); // état du wallet lu (« … » pendant le chargement)
-  const overview = await app.locator("main").textContent();
-  report("6-2", "Connexion e-banking simulée (mauvais mot de passe refusé), aperçu avec comptes CHF et tuile « Créer mon wallet »",
-    /incorrect/i.test(badLogin ?? "") && (MOBILE ? !!overview?.includes("Total value") && !!overview?.includes("Cash") && !!overview?.includes("Create") : !!overview?.includes("Private account") && !!overview?.includes("Create my wallet")), `${badLogin} ; aperçu affiché`);
+  // Partie crypto verrouillée (étape 38) : l'aperçu ne montre pas encore l'état du wallet, seulement la tuile crypto.
+  await app.getByText(MOBILE ? "Cash" : /self-custody/i).filter({ visible: true }).first().waitFor();
+  const overview = (await app.locator("main").textContent()) ?? "";
+  report("6-2", "Connexion e-banking simulée (mauvais mot de passe refusé), aperçu avec comptes CHF et ligne / tuile crypto",
+    /incorrect/i.test(badLogin ?? "") && (MOBILE ? overview.includes("Total value") && overview.includes("Cash") && overview.includes("Crypto") : overview.includes("Private account") && /self-custody/i.test(overview)), `${badLogin} ; aperçu affiché`);
   await shot(app, "2-apercu");
 
-  // --- Passkey : activation depuis « Mon compte », déconnexion, reconnexion par passkey ---
-  await app.getByRole("button", { name: "My account" }).click();
-  await app.getByRole("button", { name: "Enable a passkey" }).click();
-  await app.getByText("Passkey enabled.").waitFor({ timeout: 15000 });
-  await app.getByRole("button", { name: "Log out" }).click();
-  await app.getByRole("button", { name: "Login", exact: true }).click(); // site public (étape 22)
-  await app.getByLabel("Username").fill("CH-0003");
-  await app.getByRole("button", { name: "Log in with a passkey" }).click();
-  await app.getByText(MOBILE ? "Savings" : "Private account").first().waitFor({ timeout: 15000 });
-  report("6-17", "Passkey : activée depuis « Mon compte », puis connexion sans mot de passe par passkey (WebAuthn, vérification de l'utilisateur)", true, "connexion par passkey réussie");
+  // --- Partie crypto verrouillée (étape 38) : la session bancaire seule ne suffit pas ---
+  const session = await app.evaluate(() => JSON.parse(sessionStorage.getItem("sq-bank:session") ?? "null"));
+  const auth = { authorization: `Bearer ${session?.token}` };
+  const lockedRoute = await fetch(`${BANK}/wallet/accounts?network=regtest`, { headers: auth });
+  await app.getByRole("button", { name: "Crypto", exact: true }).click();
+  await app.getByTestId("crypto-locked").waitFor({ timeout: 20000 });
+  await shot(app, "2b-crypto-verrouille");
+  const gate = await openCrypto(app);
+  const pk = await fetch(`${BANK}/auth/passkey`, { headers: auth }).then((r) => r.json());
+  const unlocked = await fetch(`${BANK}/wallet/accounts?network=regtest`, { headers: auth });
+  report("6-17", "Partie crypto verrouillée : route crypto refusée avec la seule session ; biométrie (passkey) activée depuis l'écran verrouillé, puis accès",
+    lockedRoute.status === 403 && gate === "enabled" && pk.count === 1 && unlocked.status === 200,
+    `session seule : ${lockedRoute.status} ; écran verrouillé puis « ${gate} » ; passkeys : ${pk.count} ; après : ${unlocked.status}`);
 
   // --- Wallet crypto : création via le Wallet du client ---
-  await app.getByRole("button", { name: "Crypto", exact: true }).click();
   await app.getByPlaceholder("Marie Dupont").fill("Marie Dupont");
   await app.getByLabel("Trusted contact's public key").fill(tiersKey);
   const wallet = await popupOf(ctxA, () => app.getByRole("button", { name: "Create my wallet with the Client Wallet" }).click());
-  await choosePin(wallet);
   await wallet.getByRole("button", { name: "Generate my secret phrase" }).click();
   await wallet.locator(".words li").nth(23).waitFor();
   const clientWords = (await wallet.locator(".words li").allTextContents()).map((w) => w.trim());
   await shot(wallet, "3-wallet-phrase");
   await wallet.getByLabel("I have written my phrase down in a safe place").check();
   await wallet.getByRole("button", { name: "Send my public key to Swissquote" }).click();
+  // Étape 47 : la politique s'affiche dans le wallet ; le client compare l'empreinte avec celle de la console du contact.
+  await wallet.getByRole("button", { name: "Confirm and save" }).waitFor({ timeout: 20000 });
+  const policyScreen = (await wallet.getByTestId("policy-contact").textContent()) ?? "";
+  const consoleFp = (await tiers.getByTestId("identity-fingerprint").textContent())?.trim() ?? "?";
+  await shot(wallet, "3b-wallet-politique");
+  await wallet.getByRole("button", { name: "Confirm and save" }).click();
   await app.getByTestId("btc-balance").waitFor({ timeout: 20000 });
   const stored = JSON.parse(readFileSync(WALLET_FILE, "utf8")) as any[];
   const mine_ = stored[stored.length - 1];
-  report("6-3", "Wallet du client : 24 mots générés et affichés une fois ; la banque reçoit la clé publique, la politique est enregistrée dans le wallet",
-    clientWords.length === 24 && !mine_.mnemonic && open(mine_.sealed, PIN) === clientWords.join(" ") && !!mine_.policy && mine_.policy.tiersName === "Marie Dupont",
-    `wallet ${mine_.id}, politique : délai ${mine_.policy?.delay}, tiers ${mine_.policy?.tiersName} ; mots=${clientWords.length}, phrase chiffrée par PIN = phrase affichée : ${open(mine_.sealed, PIN) === clientWords.join(" ")}, wallets stockés=${stored.length}`);
+  const walletFile = readFileSync(WALLET_FILE, "utf8");
+  report("6-3", "Wallet du client : 24 mots générés et affichés une fois, phrase chiffrée par la biométrie (PRF) ; la banque reçoit la clé publique, la politique est enregistrée dans le wallet",
+    clientWords.length === 24 && !mine_.mnemonic && !mine_.sealed && mine_.bio?.kdf === "hkdf-sha256-prf" && !walletFile.includes(clientWords.join(" ")) && !!mine_.policy && mine_.policy.tiersName === "Marie Dupont" && policyScreen.includes(consoleFp) && policyScreen.includes("Marie Dupont"),
+    `wallet ${mine_.id}, politique confirmée dans le wallet (« ${policyScreen.trim()} », empreinte de la console : ${consoleFp}) : délai ${mine_.policy?.delay}, tiers ${mine_.policy?.tiersName} ; mots=${clientWords.length}, champs stockés : ${Object.keys(mine_).join(", ")}, phrase en clair sur le disque : ${walletFile.includes(clientWords.join(" "))}, wallets stockés=${stored.length}`);
 
   // Ni la graine, ni la clé privée dans l'appli de la banque ou chez Swissquote
   const appStorage = await app.evaluate(() => JSON.stringify({ ...localStorage }) + JSON.stringify({ ...sessionStorage }) + document.documentElement.outerHTML);
@@ -164,7 +184,6 @@ try {
   await wallet.getByRole("heading", { name: "Prove ownership of an address" }).waitFor({ timeout: 15000 });
   const challengeShown = (await wallet.locator(".message").textContent()) ?? "";
   await shot(wallet, "4b-wallet-preuve");
-  await typePin(wallet);
   await wallet.getByRole("button", { name: "Sign the proof" }).click();
   const proofText = (await app.getByTestId("ownership-result").textContent({ timeout: 15000 })) ?? "";
   report("6-13", "Preuve de propriété depuis l'interface : défi affiché en entier dans le wallet, signé après confirmation, vérifié par Swissquote",
@@ -190,7 +209,6 @@ try {
   await wallet.getByRole("heading", { name: "Confirm the transfer" }).waitFor({ timeout: 15000 });
   const confirm = (await wallet.locator("section").first().textContent()) ?? "";
   await shot(wallet, "5-wallet-confirmation");
-  await typePin(wallet);
   await wallet.getByRole("button", { name: "Confirm and sign" }).click();
   await app.getByRole("button", { name: "Broadcast on the Bitcoin network" }).click();
   const sent = await app.locator(".success", { hasText: "Transaction broadcast" }).textContent({ timeout: 15000 });
@@ -233,7 +251,7 @@ try {
   report("6-8", "Accueil : la ligne / tuile Crypto affiche le solde du wallet (contre-valeur CHF)", MOBILE ? Math.abs(shown - 0.4 * px) < 0.01 * px : !!tile?.includes("0.39") && !!tile?.includes("CHF"), `${tile?.replace(/\s+/g, " ") ?? ""} ; prix BTC ${px} CHF`);
 
   // --- Montant élevé : ré-authentification par passkey (Swissquote) + confirmation renforcée dans le wallet ---
-  await app.getByRole("button", { name: "Crypto", exact: true }).click();
+  await openCrypto(app);
   await app.getByRole("button", { name: "Send", exact: true }).click();
   await app.getByPlaceholder("tb1… / bcrt1…").fill(minerAddr);
   await app.getByPlaceholder("0.0001").fill("0.25");
@@ -244,16 +262,16 @@ try {
   await shot(wallet, "5b-montant-eleve");
   const highNote = (await app.getByTestId("stepup-note").textContent({ timeout: 15000 })) ?? "";
   await wallet.getByLabel("Last 6 characters of the address").fill(minerAddr.slice(-6));
-  await typePin(wallet);
   await wallet.getByRole("button", { name: "Confirm and sign" }).click();
   await app.getByRole("button", { name: "Broadcast on the Bitcoin network" }).click();
   const bigSent = (await app.locator(".success", { hasText: "Transaction broadcast" }).last().textContent({ timeout: 20000 })) ?? "";
   await mine(1);
-  report("6-18", "Montant élevé (0,25 BTC) : avertissement, ré-authentification par passkey auprès de Swissquote, puis 6 derniers caractères de l'adresse + PIN dans le wallet ; diffusé",
+  report("6-18", "Montant élevé (0,25 BTC) : avertissement, ré-authentification par passkey auprès de Swissquote, puis 6 derniers caractères de l'adresse + biométrie dans le wallet ; diffusé",
     highWarn.includes("High-value amount") && highNote.includes("confirmed by passkey") && /[0-9a-f]{64}/.test(bigSent), `${highNote} ; ${bigSent.trim().slice(0, 90)}`);
 
   // --- Perte du wallet, puis recovery depuis un NOUVEL appareil ---
-  const lost = await ctxA.newPage();
+  // Depuis la fenêtre du wallet : c'est elle qui détient la passkey du wallet (l'effacement exige la biométrie, étape 46).
+  const lost = wallet;
   await lost.goto(WALLET);
   const card = lost.locator(".card", { hasText: mine_.id });
   await card.getByRole("button", { name: "Simulate losing this device" }).click();
@@ -263,11 +281,11 @@ try {
 
   const ctxB = await device();
   const nd = await ctxB.newPage();
+  await addAuthenticator(ctxB, nd); // nouvel appareil : sa propre biométrie, sans la passkey de l'ancien
   await login(nd);
   await nd.getByRole("button", { name: "Crypto", exact: true }).click();
-  await nd.getByTestId("btc-balance").waitFor({ timeout: 20000 });
-  await nd.locator(".crypto-tabs").getByRole("button", { name: "Security" }).click();
-  await nd.getByRole("button", { name: /I lost my wallet/ }).click();
+  await nd.getByTestId("crypto-locked").waitFor({ timeout: 20000 });
+  await nd.getByRole("button", { name: /I lost my device or my biometrics/ }).click();
   const kyc = nd.locator(".step").first().locator("input");
   await kyc.nth(0).fill("Martin");
   await kyc.nth(1).fill("1992-03-21");
@@ -275,7 +293,6 @@ try {
   await nd.getByRole("button", { name: "Verify my identity" }).click();
   await nd.locator("p", { hasText: mine_.accountKey.slice(0, 22) }).getByRole("button", { name: "Select" }).click();
   const newWallet = await popupOf(ctxB, () => nd.getByRole("button", { name: "Create a new wallet with the Client Wallet" }).click());
-  await choosePin(newWallet);
   await newWallet.getByRole("button", { name: "Generate my secret phrase" }).click();
   await newWallet.getByLabel("I have written my phrase down in a safe place").check();
   await newWallet.getByRole("button", { name: "Send my public key to Swissquote" }).click();
@@ -314,6 +331,7 @@ try {
   await nd.locator(".success", { hasText: "Recovery broadcast" }).waitFor({ timeout: 15000 });
   await mine(1);
   await nd.getByRole("button", { name: "Open my new account" }).click();
+  await newWallet.getByRole("button", { name: "Confirm and save" }).click({ timeout: 20000 }); // politique du nouveau compte (étape 47)
   await nd.getByText("Recovery complete").waitFor({ timeout: 20000 });
   try { await nd.getByText(/0\.149/).first().waitFor({ timeout: 20000 }); }
   catch (e) { await shot(nd, "8-ECHEC"); console.log("TEXTE DE LA PAGE :", (await nd.locator("main").textContent())?.replace(/\s+/g, " ").slice(0, 1500)); throw e; }
@@ -336,7 +354,6 @@ try {
   await nd.locator("#transferer").getByPlaceholder("0.1").fill("0.1");
   await nd.getByRole("button", { name: "Transfer to my wallet" }).click();
   await newWallet.getByRole("heading", { name: "Prove ownership of an address" }).waitFor({ timeout: 20000 });
-  await typePin(newWallet);
   await newWallet.getByRole("button", { name: "Sign the proof" }).click();
   const tr = (await nd.getByTestId("transfer-result").textContent({ timeout: 30000 })) ?? "";
   const trTxid = tr.match(/[0-9a-f]{64}/)?.[0];
@@ -352,6 +369,11 @@ try {
   await nd.getByRole("button", { name: "Demo", exact: true }).click();
   const attacks = await nd.locator(".attack button").count();
   report("6-10", "Onglet « Démo » (regtest) avec les trois scénarios d\x27attaque", attacks === 3, `${attacks} boutons`);
+} catch (e) {
+  // Diagnostic : texte de chaque page ouverte au moment de l'échec.
+  for (const c of browser.contexts()) for (const p of c.pages()) console.log(`PAGE ${p.url()} :`, ((await p.locator("body").textContent().catch(() => "")) ?? "").replace(/\s+/g, " ").slice(0, 800));
+  console.log("ERREURS :", errors.join(" | "));
+  throw e;
 } finally {
   await browser.close();
   stopAll();

@@ -31,7 +31,7 @@ try {
   const w = created.body.wallet;
   const sq = accountKey(masterFromMnemonic(newMnemonic(), "regtest")), t = accountKey(masterFromMnemonic(newMnemonic(), "regtest"));
   const policy = { network: "regtest", delay: 6, swissquote: sq, tiers: t, tiersName: "Marie Dupont" };
-  await post(`/api/wallets/${w.id}/policy`, { policy });
+  await post(`/api/wallets/${w.id}/policy`, { policy, prf: bio.prf });
   const cfg = await createWalletConfig({ network: "regtest", delay: 6, client: w.accountKey, swissquote: sq, tiers: t });
   await pay(outputAt(cfg, 0, 0).getAddress(), 0.3);
   await pay(outputAt(cfg, 0, 1).getAddress(), 0.1);

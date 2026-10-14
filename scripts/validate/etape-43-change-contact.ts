@@ -49,10 +49,10 @@ const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH 
 async function setup(label: string, funds: number[]) {
   const bio = { credentialId: b64u(32), prfSalt: b64u(32), prf: b64u(32) };
   const w = (await wallet("/api/wallets", { network: "regtest", label, bio })).body.wallet;
-  const sq = (await req(BANK, "GET", "/guardian/key?network=regtest")).body.accountKey as string;
+  const sq = (await req(BANK, "GET", `/guardian/key?network=regtest&client=${encodeURIComponent(w.accountKey)}`)).body.accountKey as string; // clé du compte (étape 56)
   const t1 = key(), t2 = key();
   const p1 = { network: "regtest", delay: 6, swissquote: sq, tiers: t1, tiersName: "Marie Dupont" };
-  await wallet(`/api/wallets/${w.id}/policy`, { policy: p1 });
+  await wallet(`/api/wallets/${w.id}/policy`, { policy: p1, prf: bio.prf });
   const reg = await req(BANK, "POST", "/accounts/register", { customerId: "CH-0003", network: "regtest", delay: 6, client: w.accountKey, tiers: t1, tiersName: "Marie Dupont" });
   const cfgOld = await createWalletConfig({ network: "regtest", delay: 6, client: w.accountKey, swissquote: sq, tiers: t1 });
   for (const [i, v] of funds.entries()) await pay(outputAt(cfgOld, 0, i).getAddress(), v);
@@ -88,7 +88,8 @@ try {
     sign1.status === 200 && oldCoins.length === 0 && newCoins.length === 1 && newCoins[0].value > 39_900_000n, `signature ${sign1.status} ; txid ${txid.slice(0, 16)}… ; ancienne règle : ${oldCoins.length} coin ; nouvelle règle : ${newCoins.length} coin de ${newCoins[0]?.value} sats`);
 
   // Recovery PSBT de la nouvelle règle vers un autre compte enregistré du même client (revue de Swissquote).
-  const other = await createWalletConfig({ network: "regtest", delay: 6, client: key(), swissquote: A.sq, tiers: A.t1 });
+  const recoveryClient = key();
+  const other = await createWalletConfig({ network: "regtest", delay: 6, client: recoveryClient, swissquote: (await req(BANK, "GET", `/guardian/key?network=regtest&client=${encodeURIComponent(recoveryClient)}`)).body.accountKey, tiers: A.t1 });
   await req(BANK, "POST", "/accounts/register", { customerId: "CH-0003", network: "regtest", delay: 6, client: other.client.raw, tiers: A.t1, tiersName: "Marie Dupont" });
   const recovery = await buildSpend({ cfg: cfgNew, backend: node, utxos: newCoins, path: "recovery", feeRate: 2, to: outputAt(other, 0, 0).getAddress() });
   const kyc = (await req(BANK, "POST", "/identity/verify", { customerId: "CH-0003", lastName: "Martin", birthDate: "1992-03-21", otp: "246810" })).body.token;
@@ -114,7 +115,7 @@ try {
     before.status === 403 && after.status === 200 && after.body.added > 0, `avant ${before.status} (${String(before.body.error).slice(0, 70)}…) ; après ${after.status}, signatures ajoutées : ${after.body.added}`);
 
   // 43-5 Politique du wallet mise à jour : le client dépense seul sous la nouvelle règle, le rendu est reconnu.
-  const pol = await wallet(`/api/wallets/${A.w.id}/policy`, { policy: p2 });
+  const pol = await wallet(`/api/wallets/${A.w.id}/policy`, { policy: p2, prf: A.bio.prf });
   const spend = await buildSpend({ cfg: cfgNew, backend: node, utxos: newCoins, path: "client", feeRate: 2, to: minerAddr, amount: 5_000_000n, changeIndex: 0 });
   const d2 = (await wallet("/api/describe", { psbt: spend.psbt, network: "regtest" })).body;
   const sign2 = await wallet("/api/sign", { psbt: spend.psbt, network: "regtest", prf: A.bio.prf });
@@ -146,7 +147,10 @@ try {
   await p.getByLabel("New contact's public key").fill(B.t2);
   await p.getByRole("button", { name: "Prepare the change" }).click();
   await p.getByText("your new account (new trusted contact)").waitFor({ timeout: 30000 });
-  await p.screenshot({ path: `${SHOTS}/etape-43-1-site-preparation.png`, fullPage: true });
+  // Capture de la fenêtre seulement : une capture pleine page redimensionne brièvement la fenêtre sous 820 px ; l'interface
+  // bascule alors en mise en page téléphone, ce qui remonte le formulaire et efface sa saisie (observé, étape 47).
+  await p.getByTestId("contact-change-form").scrollIntoViewIfNeeded();
+  await p.screenshot({ path: `${SHOTS}/etape-43-1-site-preparation.png` });
   const [popup] = await Promise.all([ctx.waitForEvent("page"), p.getByRole("button", { name: "Sign with my Client Wallet" }).click()]);
   await popup.getByTestId("contact-change").waitFor({ timeout: 30000 });
   const text = (await popup.locator("main").textContent()) ?? "";
@@ -157,6 +161,8 @@ try {
     `titre : ${text.includes("Confirm the change of trusted contact")} ; Bob : ${text.includes("Bob")} ; clé : ${text.includes(B.t2)} ; étiquette sortie : ${text.includes("new account (new trusted contact)")} ; erreurs JS : ${errors.length}`);
   await ctx.close();
 } catch (e: any) {
+  // Diagnostic : texte de chaque page ouverte au moment de l'échec.
+  for (const c of browser.contexts()) for (const pg of c.pages()) console.log(`PAGE ${pg.url()} :`, ((await pg.locator("body").textContent().catch(() => "")) ?? "").replace(/\s+/g, " ").slice(0, 1200));
   report("43-x", "Exécution", false, `${e.stack ?? e.message}${e.cause ? ` (cause : ${e.cause.code ?? e.cause.message})` : ""}`);
 } finally {
   await browser.close();

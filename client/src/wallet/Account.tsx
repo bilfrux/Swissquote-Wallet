@@ -259,14 +259,13 @@ export function Account({ cfg, account, onLost, onBalance, onContactChanged }: {
           {tr("If this is not a recovery you asked for, use “Refresh” to reset the delay.")}
         </p>
       )}
-      {mobile ? (
-        <>{header}<div ref={panelRef}>{sidePanel}</div>{chart}{tabs}</>
-      ) : (
-        <div className="crypto-grid">
-          <div>{header}{chart}{tabs}</div>
-          <div ref={panelRef} className="crypto-side">{sidePanel}</div>
-        </div>
-      )}
+      {/* Même arbre en téléphone et en ordinateur (seule la classe change) : basculer de mise en page au passage des 820 px
+          ne remonte pas les composants, donc n'efface pas un formulaire en cours (étape 57). En téléphone, le CSS remet le
+          panneau latéral juste sous l'en-tête. */}
+      <div className={mobile ? "crypto-grid stack" : "crypto-grid"}>
+        <div className="crypto-main">{header}{chart}{tabs}</div>
+        <div ref={panelRef} className="crypto-side">{sidePanel}</div>
+      </div>
     </div>
   );
 }

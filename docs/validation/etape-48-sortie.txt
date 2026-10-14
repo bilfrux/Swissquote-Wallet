@@ -1,0 +1,38 @@
+[OK ] 48-1 Accepté : activation de l'appli (module + Swissquote seuil 1 + contact seuil 2)
+       aucun appel refusé
+[OK ] 48-2 Accepté : envoi d'USDC
+       aucun appel refusé
+[OK ] 48-3 Accepté : annulation d'une recovery (cancelRecovery + invalidateNonce)
+       aucun appel refusé
+[OK ] 48-4 Refusé : ajout d'un gardien de l'attaquant avec seuil 1 (seul)
+       Add recovery guardian 0x11dd1df21aC62B3bB894eEE28C32e462bbBd515C (guardians needed: 1) · a single guardian could take over your account (recovery threshold below 2)
+[OK ] 48-5 Refusé : ajout d'un gardien, seuil 2 (hors activation)
+       Add recovery guardian 0x11dd1df21aC62B3bB894eEE28C32e462bbBd515C (guardians needed: 2) · changes who can recover your account: only the initial activation (two guardians, threshold 2) is accepted
+[OK ] 48-6 Refusé : activation avec seuil final 1
+       Add recovery guardian 0x27CDaEfceB6893e5694Df1Db747489ABCFCb1e4B (guardians needed: 1) · a single guardian could take over your account (recovery threshold below 2) | Add recovery guardian 0x104AD8E7Fe733A69dDe4a90a3802Beb54d76E1d7 (guardians needed: 1) · a single guardian could take over your account (recovery threshold below 2)
+[OK ] 48-7 Refusé : activation avec un seul gardien
+       Add recovery guardian 0x11dd1df21aC62B3bB894eEE28C32e462bbBd515C (guardians needed: 1) · a single guardian could take over your account (recovery threshold below 2)
+[OK ] 48-8 Refusé : activation où le propriétaire est gardien
+       Add recovery guardian 0x27CDaEfceB6893e5694Df1Db747489ABCFCb1e4B (guardians needed: 1) · your own key or account cannot be a recovery guardian | Add recovery guardian 0x131675797d974Fc5A8dD4DC854f840443a659331 (guardians needed: 2) · your own key or account cannot be a recovery guardian
+[OK ] 48-9 Refusé : activation avec deux fois le même gardien
+       Add recovery guardian 0x27CDaEfceB6893e5694Df1Db747489ABCFCb1e4B (guardians needed: 1) · changes who can recover your account: only the initial activation (two guardians, threshold 2) is accepted | Add recovery guardian 0x27CDaEfceB6893e5694Df1Db747489ABCFCb1e4B (guardians needed: 2) · changes who can recover your account: only the initial activation (two guardians, threshold 2) is accepted
+[OK ] 48-10 Refusé : remplacement du contact par l'attaquant (ajout puis retrait, seuil 2)
+       Add recovery guardian 0x11dd1df21aC62B3bB894eEE28C32e462bbBd515C (guardians needed: 2) · changes who can recover your account: only the initial activation (two guardians, threshold 2) is accepted | Remove recovery guardian 0x104AD8E7Fe733A69dDe4a90a3802Beb54d76E1d7 (guardians needed: 2) · changes who can recover your account: not supported by this wallet
+[OK ] 48-11 Refusé : retrait d'un gardien avec seuil 1
+       Remove recovery guardian 0x104AD8E7Fe733A69dDe4a90a3802Beb54d76E1d7 (guardians needed: 1) · a single guardian could take over your account (recovery threshold below 2)
+[OK ] 48-12 Refusé : activation + retrait dans le même lot
+       Add recovery guardian 0x27CDaEfceB6893e5694Df1Db747489ABCFCb1e4B (guardians needed: 1) · a single guardian could take over your account (recovery threshold below 2) | Add recovery guardian 0x104AD8E7Fe733A69dDe4a90a3802Beb54d76E1d7 (guardians needed: 2) · a single guardian could take over your account (recovery threshold below 2) | Remove recovery guardian 0x104AD8E7Fe733A69dDe4a90a3802Beb54d76E1d7 (guardians needed: 1) · a single guardian could take over your account (recovery threshold below 2)
+
+RÉSUMÉ
+48-1 fonctionne         Accepté : activation de l'appli (module + Swissquote seuil 1 + contact seuil 2)
+48-2 fonctionne         Accepté : envoi d'USDC
+48-3 fonctionne         Accepté : annulation d'une recovery (cancelRecovery + invalidateNonce)
+48-4 fonctionne         Refusé : ajout d'un gardien de l'attaquant avec seuil 1 (seul)
+48-5 fonctionne         Refusé : ajout d'un gardien, seuil 2 (hors activation)
+48-6 fonctionne         Refusé : activation avec seuil final 1
+48-7 fonctionne         Refusé : activation avec un seul gardien
+48-8 fonctionne         Refusé : activation où le propriétaire est gardien
+48-9 fonctionne         Refusé : activation avec deux fois le même gardien
+48-10 fonctionne         Refusé : remplacement du contact par l'attaquant (ajout puis retrait, seuil 2)
+48-11 fonctionne         Refusé : retrait d'un gardien avec seuil 1
+48-12 fonctionne         Refusé : activation + retrait dans le même lot

@@ -1,0 +1,11 @@
+[OK ] 49-1 Méthodes de l'appli transmises : hauteur de la chaîne, frais, liste des portefeuilles
+       getblockcount 200 = 2377 (nœud : 2377) ; estimatesmartfee 200 ; listwallets 200
+[OK ] 49-2 Refusé : sendtoaddress et getbalance sur le portefeuille de garde, stop, dumpwallet, portefeuille avec clés privées, chargement d'un autre portefeuille, requête groupée ; le nœud reste en marche
+       sendtoaddress 403 « regtest relay: sendtoaddress refused on wallet sq-omnibus » ; getbalance 403 ; stop 403 ; dumpwallet 403 ; createwallet avec clés 403 ; loadwallet sq-omnibus 403 ; lot 403 ; nœud en marche : true (portefeuilles chargés : 2)
+[OK ] 49-3 Requête d'un autre site (Origin étranger) refusée avant d'atteindre le nœud (CSRF)
+       403 « origin rejected: http://attacker.example »
+
+RÉSUMÉ
+49-1 fonctionne         Méthodes de l'appli transmises : hauteur de la chaîne, frais, liste des portefeuilles
+49-2 fonctionne         Refusé : sendtoaddress et getbalance sur le portefeuille de garde, stop, dumpwallet, portefeuille avec clés privées, chargement d'un autre portefeuille, requête groupée ; le nœud reste en marche
+49-3 fonctionne         Requête d'un autre site (Origin étranger) refusée avant d'atteindre le nœud (CSRF)

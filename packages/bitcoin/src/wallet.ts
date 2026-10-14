@@ -226,8 +226,10 @@ export type HistoryEntry = { txid: string; height: number | null; time: number |
 
 export async function history(cfg: WalletConfig, backend: ChainBackend, count = 20): Promise<HistoryEntry[]> {
   // Adresses du compte connues (lookahead large) pour classer les sorties ; requêtes limitées aux adresses découvertes.
-  const own = new Set([...addresses(cfg, count), ...(await discover(cfg, backend, count))].map((a) => a.address));
-  const queried = (await discover(cfg, backend, count)).map((a) => a.address);
+  // Une seule découverte : chaque passe interroge le backend adresse par adresse (API publique limitée en débit).
+  const found = await discover(cfg, backend, count);
+  const own = new Set([...addresses(cfg, count), ...found].map((a) => a.address));
+  const queried = found.map((a) => a.address);
   const raw: ChainTx[] = await backend.history(queried, [descriptor(cfg, 0), descriptor(cfg, 1)]);
   const entries = raw.map((t): HistoryEntry => {
     const ownIn = t.vin.filter((i) => i.address && own.has(i.address));

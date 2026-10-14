@@ -3,8 +3,9 @@
 import { bytesToHex, type Hex } from "viem";
 import { mnemonicToAccount } from "viem/accounts";
 
-export function evmAccountFromMnemonic(mnemonic: string) {
-  const account = mnemonicToAccount(mnemonic.trim().split(/\s+/).join(" "));
+// `addressIndex` : m/44'/60'/0'/0/<index> (0 pour le client et le contact ; Swissquote utilise un index par compte).
+export function evmAccountFromMnemonic(mnemonic: string, addressIndex = 0) {
+  const account = mnemonicToAccount(mnemonic.trim().split(/\s+/).join(" "), { addressIndex });
   const privateKey = bytesToHex(account.getHdKey().privateKey!) as Hex;
   return { account, privateKey };
 }
