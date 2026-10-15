@@ -1,0 +1,61 @@
+## npm run typecheck
+succès
+
+## npm run validate:48
+RÉSUMÉ
+48-13 fonctionne         Accepté : changement de contact (retrait de l'ancien, ajout du nouveau, invalidation), gardiens connus
+48-14 fonctionne         Accepté : même changement, avec annulation d'une recovery en cours
+48-15 fonctionne         Refusé : même changement, gardiens actuels inconnus du wallet
+48-16 fonctionne         Refusé : « changement » vers le propriétaire lui-même
+48-17 fonctionne         Refusé : « changement » vers un gardien déjà présent
+48-18 fonctionne         Refusé : retrait d'une adresse qui n'est pas gardien
+48-19 fonctionne         Refusé : changement avec seuil final 1
+48-20 fonctionne         Refusé : changement + envoi d'USDC dans le même lot
+48-1 fonctionne         Accepté : activation de l'appli (module + Swissquote seuil 1 + contact seuil 2)
+48-2 fonctionne         Accepté : envoi d'USDC
+48-3 fonctionne         Accepté : annulation d'une recovery (cancelRecovery + invalidateNonce)
+48-4 fonctionne         Refusé : ajout d'un gardien de l'attaquant avec seuil 1 (seul)
+48-5 fonctionne         Refusé : ajout d'un gardien, seuil 2 (hors activation)
+48-6 fonctionne         Refusé : activation avec seuil final 1
+48-7 fonctionne         Refusé : activation avec un seul gardien
+48-8 fonctionne         Refusé : activation où le propriétaire est gardien
+48-9 fonctionne         Refusé : activation avec deux fois le même gardien
+48-10 fonctionne         Refusé : remplacement du contact par l'attaquant (ajout puis retrait, seuil 2)
+48-11 fonctionne         Refusé : retrait d'un gardien avec seuil 1
+48-12 fonctionne         Refusé : activation + retrait dans le même lot
+
+## npm run validate:inv5
+[OK ] Témoins : la recherche retrouve les graines là où elles sont stockées, et une clé Ethereum ou un tprv isolés glissés dans un fichier
+[OK ] Aucune des 23 graines en clair de la machine, ni leurs clés privées Bitcoin (tprv) et Ethereum (hex), dans client/
+[OK ] Aucune clé privée étendue (xprv/tprv), aucune clé WIF ni valeur hexadécimale de 32 octets dans les sources, pas de liste BIP39 dans le bundle
+[OK ] client/src n'importe ni signature, ni graine, ni dérivation de clé privée (Bitcoin et Ethereum)
+
+## npm run validate:54 (vrai Sepolia)
+[OK ] 54-1 Compte Ethereum ajouté depuis l'interface : adresse dérivée dans le Client Wallet, Safe recalculé par Swissquote
+       Safe 0x8a849a0d9f0Cb47C0843849FAbFcfD3698577046 ; propriétaire 0xC2fc412C9d0E467E9c8d668855e6fDF3D92850E3 ; contact 0x9B34a9F8E5620F4DA74C6Dc58a40cB99612Ce2a9
+[OK ] 54-2 Activation sur Sepolia : écran du wallet en clair (module, 2 gardiens, frais parrainés), signée par biométrie ; Safe déployé, gardiens Swissquote + contact, seuil 2, 0 ETH
+       Activation: 0xca355727410ab4ceb57efef6487d7ed24e08484ccc930a9b3393531c20038851 ; gardiens 0x9B34a9F8E5620F4DA74C6Dc58a40cB99612Ce2a9, 0x6b1ea09fEa8F9562d9736DB39cd3B422AD98A61C (Swissquote 0x6b1ea09fEa8F9562d9736DB39cd3B422AD98A61C) ; seuil 2 ; propriétaire 0xC2fc412C9d0E467E9c8d668855e6fDF3D92850E3 ; contrôles {"deployed":true,"module":true,"threshold":true,"guardians":true,"owner":true,"screenModule":true,"screenSponsor":true}
+[OK ] 54-3 Client Wallet : refuse un appel non reconnu, et l'ajout d'un gardien de l'attaquant avec seuil 1 (étape 48), sur le Safe déployé
+       inconnu : 400 « refused: not decoded: do not sign unless you know what it does » ; gardien : 400 « refused: a single guardian could take over your account (recovery threshold below 2) »
+[OK ] 54-4 Swissquote refuse de signer une recovery sans re-KYC, vers le propriétaire actuel, et vers chacun des gardiens (contact compris)
+       403 identity not verified: re-KYC required before any signature ; propriétaire : 403 ; gardiens 0x9B34a9F8E5620F4DA74C6Dc58a40cB99612Ce2a9, 0x6b1ea09fEa8F9562d9736DB39cd3B422AD98A61C : 403, 403
+[OK ] 54-5 Demande relayée au contact : sa console affiche la nouvelle clé et signe (EIP-712), Swissquote vérifie la signature du contact enregistré
+       nouvelle clé 0xd0f87a26b075994B087f2794150c1ff8188a7b5a ; lien http://localhost:5222/?req=d5721cc74a3e66f139500e41cfcf4159
+[OK ] 54-6 Recovery démarrée (Swissquote + contact), relayée par le Safe de la nouvelle clé, signée par biométrie ; délai affiché, propriétaire inchangé pendant le délai
+       Recovery started: 0x67924bcb726f711b6c19ced38a2c537ea00fba47029727ab4ca376a9f8818671 ; applicable après 2026-10-15T09:28:48.000Z
+[OK ] 54-7 Après le délai (3 min, contrat) : recovery finalisée depuis l'interface ; propriétaire = nouvelle clé
+       Recovery completed: 0x32313c2643890121201d0167062fdc9c839fc348d8c99ccae0662ddd8f83d9f7 ; propriétaires 0xd0f87a26b075994B087f2794150c1ff8188a7b5a
+[OK ] 54-8 La nouvelle clé signe depuis le Safe récupéré : signatures de gardiens restantes invalidées (nonce du module)
+       nonce 0 -> 2
+[OK ] 54-9 Aucune erreur dans les consoles des navigateurs ni réponse 5xx
+       aucune ; 5xx : aucune
+RÉSUMÉ
+54-1 fonctionne         Compte Ethereum ajouté depuis l'interface : adresse dérivée dans le Client Wallet, Safe recalculé par Swissquote
+54-2 fonctionne         Activation sur Sepolia : écran du wallet en clair (module, 2 gardiens, frais parrainés), signée par biométrie ; Safe déployé, gardiens Swissquote + contact, seuil 2, 0 ETH
+54-3 fonctionne         Client Wallet : refuse un appel non reconnu, et l'ajout d'un gardien de l'attaquant avec seuil 1 (étape 48), sur le Safe déployé
+54-4 fonctionne         Swissquote refuse de signer une recovery sans re-KYC, vers le propriétaire actuel, et vers chacun des gardiens (contact compris)
+54-5 fonctionne         Demande relayée au contact : sa console affiche la nouvelle clé et signe (EIP-712), Swissquote vérifie la signature du contact enregistré
+54-6 fonctionne         Recovery démarrée (Swissquote + contact), relayée par le Safe de la nouvelle clé, signée par biométrie ; délai affiché, propriétaire inchangé pendant le délai
+54-7 fonctionne         Après le délai (3 min, contrat) : recovery finalisée depuis l'interface ; propriétaire = nouvelle clé
+54-8 fonctionne         La nouvelle clé signe depuis le Safe récupéré : signatures de gardiens restantes invalidées (nonce du module)
+54-9 fonctionne         Aucune erreur dans les consoles des navigateurs ni réponse 5xx

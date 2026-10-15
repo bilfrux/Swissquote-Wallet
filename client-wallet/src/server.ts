@@ -305,7 +305,9 @@ async function api(req: IncomingMessage, body: any): Promise<unknown> {
 }
 
 const server = createServer(async (req, res) => {
-  const send = (status: number, body: unknown) => res.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify(body));
+  // Sérialisé AVANT l'en-tête : une réponse non sérialisable devient une erreur 500 au lieu d'arrêter le processus
+  // (un second writeHead lèverait ERR_HTTP_HEADERS_SENT hors de tout try ; observé à l'étape 63).
+  const send = (status: number, body: unknown) => { const text = JSON.stringify(body); res.writeHead(status, { "content-type": "application/json" }).end(text); };
   if (!HOSTS.has(String(req.headers.host))) return send(403, { error: `host rejected: ${req.headers.host}` });
   if (!req.url?.startsWith("/api/")) return vite.middlewares(req, res);
   // Aucune en-tête CORS : seule l'interface du wallet (même origine) ou un outil local peut appeler l'API.

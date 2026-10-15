@@ -1,0 +1,19 @@
+(node:34018) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+[OK ] 63-1 Safe de démo de CH-0003 ouvert depuis l'interface (partie crypto déverrouillée par biométrie) : USDC présents, gardiens dont le contact de démo, seuil 2, aucune recovery en cours
+       Safe 0x292919c03fe12BEAD122998d1280812eeD5723AA ; 52000000 (10^-6 USDC) ; gardiens 0x82436F79d37e0f9d41d7C3CF8925b8BC079F86Ee, 0xd2D6c688BC62E6e8e89BdF22d7aC79a64BDBca17 ; propriétaire 0x3a6A8c415cDe9a659C37ea22201b9c10F10A494D ; en cours : false
+[OK ] 63-2 Recovery du Safe de démo (Swissquote avec sa vraie clé + contact) vers une nouvelle clé biométrique ; les USDC restent sur le Safe
+       Recovery completed: 0xbb4ea39690ba9b0f30201475b51521a2878e7e4b0da0389055ff4c0cc22d9793 ; propriétaire 0xea12a2a025e859C625e11D79368C2f45E824574f ; solde 52000000
+[OK ] 63-3 La nouvelle clé invalide les signatures de gardiens restantes
+       nonce 22 -> 24
+[OK ] 63-4 Envoi d'1 USDC depuis l'interface : écran du Client Wallet en clair, signé par biométrie, frais parrainés (0 ETH sur le Safe)
+       USDC sent: 0x8abd579b6d2a7e0788fd527643a2e67339e2720bff9ba0449e8bae4eef3b1737 ; solde 52000000 -> 51000000 (10^-6 USDC) ; ETH 0 ; fenêtre ouverte directement par « Send USDC » : oui ; écran : Confirm the Ethereum operationRequest from http://localhost:5231 · account 0x292919c03fe12BEAD122998d1280812eeD5723AA (Sepolia)Send 1 USDC to 0x82436F79d37e0f9d41d7C3CF8925b8BC079F86EeNetwork fees pai
+[OK ] 63-x Aucune erreur dans les consoles des navigateurs, aucune réponse 5xx
+       aucune ; 5xx : aucune
+
+RÉSUMÉ
+63-1 fonctionne         Safe de démo de CH-0003 ouvert depuis l'interface (partie crypto déverrouillée par biométrie) : USDC présents, gardiens dont le contact de démo, seuil 2, aucune recovery en cours
+63-2 fonctionne         Recovery du Safe de démo (Swissquote avec sa vraie clé + contact) vers une nouvelle clé biométrique ; les USDC restent sur le Safe
+63-3 fonctionne         La nouvelle clé invalide les signatures de gardiens restantes
+63-4 fonctionne         Envoi d'1 USDC depuis l'interface : écran du Client Wallet en clair, signé par biométrie, frais parrainés (0 ETH sur le Safe)
+63-x fonctionne         Aucune erreur dans les consoles des navigateurs, aucune réponse 5xx

@@ -125,7 +125,13 @@ export async function buildSponsoredOp(acc: { safe: Address; owner: Address }, c
   const deployed = await isDeployed(acc.safe);
   if (!deployed && safeAddressOf(acc.owner) !== getAddress(acc.safe)) throw new Error("undeployed account that does not match its owner");
   const account = deployed ? new SafeAccountV0_3_0(acc.safe) : SafeAccountV0_3_0.initializeNewAccount([acc.owner]);
-  let op = await account.createUserOperation(calls, NODE_URL, BUNDLER_URL);
+  // Juste après une opération, le nœud public (répartiteur de charge) peut encore donner l'ancien nonce du Safe : le
+  // bundler refuse alors l'estimation (AA25, observé à l'étape 63). On réessaie le temps que le nœud rattrape.
+  let op;
+  for (let i = 0; ; i++) {
+    try { op = await account.createUserOperation(calls, NODE_URL, BUNDLER_URL); break; }
+    catch (e: any) { if (e?.aaCode !== "AA25" || i >= 5) throw e; await new Promise((r) => setTimeout(r, 3000)); }
+  }
   ({ userOperation: op } = await new Erc7677Paymaster(BUNDLER_URL).createPaymasterUserOperation(account, op, BUNDLER_URL));
   return opToJson(op);
 }
